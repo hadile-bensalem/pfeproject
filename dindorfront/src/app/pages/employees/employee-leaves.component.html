@@ -1,0 +1,90 @@
+<div class="leaves-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Congés - {{ employee?.prenom }} {{ employee?.nom }}</h2>
+      <p class="subtitle">Suivi des absences et congés</p>
+    </div>
+    <button type="button" class="btn neutral" (click)="goBack()">Retour</button>
+  </header>
+
+  <div class="leaves-content">
+    <!-- Formulaire de congé -->
+    <section class="form-section">
+      <h3>Nouveau Congé / Absence</h3>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Type <span class="required">*</span></label>
+            <select formControlName="type">
+              <option *ngFor="let type of leaveTypes" [value]="type">{{ type }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Date début <span class="required">*</span></label>
+            <input type="date" formControlName="dateDebut">
+            <span class="error" *ngIf="form.get('dateDebut')?.touched && form.get('dateDebut')?.hasError('required')">Date début obligatoire</span>
+          </div>
+
+          <div class="form-group">
+            <label>Date fin <span class="required">*</span></label>
+            <input type="date" formControlName="dateFin">
+            <span class="error" *ngIf="form.get('dateFin')?.touched && form.get('dateFin')?.hasError('required')">Date fin obligatoire</span>
+          </div>
+
+          <div class="form-group full-width">
+            <label>
+              <input type="checkbox" formControlName="impactPaie">
+              Impact sur la paie
+            </label>
+          </div>
+
+          <div class="form-group full-width">
+            <label>Commentaire</label>
+            <textarea formControlName="commentaire" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Enregistrer</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Statistiques -->
+    <section class="stats-section">
+      <div class="stat-card">
+        <h4>Total jours de congé pris</h4>
+        <p class="stat-value">{{ totalJoursPris }} jours</p>
+      </div>
+    </section>
+
+    <!-- Historique -->
+    <section class="history-section">
+      <h3>Historique des congés</h3>
+      <table *ngIf="leaves.length > 0; else noData">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Date début</th>
+            <th>Date fin</th>
+            <th>Jours</th>
+            <th>Impact paie</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let leave of leaves">
+            <td>{{ leave.type }}</td>
+            <td>{{ leave.dateDebut | date:'dd/MM/yyyy' }}</td>
+            <td>{{ leave.dateFin | date:'dd/MM/yyyy' }}</td>
+            <td>{{ leave.jours }}</td>
+            <td>{{ leave.impactPaie ? 'Oui' : 'Non' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noData>
+        <p class="no-data">Aucun congé enregistré</p>
+      </ng-template>
+    </section>
+  </div>
+</div>

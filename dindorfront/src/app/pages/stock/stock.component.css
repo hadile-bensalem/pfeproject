@@ -1,0 +1,13 @@
+:host {
+  --text-primary: #2C3E50;
+  --text-secondary: #5A6C7D;
+  --background: #FFFFFF;
+  --border-color: #E1E8ED;
+}
+
+.page-placeholder { animation: fadeIn 0.4s ease-out; }
+.page-header { margin-bottom: 2rem; }
+.page-header h2 { font-size: 2rem; color: var(--text-primary); margin: 0 0 0.5rem 0; font-weight: 700; }
+.subtitle { color: var(--text-secondary); margin: 0; font-size: 1rem; }
+.page-content { background: var(--background); border-radius: 16px; padding: 2rem; border: 1px solid var(--border-color); color: var(--text-secondary); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

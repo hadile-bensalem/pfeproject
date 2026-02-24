@@ -1,0 +1,55 @@
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 560px;
+}
+
+.form-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.slider-field {
+  grid-column: 1 / -1;
+}
+
+.slider-value {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.salary-box {
+  grid-column: 1 / -1;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .form-container {
+    min-width: 0;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+

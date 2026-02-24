@@ -1,0 +1,119 @@
+<h2 mat-dialog-title>
+  <mat-icon>badge</mat-icon>
+  {{ form.get('id')?.value ? 'Modifier Travailleur' : 'Nouveau Travailleur' }}
+</h2>
+
+<div mat-dialog-content class="form-container" [formGroup]="form">
+  <section class="form-section">
+    <h3>Informations personnelles</h3>
+    <div class="grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Nom</mat-label>
+        <input matInput formControlName="nom">
+        <mat-error *ngIf="form.get('nom')?.hasError('required')">Nom obligatoire</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Prénom</mat-label>
+        <input matInput formControlName="prenom">
+        <mat-error *ngIf="form.get('prenom')?.hasError('required')">Prénom obligatoire</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>CIN</mat-label>
+        <input matInput formControlName="cin">
+        <mat-error *ngIf="form.get('cin')?.hasError('required')">CIN obligatoire</mat-error>
+        <mat-error *ngIf="form.get('cin')?.hasError('pattern')">Format CIN invalide</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Téléphone</mat-label>
+        <input matInput formControlName="telephone" placeholder="+216 ...">
+        <mat-error *ngIf="form.get('telephone')?.hasError('pattern')">Format téléphone invalide</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Adresse</mat-label>
+        <input matInput formControlName="adresse">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Date de naissance</mat-label>
+        <input matInput [matDatepicker]="pickerNaissance" formControlName="dateNaissance">
+        <mat-datepicker-toggle matSuffix [for]="pickerNaissance"></mat-datepicker-toggle>
+        <mat-datepicker #pickerNaissance></mat-datepicker>
+      </mat-form-field>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h3>Informations contractuelles</h3>
+    <div class="grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Date d'embauche</mat-label>
+        <input matInput [matDatepicker]="pickerEmbauche" formControlName="dateEmbauche">
+        <mat-datepicker-toggle matSuffix [for]="pickerEmbauche"></mat-datepicker-toggle>
+        <mat-datepicker #pickerEmbauche></mat-datepicker>
+        <mat-error *ngIf="form.get('dateEmbauche')?.hasError('required')">Date d'embauche obligatoire</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Type de travailleur</mat-label>
+        <mat-select formControlName="typeTravailleur">
+          <mat-option *ngFor="let t of typeOptions" [value]="t">
+            {{ t === 'PERMANENT' ? 'Permanent' : 'Saisonnier' }}
+          </mat-option>
+        </mat-select>
+        <mat-error *ngIf="form.get('typeTravailleur')?.hasError('required')">Type obligatoire</mat-error>
+      </mat-form-field>
+
+      <mat-checkbox formControlName="statutCNSS">Déclaré à la CNSS</mat-checkbox>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h3>Informations de paie</h3>
+    <div class="grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Tarif journalier</mat-label>
+        <input matInput type="number" formControlName="tarifJournalier">
+        <mat-error *ngIf="form.get('tarifJournalier')?.hasError('required')">Tarif obligatoire</mat-error>
+        <mat-error *ngIf="form.get('tarifJournalier')?.hasError('min')">Tarif invalide</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Heures de travail / jour</mat-label>
+        <input matInput type="number" formControlName="heuresTravailJour">
+      </mat-form-field>
+
+      
+        <div class="slider-value">{{ form.get('rendement')?.value | number:'1.1-1' }}</div>
+      </div>
+
+      <div class="salary-box">
+        <span>Salaire journalier estimé :</span>
+        <strong>{{ salaireFinal | number:'1.0-2' }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h3>Autres informations</h3>
+    <div class="grid">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Observations</mat-label>
+        <textarea matInput rows="3" formControlName="observations"></textarea>
+      </mat-form-field>
+
+      <mat-checkbox formControlName="actif">Travailleur actif</mat-checkbox>
+    </div>
+  </section>
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Annuler</button>
+  <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="form.invalid || readOnly">
+    Enregistrer
+  </button>
+</div>
+

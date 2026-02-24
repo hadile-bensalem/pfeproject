@@ -1,0 +1,81 @@
+DIAGRAMME DE CAS D’UTILISATION – APPLICATION DIND’OR
+
+Acteurs principaux
+------------------
+- Administrateur
+- Employé (utilisateur interne)
+- Travailleur (ouvrier / saisonnier)
+- Visiteur / Éleveur (utilisateur externe du site d’accueil)
+- Module IA / Prédiction (système externe)
+
+1. Gestion de l’authentification
+--------------------------------
+Acteur : Administrateur, Employé
+- Se connecter
+- Se déconnecter
+- Récupérer le mot de passe (reset par email)
+
+2. Gestion des employés
+-----------------------
+Acteur : Administrateur
+- Créer un employé
+- Consulter la liste des employés
+- Rechercher / filtrer un employé
+- Modifier les informations d’un employé
+- Supprimer un employé
+
+3. Gestion des travailleurs
+---------------------------
+Acteur : Administrateur
+- Créer un travailleur (permanent / saisonnier)
+- Consulter la liste des travailleurs
+- Rechercher / filtrer un travailleur
+- Modifier les informations d’un travailleur
+- Supprimer un travailleur
+
+4. Gestion des pointages (présence)
+-----------------------------------
+Acteur : Administrateur, Employé (responsable RH)
+- Enregistrer un pointage pour un travailleur
+- Consulter l’historique des pointages par travailleur
+- Rechercher / filtrer les pointages (par date, travailleur, type)
+
+5. Gestion des articles / produits
+----------------------------------
+Acteur : Administrateur
+- Créer un article (aliment, produit vétérinaire, équipement…)
+- Mettre à jour les informations d’un article
+- Supprimer un article
+
+Acteur : Visiteur / Éleveur, Employé
+- Consulter les articles recommandés (page d’accueil)
+- Voir le détail d’un article
+- Ajouter un article au panier (simulation frontend)
+- Marquer un article comme favori (simulation frontend)
+
+6. Tableau de bord et suivi
+---------------------------
+Acteur : Administrateur
+- Consulter des indicateurs globaux (employés, travailleurs, activités)
+- Visualiser des graphiques de suivi (production, ressources, historique)
+
+7. Module IA / Prédiction (extension PFE)
+-----------------------------------------
+Acteur : Administrateur, Employé (responsable production)
+- Envoyer les données d’élevage au module IA (historique productions, consommations, mortalité…)
+- Obtenir une prédiction de production future
+- Obtenir une estimation des besoins en ressources (aliments, main-d’œuvre…)
+- Recevoir des alertes de risque (baisse de performance, surconsommation…)
+
+Acteur : Module IA
+- Analyser les données envoyées par le backend Dind’Or
+- Retourner les résultats de prédiction et d’alerte au backend
+
+8. Interface publique (Welcome page)
+------------------------------------
+Acteur : Visiteur / Éleveur
+- Accéder à la page d’accueil
+- Naviguer entre les sections (Accueil, À propos, Articles, Contact)
+- Remplir le formulaire de contact
+- Découvrir les fonctionnalités de la plateforme Dind’Or
+

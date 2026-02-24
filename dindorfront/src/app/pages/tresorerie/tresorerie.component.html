@@ -1,0 +1,199 @@
+<div class="tresorerie-container">
+  <header class="page-header">
+    <div>
+      <h2>{{ title }}</h2>
+      <p class="subtitle">{{ subtitle }}</p>
+    </div>
+  </header>
+
+  <!-- Section 1 : Récapitulatif -->
+  <section class="section-recap card">
+    <h3>Récapitulatif</h3>
+    <div class="ca-banner">
+      <span class="ca-label">CHIFFRE D'AFFAIRES</span>
+      <span class="ca-value">{{ chiffreAffaires | number:'1.2-3':'fr' }}</span>
+    </div>
+
+    <div class="filters-recap">
+      <div class="filter-item">
+        <label>Du</label>
+        <input type="date" [(ngModel)]="dateDebutRecap">
+      </div>
+      <div class="filter-item">
+        <label>Au</label>
+        <input type="date" [(ngModel)]="dateFinRecap">
+      </div>
+      <div class="filter-item">
+        <label>Fournisseur</label>
+        <select [(ngModel)]="filterFournisseurRecap">
+          <option value="">Tous</option>
+          <option *ngFor="let f of fournisseurs" [value]="f.raisonSociale">{{ f.raisonSociale }}</option>
+        </select>
+      </div>
+      <button class="btn primary" (click)="majRecap()">MAJ</button>
+    </div>
+
+    <div class="recap-table-wrap">
+      <h4>Récap financier</h4>
+      <table class="data-table recap-table">
+        <thead>
+          <tr>
+            <th>Libellé</th>
+            <th class="montant-col">Montant (DT)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of recapLignes" [class.debiteur]="l.isDebiteur" [class.negatif]="l.isNegatif">
+            <td>{{ l.libelle }}</td>
+            <td class="montant-col" [class.txt-jaune]="l.isDebiteur" [class.txt-rouge]="l.isNegatif">
+              {{ l.montant | number:'1.2-3':'fr' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="vente-qte-block">
+      <div class="total-qte-vendue">
+        <span class="label">Total Quantité Vendue</span>
+        <span class="value">{{ totalQteVendue | number:'1.0-0':'fr' }}</span>
+      </div>
+      <h4>Détail Vente Qté / Article</h4>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Article</th>
+              <th class="qte-col">QTE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="ventesArticles.length === 0">
+              <td colspan="2" class="empty-state">Aucune vente pour la période.</td>
+            </tr>
+            <tr *ngFor="let v of ventesArticles">
+              <td>{{ v.article }}</td>
+              <td class="qte-col">{{ v.qte }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2 : Dépenses -->
+  <section class="section-depenses card">
+    <div class="section-header">
+      <h3>Dépenses</h3>
+      <button class="btn primary" (click)="openAddDepenseModal()">Ajouter une Dépense</button>
+    </div>
+
+    <div class="filters-depenses">
+      <div class="filter-item">
+        <label>Du</label>
+        <input type="date" [(ngModel)]="dateDebutDep" (ngModelChange)="onFilterDepensesChange()">
+      </div>
+      <div class="filter-item">
+        <label>Au</label>
+        <input type="date" [(ngModel)]="dateFinDep" (ngModelChange)="onFilterDepensesChange()">
+      </div>
+      <div class="filter-item">
+        <label>Catégorie</label>
+        <select [(ngModel)]="filterCategorieDep" (ngModelChange)="onFilterDepensesChange()">
+          <option value="">Toutes</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <button class="btn outline" (click)="exportDepensesExcel()">Exporter en Excel</button>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Libellé</th>
+            <th>Catégorie</th>
+            <th class="montant-col">Montant</th>
+            <th>Mode Paiement</th>
+            <th>Remarque</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredDepenses.length === 0">
+            <td colspan="7" class="empty-state">Aucune dépense. Cliquez sur "Ajouter une Dépense".</td>
+          </tr>
+          <tr *ngFor="let d of filteredDepenses">
+            <td>{{ formatDate(d.date) }}</td>
+            <td>{{ d.libelle }}</td>
+            <td>{{ d.categorie }}</td>
+            <td class="montant-col">{{ d.montant | number:'1.2-2':'fr' }} DT</td>
+            <td>{{ d.modePaiement }}</td>
+            <td>{{ d.remarque }}</td>
+            <td class="actions-col">
+              <button class="chip primary" (click)="editDepense(d)">Modifier</button>
+              <button class="chip danger" (click)="deleteDepense(d)">Supprimer</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="total-depenses">
+      <span class="label">Total des dépenses</span>
+      <span class="value">{{ totalDepenses | number:'1.2-2':'fr' }} DT</span>
+    </div>
+  </section>
+</div>
+
+<!-- Modal Dépense -->
+<div class="modal-backdrop" *ngIf="isModalDepenseOpen" (click)="closeDepenseModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3>{{ isEditingDepense ? 'Modifier la dépense' : 'Ajouter une Dépense' }}</h3>
+        <p class="modal-subtitle">Renseignez les informations de la dépense.</p>
+      </div>
+      <button class="close-btn" type="button" (click)="closeDepenseModal()">&times;</button>
+    </div>
+    <form [formGroup]="depenseForm" (ngSubmit)="onSubmitDepense()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date <span class="required">*</span></label>
+            <input type="date" formControlName="date">
+          </div>
+          <div class="form-group wide">
+            <label>Libellé / Description <span class="required">*</span></label>
+            <input type="text" formControlName="libelle" placeholder="Ex: loyer, carburant, salaire...">
+          </div>
+          <div class="form-group">
+            <label>Catégorie <span class="required">*</span></label>
+            <select formControlName="categorie">
+              <option value="">— Choisir —</option>
+              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Montant (DT) <span class="required">*</span></label>
+            <input type="number" formControlName="montant" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Mode de paiement <span class="required">*</span></label>
+            <select formControlName="modePaiement">
+              <option *ngFor="let m of modesPaiement" [value]="m">{{ m }}</option>
+            </select>
+          </div>
+          <div class="form-group wide">
+            <label>Remarque</label>
+            <input type="text" formControlName="remarque" placeholder="Optionnel">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn neutral" type="button" (click)="closeDepenseModal()">Annuler</button>
+        <button class="btn success" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>

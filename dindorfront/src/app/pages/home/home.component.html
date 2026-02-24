@@ -1,0 +1,140 @@
+<div class="home-container">
+  <!-- Header -->
+  <header class="home-header">
+    <div class="header-content">
+      <div class="header-left">
+        <button class="sidebar-toggle" (click)="toggleSidebar()" *ngIf="!isLoading">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="currentColor"/>
+          </svg>
+        </button>
+        <div class="logo-section">
+          <img src="assets/images/logo.png" alt="Dind'or Logo" class="logo">
+         
+        </div>
+      </div>
+      <div class="user-section">
+        <div class="user-info" *ngIf="adminInfo">
+          <span class="welcome-text">Bienvenue,</span>
+          <span class="user-name">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+        </div>
+        <button class="btn-logout" (click)="logout()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor"/>
+          </svg>
+          Déconnexion
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-layout" *ngIf="!isLoading">
+    <!-- Sidebar -->
+    <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
+      <div class="sidebar-content">
+        <nav class="sidebar-nav">
+          <ul class="menu-list">
+            <li *ngFor="let item of menuItems" class="menu-item">
+              <button
+                class="menu-button"
+                [class.active]="activeMenuItem === item.id"
+                (click)="selectMenuItem(item)"
+                [title]="item.label">
+                <span class="menu-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path [attr.d]="item.iconPath" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="menu-label">{{ item.label }}</span>
+                <span class="menu-indicator"></span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" [class.sidebar-open]="!sidebarCollapsed">
+      <div class="content-wrapper">
+        <div class="welcome-section">
+          <h2>Tableau de bord</h2>
+          <p class="subtitle">Gestion administrative de Dind'Or</p>
+        </div>
+
+        <div class="dashboard-stats">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 18C8.1 18 9 17.1 9 16C9 14.9 8.1 14 7 14C5.9 14 5 14.9 5 16C5 17.1 5.9 18 7 18ZM1 2V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.5C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C18.1 18 19 17.1 19 16C19 14.9 18.1 14 17 14C15.9 14 15 14.9 15 16C15 17.1 15.9 18 17 18Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3>Ventes</h3>
+              <p class="stat-value">0</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 6H17V4C17 2.9 16.1 2 15 2H9C7.9 2 7 2.9 7 4V6H4C2.9 6 2 6.9 2 8V19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V8C22 6.9 21.1 6 20 6ZM9 4H15V6H9V4ZM20 19H4V8H20V19Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3>Stock</h3>
+              <p class="stat-value">0</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3>Clients</h3>
+              <p class="stat-value">0</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.8 10.9C9.53 10.31 8.8 9.7 8.8 8.75C8.8 7.66 9.81 6.9 11.5 6.9C13.28 6.9 14.2 7.75 14.2 8.9H16.1C16.1 6.36 14.3 4.5 11.5 4.5C8.7 4.5 6.9 6.26 6.9 8.75C6.9 11.1 8.5 12.1 10.9 12.7C13.4 13.3 14.1 14.1 14.1 15.1C14.1 16.2 13.1 17 11.3 17C9.32 17 8.2 16.05 8.2 14.9H6.3C6.3 17.54 8.1 19.5 11.3 19.5C14.5 19.5 16.7 17.44 16.7 15.1C16.7 12.6 14.9 11.5 11.8 10.9ZM3 3H21V5H3V3ZM3 19H21V21H3V19Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <h3>Trésorerie</h3>
+              <p class="stat-value">0 MAD</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-info-card" *ngIf="adminInfo">
+          <h3>Informations du compte</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Email :</span>
+              <span class="info-value">{{ adminInfo.email }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Nom complet :</span>
+              <span class="info-value">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">ID :</span>
+              <span class="info-value">#{{ adminInfo.id }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Chargement...</p>
+  </div>
+</div>

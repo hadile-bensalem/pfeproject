@@ -1,0 +1,76 @@
+<div class="etat-container">
+  <header class="page-header">
+    <div>
+      <h2>État Fournisseur</h2>
+      <p class="subtitle">Récapitulatif des fournisseurs avec solde et traitement en cours</p>
+    </div>
+  </header>
+
+  <div class="page-toolbar">
+    <div class="left-actions">
+      <button class="btn outline" type="button" (click)="backToList()">
+        ← Retour aux fournisseurs
+      </button>
+    </div>
+    <div class="right-actions">
+      <div class="search-box">
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Rechercher par nom ou matricule..."
+        >
+      </div>
+    </div>
+  </div>
+
+  <section class="card-grid">
+    <div class="card list-card">
+      <div class="list-header">
+        <h3>Tableau récapitulatif</h3>
+      </div>
+
+      <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
+        <table class="etat-table">
+          <thead>
+            <tr>
+              <th (click)="sortBy('nom')" class="sortable">
+                Nom du Fournisseur
+                <span *ngIf="sortColumn === 'nom'" class="sort-icon">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+              </th>
+              <th (click)="sortBy('solde')" class="sortable numeric">
+                Solde
+                <span *ngIf="sortColumn === 'solde'" class="sort-icon">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+              </th>
+              <th (click)="sortBy('traitementEnCours')" class="sortable numeric">
+                Traitement en cours (Total en cours)
+                <span *ngIf="sortColumn === 'traitementEnCours'" class="sort-icon">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredEtats.length === 0">
+              <td colspan="3" class="empty-state">
+                Aucun fournisseur. Retournez à la liste pour en ajouter.
+              </td>
+            </tr>
+            <tr *ngFor="let e of filteredEtats" (click)="goToDetail(e)" class="row-clickable">
+              <td class="nom-cell">
+                <span class="link-nom">{{ e.nom }}</span>
+                <span class="matricule-small">{{ e.matricule }}</span>
+              </td>
+              <td class="numeric">{{ formatMontant(e.solde) }}</td>
+              <td class="numeric">{{ formatMontant(e.traitementEnCours) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #loadingTpl>
+        <div class="loading-state">Chargement de l'état des fournisseurs...</div>
+      </ng-template>
+
+      <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+    </div>
+  </section>
+</div>

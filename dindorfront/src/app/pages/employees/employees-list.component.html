@@ -1,0 +1,58 @@
+<div class="employees-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Employés</h2>
+      <p class="subtitle">Liste des employés de Dind'Or</p>
+    </div>
+    <button type="button" class="btn-primary" (click)="goToAdd()">Ajouter Employé</button>
+  </header>
+
+  <section class="toolbar">
+    <input
+      class="search-field"
+      type="text"
+      [(ngModel)]="searchTerm"
+      (ngModelChange)="applyFilter()"
+      placeholder="Rechercher par matricule, nom, prénom, poste...">
+  </section>
+
+  <section class="table-section" *ngIf="!isLoading; else loadingTpl">
+    <table>
+      <thead>
+        <tr>
+          <th>Matricule</th>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>Poste</th>
+          <th>Type de contrat</th>
+          <th>Salaire de base</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let e of filteredEmployees">
+          <td>{{ e.matricule }}</td>
+          <td>{{ e.nom }}</td>
+          <td>{{ e.prenom }}</td>
+          <td>{{ e.poste }}</td>
+          <td>{{ e.typeContrat }}</td>
+          <td>{{ getDisplayedBaseSalary(e) | number:'1.0-2' }}</td>
+          <td class="actions-cell">
+            <button type="button" class="btn-secondary" (click)="goToDetails(e)">Voir</button>
+            <button type="button" class="btn-secondary" (click)="goToEdit(e)">Modifier</button>
+            <button type="button" class="btn-secondary" (click)="goToAttendance(e)">Pointage</button>
+            <button type="button" class="btn-primary" (click)="goToPayroll(e)">Fiche de paie</button>
+            <button type="button" class="btn-danger" (click)="delete(e)">Supprimer</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <ng-template #loadingTpl>
+    <div class="loading-container">
+      <p>Chargement des employés...</p>
+    </div>
+  </ng-template>
+</div>
+

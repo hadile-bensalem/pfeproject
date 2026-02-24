@@ -1,0 +1,97 @@
+<div class="detail-container">
+  <header class="page-header">
+    <div>
+      <h2>Historique des transactions</h2>
+      <p class="subtitle" *ngIf="fournisseur">{{ fournisseur.raisonSociale }} — {{ fournisseur.matricule }}</p>
+    </div>
+  </header>
+
+  <div class="page-toolbar">
+    <div class="left-actions">
+      <button class="btn outline" type="button" (click)="backToEtat()">← Retour à l'état fournisseur</button>
+    </div>
+  </div>
+
+  <!-- Résumé financier -->
+  <section class="resume-cards" *ngIf="!isLoading">
+    <div class="resume-card total-card">
+      <span class="resume-label">Total général</span>
+      <span class="resume-value">{{ formatMontant(totalGeneral) }}</span>
+    </div>
+    <div class="resume-card solde-card" [ngClass]="soldeClass()">
+      <span class="resume-label">Solde actuel</span>
+      <span class="resume-value">{{ formatMontant(solde) }}</span>
+    </div>
+  </section>
+
+  <section class="card list-card">
+    <div class="list-header">
+      <h3>Détail des transactions</h3>
+      <div class="search-box">
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Filtrer par N° facture, mode de paiement..."
+        >
+      </div>
+    </div>
+
+    <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
+      <table class="transactions-table">
+        <thead>
+          <tr>
+            <th (click)="sortBy('numeroFacture')" class="sortable">N° Facture</th>
+            <th (click)="sortBy('date')" class="sortable">Date</th>
+            <th (click)="sortBy('debit')" class="sortable numeric">Débit</th>
+            <th (click)="sortBy('credit')" class="sortable numeric">Crédit</th>
+            <th (click)="sortBy('espece')" class="sortable numeric">Espèce</th>
+            <th (click)="sortBy('modePaiement')" class="sortable">Mode de Paiement</th>
+            <th class="actions-col">Supprimer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredTransactions.length === 0">
+            <td colspan="7" class="empty-state">
+              Aucune transaction pour ce fournisseur.
+            </td>
+          </tr>
+          <tr *ngFor="let t of filteredTransactions">
+            <td>{{ t.numeroFacture || '—' }}</td>
+            <td>{{ formatDate(t.date) }}</td>
+            <td class="numeric">{{ formatMontant(t.debit) }}</td>
+            <td class="numeric">{{ formatMontant(t.credit) }}</td>
+            <td class="numeric">{{ formatMontant(t.espece) }}</td>
+            <td>{{ getModeLabel(t.modePaiement) }}</td>
+            <td class="actions-col">
+              <button type="button" class="chip danger" (click)="openDeleteConfirm(t)">Supprimer</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #loadingTpl>
+      <div class="loading-state">Chargement des transactions...</div>
+    </ng-template>
+
+    <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+  </section>
+</div>
+
+<!-- Modal confirmation suppression -->
+<div class="modal-backdrop" *ngIf="showDeleteConfirm" (click)="closeDeleteConfirm()">
+  <div class="modal-dialog confirm-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Confirmer la suppression</h3>
+      <button class="close-btn" type="button" (click)="closeDeleteConfirm()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Voulez-vous vraiment supprimer la transaction <strong>{{ transactionToDelete?.numeroFacture }}</strong> du {{ transactionToDelete ? formatDate(transactionToDelete.date) : '' }} ?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn neutral" type="button" (click)="closeDeleteConfirm()">Annuler</button>
+      <button class="btn danger" type="button" (click)="confirmDelete()">Supprimer</button>
+    </div>
+  </div>
+</div>

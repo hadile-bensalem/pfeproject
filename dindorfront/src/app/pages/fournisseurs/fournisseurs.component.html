@@ -1,0 +1,291 @@
+<div class="fournisseurs-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Fournisseurs</h2>
+      <p class="subtitle">Ajout, consultation et gestion des fournisseurs</p>
+    </div>
+  </header>
+
+  <div class="page-toolbar">
+    <div class="left-actions">
+      <button class="btn primary" (click)="openNewModal()">Ajouter fournisseur</button>
+      <a routerLink="/fournisseurs/etat" class="btn secondary">État Fournisseur</a>
+      <button class="btn outline primary-outline" (click)="openAncienFactureModal()">Ancien Facture Fournisseur</button>
+    </div>
+    <div class="right-actions">
+      <button class="btn outline" (click)="onImprimer()">Imprimer</button>
+      <button class="btn ghost" (click)="onFermer()">Fermer</button>
+    </div>
+  </div>
+
+  <section class="card-grid">
+    <!-- Liste des Fournisseurs -->
+    <div class="card list-card">
+      <div class="list-header">
+        <h3>Liste des Fournisseurs</h3>
+        <div class="search-box">
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="onSearchChange()"
+            placeholder="Rechercher par matricule, raison sociale, TVA, téléphone..."
+          >
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="fournisseurs-table">
+          <thead>
+            <tr>
+              <th>Matricule</th>
+              <th>Raison Sociale</th>
+              <th>Code TVA</th>
+              <th>Adresse</th>
+              <th>Téléphone</th>
+              <th>Responsable</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredFournisseurs.length === 0">
+              <td colspan="7" class="empty-state">
+                Aucun fournisseur pour le moment. Ajoutez un nouveau fournisseur via le formulaire ci-dessus.
+              </td>
+            </tr>
+            <tr *ngFor="let f of filteredFournisseurs">
+              <td>{{ f.matricule }}</td>
+              <td>{{ f.raisonSociale }}</td>
+              <td>{{ f.codeTVA }}</td>
+              <td>{{ f.adresse }}</td>
+              <td>{{ f.telephone1 || f.telephone2 }}</td>
+              <td>{{ f.responsableContact }}</td>
+              <td class="actions-col">
+                <button class="chip neutral" (click)="consulter(f)">Consulter</button>
+                <button class="chip primary" (click)="modifier(f)">Modifier</button>
+                <button class="chip danger" (click)="supprimer(f)">Supprimer</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Fournisseur -->
+  <div class="modal-backdrop" *ngIf="isModalOpen">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3>{{ isEditing ? 'Modifier fournisseur' : 'Ajouter un fournisseur' }}</h3>
+          <p class="modal-subtitle">
+            {{ isEditing ? 'Mettez à jour les informations du fournisseur sélectionné.' : 'Renseignez les informations du nouveau fournisseur.' }}
+          </p>
+        </div>
+        <button class="close-btn" type="button" (click)="onAnnuler()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Matricule <span class="required">*</span></label>
+            <input
+              type="text"
+              [(ngModel)]="current.matricule"
+              placeholder="Code généré automatiquement">
+          </div>
+
+          <div class="form-group wide">
+            <label>Raison Sociale <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="current.raisonSociale" placeholder="Nom / Raison sociale">
+          </div>
+
+          <div class="form-group wide">
+            <label>Adresse</label>
+            <input type="text" [(ngModel)]="current.adresse" placeholder="Adresse complète">
+          </div>
+
+          <div class="form-group">
+            <label>Code TVA</label>
+            <input type="text" [(ngModel)]="current.codeTVA" placeholder="Code TVA">
+          </div>
+
+          <div class="form-group">
+            <label>Téléphone 1</label>
+            <input type="tel" [(ngModel)]="current.telephone1" placeholder="+216 ...">
+          </div>
+
+          <div class="form-group">
+            <label>Téléphone 2</label>
+            <input type="tel" [(ngModel)]="current.telephone2" placeholder="+216 ...">
+          </div>
+
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" [(ngModel)]="current.email" placeholder="contact@gmil.com">
+          </div>
+
+          <div class="form-group">
+            <label>Responsable à contacter</label>
+            <input type="text" [(ngModel)]="current.responsableContact" placeholder="Nom du responsable">
+          </div>
+
+          <div class="form-group">
+            <label>Devise</label>
+            <input type="text" [(ngModel)]="current.devise" placeholder="Dt , eur">
+          </div>
+
+          <div class="form-group wide">
+            <label>Observations</label>
+            <textarea rows="3" [(ngModel)]="current.observations" placeholder="Notes et remarques diverses"></textarea>
+          </div>
+
+          <div class="form-group wide">
+            <label>Option</label>
+            <div class="radio-group">
+              <label class="radio">
+                <input type="radio" name="avecRs" [value]="true" [(ngModel)]="current.avecRS">
+                <span>AVEC R.S.</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="avecRs" [value]="false" [(ngModel)]="current.avecRS">
+                <span>SANS R.S.</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn neutral" type="button" (click)="onAnnuler()">Annuler</button>
+        <button
+          class="btn success"
+          type="button"
+          [disabled]="!current.matricule || !current.raisonSociale"
+          (click)="onEnregistrer()">
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ajout Ancien Facture Fournisseur -->
+  <div class="modal-backdrop" *ngIf="isAncienFactureModalOpen" (click)="onAncienFactureFermer()">
+    <div class="modal-dialog modal-ancien-facture" (click)="$event.stopPropagation()">
+      <div class="modal-header ancien-facture-header">
+        <div>
+          <h3 class="ancien-facture-title">AJOUT ANCIEN FACTURE FOURNISSEUR</h3>
+          <p class="modal-subtitle">Régularisation des comptes fournisseurs</p>
+        </div>
+        <button class="close-btn" type="button" (click)="onAncienFactureFermer()" aria-label="Fermer">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid ancien-facture-form">
+          <div class="form-group">
+            <label>N° FACTURE <span class="required">*</span></label>
+            <input
+              type="text"
+              [(ngModel)]="ancienFacture.numeroFacture"
+              placeholder="Ex. FAC-2024-001">
+          </div>
+
+          <div class="form-group">
+            <label>Date <span class="required">*</span></label>
+            <input
+              type="date"
+              [(ngModel)]="ancienFacture.date"
+              placeholder="JJ/MM/AAAA">
+          </div>
+
+          <div class="form-group wide">
+            <label>Code Fournisseur <span class="required">*</span></label>
+            <select [(ngModel)]="ancienFacture.fournisseurId" class="select-input">
+              <option [ngValue]="null">— Choisir un fournisseur —</option>
+              <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.matricule }} — {{ f.raisonSociale }}</option>
+            </select>
+          </div>
+
+          <div class="form-row-label">M · T · V · A</div>
+          <div class="form-row-three">
+            <div class="form-group">
+              <label>Montant HT</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="ancienFacture.montantHT"
+                (ngModelChange)="onAncienFactureTvaRecalc()"
+                placeholder="0,00">
+            </div>
+            <div class="form-group">
+              <label>TVA (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                [(ngModel)]="ancienFacture.tauxTva"
+                (ngModelChange)="onAncienFactureTvaRecalc()"
+                placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>Montant TVA</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="ancienFacture.montantTva"
+                placeholder="0,00">
+            </div>
+          </div>
+
+          <div class="form-row-label">Timbres fiscaux</div>
+          <div class="form-row-three">
+            <div class="form-group">
+              <label>Timbre 1</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="ancienFacture.timbre1"
+                placeholder="0,00">
+            </div>
+            <div class="form-group">
+              <label>Timbre 2</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="ancienFacture.timbre2"
+                placeholder="0,00">
+            </div>
+            <div class="form-group">
+              <label>Timbre 3</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="ancienFacture.timbre3"
+                placeholder="0,00">
+            </div>
+          </div>
+
+          <div class="form-group montant-facture-row">
+            <label>MONTANT FACTURE</label>
+            <div class="montant-facture-value" [class.has-value]="montantFactureTotal > 0">{{ formatMontantDisplay(montantFactureTotal) }}</div>
+          </div>
+
+          <p *ngIf="ancienFactureMessage" class="ancien-facture-msg" [class.error]="ancienFactureMessage.includes('Veuillez')">{{ ancienFactureMessage }}</p>
+        </div>
+      </div>
+
+      <div class="modal-footer modal-footer-four">
+        <button class="btn success" type="button" (click)="onAncienFactureAjouter()">Ajouter</button>
+        <button class="btn primary" type="button" (click)="onAncienFactureValider()">Valider</button>
+        <button class="btn danger" type="button" (click)="onAncienFactureSupprimer()">Supprimer</button>
+        <button class="btn neutral" type="button" (click)="onAncienFactureFermer()">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+

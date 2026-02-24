@@ -1,0 +1,195 @@
+<div class="articles-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Articles</h2>
+      <p class="subtitle">Ajout, consultation et gestion des articles</p>
+    </div>
+  </header>
+
+  <div class="page-toolbar">
+    <div class="left-actions">
+      <button class="btn primary" type="button" (click)="openModal()">Ajouter article</button>
+    </div>
+    <div class="right-actions">
+      <button class="btn ghost" type="button" (click)="navigateHome()">Fermer</button>
+    </div>
+  </div>
+
+  <section class="card-grid">
+    <div class="card list-card">
+      <div class="list-header">
+        <h3>Liste des Articles</h3>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="articles-table">
+          <thead>
+          <tr>
+            <th>Code</th>
+            <th>Désignation</th>
+            <th>Famille</th>
+            <th>PV SCRAF</th>
+            <th>Unité</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngIf="articles.length === 0">
+            <td colspan="5" class="empty-state">
+              Aucun article pour le moment. Cliquez sur "Ajouter article" pour en créer un.
+            </td>
+          </tr>
+          <tr *ngFor="let article of articles">
+            <td>ART-{{ article.id }}</td>
+            <td>{{ article.name }}</td>
+            <td>{{ article.category }}</td>
+            <td>{{ article.price | number:'1.0-2' }} DT</td>
+            <td>{{ article.unit }}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modale d'ajout / édition d'article -->
+  <div class="modal-backdrop" *ngIf="showModal" (click)="closeModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Ajouter / Modifier un article</h3>
+          <p class="modal-subtitle">
+            Renseignez les informations de l'article.
+          </p>
+        </div>
+        <button class="close-btn" type="button" (click)="closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="articleForm" class="form-grid">
+          <!-- Section principale -->
+          <div class="form-group wide">
+            <label for="designation">Désignation</label>
+            <textarea
+              id="designation"
+              formControlName="designation"
+              rows="3"
+              placeholder="Description détaillée de l'article"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="codeArticle">Code article</label>
+            <input id="codeArticle" type="text" formControlName="codeArticle" placeholder="Code interne" />
+          </div>
+
+          <div class="form-group">
+            <label for="unite">Unité de mesure</label>
+            <select id="unite" formControlName="unite">
+              <option value="">– Sélectionner –</option>
+              <option *ngFor="let u of units" [value]="u">{{ u }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="famille">Famille</label>
+            <div class="input-with-icon">
+              <input id="famille" type="text" formControlName="famille" list="familles" />
+              <datalist id="familles">
+                <option *ngFor="let f of families" [value]="f"></option>
+              </datalist>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="origine">Origine</label>
+            <input id="origine" type="text" formControlName="origine" placeholder="Origine / Fournisseur principal" />
+          </div>
+
+          <!-- Section pricing et marges -->
+          <div class="form-group">
+            <label for="pvScraf">PV SCRAF</label>
+            <input id="pvScraf" type="number" formControlName="pvScraf" />
+          </div>
+
+          <div class="form-group">
+            <label for="margeBenef">Marge bénéficiaire</label>
+            <div class="input-with-suffix">
+              <input
+                id="margeBenef"
+                type="number"
+                formControlName="margeBenef"
+              />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="consoInterne">Consommation interne</label>
+            <input
+              id="consoInterne"
+              type="number"
+              formControlName="consoInterne"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="pcPublic">PC Public</label>
+            <input id="pcPublic" type="number" formControlName="pcPublic" />
+          </div>
+
+          <div class="form-group">
+            <label for="tauxConsommation">Taux de consommation</label>
+            <div class="input-with-suffix">
+              <input
+                id="tauxConsommation"
+                type="number"
+                formControlName="tauxConsommation"
+              />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>TVA &amp; SPECIAL</label>
+            <div class="checkbox-row">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="tva" />
+                <span>TVA</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="special" />
+                <span>SPECIAL</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Section complémentaire -->
+          <div class="form-group">
+            <label for="smMassad">SM/MASSAD</label>
+            <input id="smMassad" type="number" formControlName="smMassad" />
+          </div>
+
+          <div class="form-group">
+            <label for="qiMesdale">QI/MESDALE</label>
+            <input id="qiMesdale" type="number" formControlName="qiMesdale" />
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn neutral" type="button" (click)="onPremier()">
+          Premier
+        </button>
+        <button class="btn danger" type="button" (click)="onSupprimer()">
+          Supprimer
+        </button>
+        <button class="btn success" type="button" (click)="onEnregistrer()">
+          Enregistrer
+        </button>
+        <button class="btn primary" type="button" (click)="onAjouter()">
+          Ajouter
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

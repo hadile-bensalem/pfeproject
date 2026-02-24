@@ -1,0 +1,635 @@
+:host {
+  --primary-color: #8B1A1A;
+  --primary-light: #C73E3E;
+  --primary-lighter: #E8A5A5;
+  --secondary-color: #DAA520;
+  --secondary-light: #F4D03F;
+  --text-primary: #2C3E50;
+  --text-secondary: #5A6C7D;
+  --text-light: #8B9AAB;
+  --background: #FFFFFF;
+  --background-light: #F8F9FA;
+  --background-lighter: #F0F2F5;
+  --border-color: #E1E8ED;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --transition: all 0.25s ease;
+}
+
+.fournisseurs-container {
+  min-height: 100vh;
+  padding: 2.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #eef1f6 40%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.98rem;
+}
+
+.page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+}
+
+.left-actions,
+.right-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn {
+  border-radius: 999px;
+  padding: 0.55rem 1.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(139, 26, 26, 0.25);
+}
+
+.btn.success {
+  background: linear-gradient(135deg, #1c9c73, #18b47b);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(24, 180, 123, 0.25);
+}
+
+.btn.neutral {
+  background: var(--background-light);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.btn.outline {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.btn.danger {
+  background: linear-gradient(135deg, #e53935, #c62828);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(229, 57, 53, 0.25);
+}
+
+.btn.secondary {
+  background: linear-gradient(135deg, var(--secondary-color), var(--secondary-light));
+  color: #1a1a1a;
+  box-shadow: 0 6px 16px rgba(218, 165, 32, 0.25);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn.primary-outline {
+  background: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+}
+
+.btn.primary-outline:hover {
+  background: rgba(139, 26, 26, 0.08);
+}
+
+a.btn {
+  text-decoration: none;
+  line-height: 1;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  opacity: 0.96;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(225, 232, 237, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(139, 26, 26, 0.06), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card h3 {
+  margin: 0 0 1.25rem;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.form-card {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.list-card {
+  animation: fadeInUp 0.4s ease-out 0.08s both;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.form-group.wide {
+  grid-column: 1 / -1;
+}
+
+label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.required {
+  color: var(--primary-color);
+}
+
+input,
+textarea {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--background-light);
+  transition: var(--transition);
+  outline: none;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 1px rgba(199, 62, 62, 0.15);
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.radio-group {
+  display: inline-flex;
+  gap: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--background-light);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.radio input {
+  width: 14px;
+  height: 14px;
+}
+
+.radio:hover {
+  border-color: var(--primary-lighter);
+  background: #fff;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.search-box {
+  min-width: 260px;
+}
+
+.search-box input {
+  width: 100%;
+  padding-left: 0.9rem;
+}
+
+.table-wrapper {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.fournisseurs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.fournisseurs-table thead {
+  background: linear-gradient(90deg, rgba(139, 26, 26, 0.05), rgba(218, 165, 32, 0.05));
+}
+
+.fournisseurs-table th,
+.fournisseurs-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  color: var(--text-secondary);
+}
+
+.fournisseurs-table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-light);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.fournisseurs-table tbody tr:hover {
+  background: rgba(248, 249, 250, 0.9);
+}
+
+.actions-col {
+  white-space: nowrap;
+}
+
+.chip {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-right: 0.25rem;
+  transition: var(--transition);
+}
+
+.chip.neutral {
+  background: var(--background-light);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.chip.primary {
+  background: rgba(139, 26, 26, 0.06);
+  border-color: rgba(139, 26, 26, 0.3);
+  color: var(--primary-color);
+}
+
+.chip.danger {
+  background: rgba(229, 57, 53, 0.06);
+  border-color: rgba(229, 57, 53, 0.35);
+  color: #c62828;
+}
+
+.chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 1.2rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  backdrop-filter: blur(4px);
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 900px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  padding: 1.5rem 1.75rem 1.25rem;
+  animation: fadeInUp 0.25s ease-out;
+  border: 1px solid rgba(225, 232, 237, 0.9);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.close-btn {
+  border: none;
+  background: var(--background-light);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.close-btn:hover {
+  background: rgba(139, 26, 26, 0.05);
+  color: var(--primary-color);
+}
+
+.modal-body {
+  padding-top: 1.1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.5rem;
+}
+
+/* Modal Ancien Facture */
+.modal-dialog.modal-ancien-facture {
+  max-width: 640px;
+}
+
+.modal-header.ancien-facture-header {
+  background: linear-gradient(90deg, rgba(139, 26, 26, 0.08), rgba(218, 165, 32, 0.06));
+  margin: -1.5rem -1.75rem 0;
+  padding: 1.25rem 1.75rem 1rem;
+  border-radius: 20px 20px 0 0;
+  border-bottom: 2px solid rgba(139, 26, 26, 0.15);
+}
+
+.ancien-facture-title {
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.ancien-facture-form .form-row-label {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.ancien-facture-form .form-row-three {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.select-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--background-light);
+  transition: var(--transition);
+  outline: none;
+  cursor: pointer;
+}
+
+.select-input:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 1px rgba(199, 62, 62, 0.15);
+  background: #fff;
+}
+
+.montant-facture-row {
+  grid-column: 1 / -1;
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(90deg, rgba(139, 26, 26, 0.06), rgba(218, 165, 32, 0.05));
+  border-radius: 14px;
+  border: 1px solid rgba(139, 26, 26, 0.2);
+}
+
+.montant-facture-row label {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.montant-facture-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.montant-facture-value.has-value {
+  color: var(--primary-color);
+}
+
+.ancien-facture-msg {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: rgba(28, 156, 115, 0.1);
+  color: #1c9c73;
+}
+
+.ancien-facture-msg.error {
+  background: rgba(229, 57, 53, 0.08);
+  color: #c62828;
+}
+
+.modal-footer-four {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.modal-footer-four .btn {
+  min-width: 100px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .fournisseurs-container {
+    padding: 1.5rem 1rem;
+  }
+
+  .page-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .right-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .list-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h2 {
+    font-size: 1.6rem;
+  }
+
+  .btn {
+    padding-inline: 1rem;
+  }
+}
+
+/* Responsive Modal Ancien Facture */
+@media (max-width: 640px) {
+  .modal-dialog.modal-ancien-facture {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+
+  .ancien-facture-form .form-row-three {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-footer-four {
+    flex-direction: column;
+  }
+
+  .modal-footer-four .btn {
+    width: 100%;
+  }
+}
+

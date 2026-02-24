@@ -1,0 +1,83 @@
+<div class="payroll-container">
+  <header class="page-header">
+    <div>
+      <h2>Fiche de Paie - {{ employee?.prenom }} {{ employee?.nom }}</h2>
+      <p class="subtitle">Gestion des rémunérations</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn neutral" (click)="goBack()">Retour</button>
+      <button type="button" class="btn primary" (click)="generatePayroll()">Générer Fiche</button>
+    </div>
+  </header>
+
+  <div class="payroll-content">
+    <!-- Liste des fiches de paie -->
+    <section class="list-section">
+      <h3>Historique des fiches de paie</h3>
+      <table *ngIf="payrolls.length > 0; else noData">
+        <thead>
+          <tr>
+            <th>Mois/Année</th>
+            <th>Salaire brut</th>
+            <th>Primes</th>
+            <th>Déductions</th>
+            <th>Salaire net</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let payroll of payrolls" 
+              [class.selected]="selectedPayroll?.id === payroll.id"
+              (click)="selectPayroll(payroll)">
+            <td>{{ payroll.mois }}/{{ payroll.annee }}</td>
+            <td>{{ payroll.salaireBrut | number:'1.2-2' }} DT</td>
+            <td>{{ payroll.primes | number:'1.2-2' }} DT</td>
+            <td>{{ payroll.deductions | number:'1.2-2' }} DT</td>
+            <td class="net-salary">{{ payroll.salaireNet | number:'1.2-2' }} DT</td>
+            <td>
+              <button type="button" class="btn-small" (click)="downloadPDF(payroll); $event.stopPropagation()">PDF</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noData>
+        <p class="no-data">Aucune fiche de paie disponible</p>
+      </ng-template>
+    </section>
+
+    <!-- Détails de la fiche sélectionnée -->
+    <section class="detail-section" *ngIf="selectedPayroll">
+      <h3>Détails de la fiche de paie</h3>
+      <div class="payroll-details">
+        <div class="detail-row">
+          <span class="label">Période:</span>
+          <span class="value">{{ selectedPayroll.mois }}/{{ selectedPayroll.annee }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Salaire brut:</span>
+          <span class="value">{{ selectedPayroll.salaireBrut | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Primes:</span>
+          <span class="value">{{ selectedPayroll.primes | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Heures supplémentaires:</span>
+          <span class="value">{{ selectedPayroll.heuresSupplementaires }}h</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Déductions:</span>
+          <span class="value">{{ selectedPayroll.deductions | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Avantages:</span>
+          <span class="value">{{ selectedPayroll.avantages | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="detail-row total">
+          <span class="label">Salaire net à payer:</span>
+          <span class="value">{{ selectedPayroll.salaireNet | number:'1.2-2' }} DT</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

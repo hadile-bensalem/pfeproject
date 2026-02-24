@@ -1,0 +1,301 @@
+================================================================================
+                    DÉROULEMENT DE LA PARTIE BACKEND - DINDOR
+                         (Spring Boot 3 - Java 17)
+================================================================================
+
+Ce fichier décrit en détail l'architecture, le flux des requêtes et le rôle
+de chaque couche du backend de l'application Dindor.
+
+
+================================================================================
+1. POINT D'ENTRÉE ET DÉMARRAGE
+================================================================================
+
+  - Classe principale : com.poly.dindor.DindorApplication
+  - Annotations : @SpringBootApplication, @EnableScheduling
+  - Au démarrage, Spring Boot :
+    * charge la configuration (application.properties / application.yml)
+    * scanne le package com.poly.dindor et sous-packages
+    * initialise les beans (contrôleurs, services, repositories, config, etc.)
+    * configure la sécurité (SecurityConfig)
+    * lance le serveur embarqué (Tomcat par défaut) sur le port configuré
+
+
+================================================================================
+2. FLUX GÉNÉRAL D'UNE REQUÊTE HTTP
+================================================================================
+
+  Requête client (ex : navigateur, Angular)
+       |
+       v
+  [1] CORS (Cross-Origin) - Configuration CorsConfigurationSource
+       |    Vérifie origine, méthodes (GET, POST, PUT, DELETE, OPTIONS), en-têtes
+       v
+  [2] Chaîne de sécurité Spring Security (SecurityFilterChain)
+       |    - CSRF désactivé (API stateless)
+       |    - authorizeHttpRequests : décide si la requête est autorisée ou non
+       v
+  [3] JwtAuthenticationFilter (si route protégée)
+       |    - Lit l'en-tête "Authorization: Bearer <token>"
+       |    - Extrait l'email du JWT, charge UserDetails, valide le token
+       |    - Si valide : place l'authentification dans SecurityContextHolder
+       v
+  [4] DispatcherServlet (Spring MVC)
+       |    - Trouve le contrôleur et la méthode correspondant à l'URL
+       v
+  [5] Validation @Valid sur le corps de la requête (DTO)
+       |    - Si échec : MethodArgumentNotValidException -> GlobalExceptionHandler
+       v
+  [6] Contrôleur (Controller)
+       |    - Appelle le service métier
+       v
+  [7] Service (Service)
+       |    - Logique métier, vérifications (unicité, règles)
+       |    - Utilise Repository et Mapper, éventuellement ServiceUtils
+       v
+  [8] Repository (JpaRepository)
+       |    - Accès base de données (MySQL)
+       v
+  [9] Retour : Service -> Controller -> sérialisation JSON (ResponseEntity + ApiResponse)
+       v
+  [10] Si une exception est levée (dans 5, 6, 7 ou 8)
+       |    -> GlobalExceptionHandler intercepte et renvoie une réponse d'erreur
+       |       (400, 401, 404, 409, 500) avec ApiResponse.error(message)
+       v
+  Réponse HTTP renvoyée au client
+
+
+================================================================================
+3. SÉCURITÉ ET ROUTES
+================================================================================
+
+  Fichier : config/SecurityConfig.java
+
+  Routes PUBLIQUES (sans JWT) :
+    - /auth/**              (login, refresh token, logout)
+    - /password-reset/**     (demande et confirmation de réinitialisation)
+    - /error                 (page d'erreur)
+    - /employees/**          (CRUD employés - en démo)
+    - /familles/**           (CRUD familles)
+    - /origines/**           (CRUD origines)
+    - /articles/**           (CRUD articles)
+    - /fournisseurs/**       (CRUD fournisseurs)
+    - /travailleurs/**       (CRUD travailleurs et pointages)
+
+  Routes PROTÉGÉES (JWT requis) :
+    - Tout le reste (ex : /admin/**)
+    - Si pas de token ou token invalide : 401 Unauthorized
+
+  Comportement :
+    - Session STATELESS : pas de session serveur, tout repose sur le JWT
+    - JwtAuthenticationFilter : lit "Authorization: Bearer <jwt>", valide le token,
+      charge l'utilisateur (CustomUserDetailsService) et remplit le SecurityContext
+    - PasswordEncoder : BCrypt pour les mots de passe
+
+
+================================================================================
+4. COUCHES ET RÔLES
+================================================================================
+
+  ----- CONTROLLER (package controller) -----
+  Rôle : Recevoir la requête HTTP, valider les entrées (@Valid), appeler le service,
+         renvoyer ResponseEntity<ApiResponse<T>>.
+
+  Exemple typique :
+    - POST /articles  -> create(@RequestBody ArticleRequest) -> articleService.create(request)
+    - GET  /articles  -> getAll() -> articleService.getAll()
+    - GET  /articles/{id} -> getById(id) -> articleService.getById(id)
+    - PUT  /articles/{id} -> update(id, request) -> articleService.update(id, request)
+    - DELETE /articles/{id} -> delete(id) -> articleService.delete(id)
+
+  Le contrôleur ne contient pas de logique métier. Il délègue tout au service.
+
+  ----- SERVICE (package service) -----
+  Rôle : Logique métier, règles de gestion, transactions (@Transactional).
+
+  Pour chaque ressource (Article, Famille, Origine, Fournisseur, Employee, Travailleur, etc.) :
+    - create(request) : vérifications d'unicité (code, désignation, etc.), puis save
+    - getAll() : findAll() puis mapping vers DTO (Response)
+    - getById(id) : findById ou ServiceUtils.findByIdOrThrow, puis toResponse
+    - update(id, request) : chargement entité, vérifications, updateEntity, save
+    - delete(id) : ServiceUtils.deleteByIdOrThrow ou équivalent
+
+  Les services utilisent :
+    - Les repositories pour l'accès données
+    - Les mappers (XxxMapper.toEntity, XxxMapper.toResponse, XxxMapper.updateEntity)
+    - ServiceUtils pour factoriser findById+orElseThrow et delete avec 404
+
+  ----- REPOSITORY (package repository) -----
+  Rôle : Accès base de données. Interfaces qui étendent JpaRepository<Entity, Long>.
+
+  Méthodes héritées : findAll(), findById(id), save(entity), deleteById(id), existsById(id).
+  Méthodes personnalisées selon les besoins : existsByCodeArticle, findByCodeArticle,
+  existsByDesignationIgnoreCase, findByTravailleurIdOrderByDatePointageDesc, etc.
+
+  ----- ENTITY (package entity) -----
+  Rôle : Modèle persistant JPA (tables en base).
+
+  Annotations : @Entity, @Table(name="..."), @Id, @GeneratedValue, @Column, etc.
+  Exemples : Article, Famille, Origine, Fournisseur, Employee, Travailleur, Pointage, Admin.
+
+  ----- DTO REQUEST (package dto.request) -----
+  Rôle : Objets reçus dans le corps des requêtes (POST/PUT). Validation avec
+  jakarta.validation (@NotBlank, @NotNull, @Size, @Email, etc.).
+
+  Exemples : ArticleRequest, FamilleRequest, LoginRequest, RefreshTokenRequest.
+
+  ----- DTO RESPONSE (package dto.response) -----
+  Rôle : Objets renvoyés au client. Pas d'exposition directe des entités.
+
+  - ApiResponse<T> : enveloppe standard { success, message, data, timestamp }
+  - XxxResponse : un DTO par ressource (ArticleResponse, FamilleResponse, etc.)
+
+  ----- MAPPER (package mapper) -----
+  Rôle : Conversion Request -> Entity, Entity -> Response, et mise à jour Entity depuis Request.
+
+  Méthodes statiques typiques :
+    - toEntity(Request) -> Entity
+    - toResponse(Entity) -> Response
+    - updateEntity(Entity, Request) : modifie l'entité en place
+
+  ----- UTIL (package util) -----
+  Rôle : Utilitaires réutilisables.
+
+  - ServiceUtils : findByIdOrThrow(repo, id, "NomRessource"), deleteByIdOrThrow(repo, id, "NomRessource")
+  - JwtUtil : génération et validation des tokens JWT (extraction email, expiration, etc.)
+
+  ----- EXCEPTION (package exception) -----
+  Rôle : Gestion centralisée des erreurs.
+
+  - ResourceNotFoundException : levée quand une ressource (article, famille, etc.) n'existe pas
+  - GlobalExceptionHandler (@RestControllerAdvice) : intercepte les exceptions et renvoie
+    une réponse HTTP cohérente (ApiResponse.error) avec le bon code (400, 401, 404, 409, 500)
+
+
+================================================================================
+5. GESTION DES ERREURS (GlobalExceptionHandler)
+================================================================================
+
+  Chaque type d'exception est transformé en réponse JSON avec ApiResponse.error(message) :
+
+  - MethodArgumentNotValidException (validation @Valid échouée)
+    -> 400 Bad Request, message "Erreurs de validation", data = map (champ -> message)
+
+  - BadCredentialsException (mauvais email/mot de passe)
+    -> 401 Unauthorized, "Email ou mot de passe incorrect"
+
+  - LockedException (compte verrouillé)
+    -> 423 Locked, "Votre compte est verrouillé..."
+
+  - IllegalArgumentException (règle métier : doublon, valeur invalide)
+    -> 400 Bad Request, message de l'exception
+
+  - IllegalStateException
+    -> 409 Conflict, message de l'exception
+
+  - ResourceNotFoundException (ressource absente)
+    -> 404 Not Found, message (ex. "Article introuvable")
+
+  - Exception (toute autre)
+    -> 500 Internal Server Error, "Une erreur interne s'est produite..."
+
+
+================================================================================
+6. RÉPONSE API STANDARD (ApiResponse<T>)
+================================================================================
+
+  Toutes les réponses du backend (succès ou erreur) passent par ApiResponse :
+
+  - success : true ou false
+  - message : optionnel (ex. "Article créé")
+  - data : le payload (liste d'articles, un article, null, etc.)
+  - timestamp : LocalDateTime
+
+  Méthodes statiques :
+    - ApiResponse.success(data)
+    - ApiResponse.success("Message", data)
+    - ApiResponse.error("Message d'erreur")
+
+  Le client (Angular) reçoit toujours un JSON de ce format et peut vérifier
+  response.success et utiliser response.data.
+
+
+================================================================================
+7. DOMAINES MÉTIER ET ENDPOINTS
+================================================================================
+
+  Articles          /articles              CRUD + GET /code/{codeArticle}
+  Familles          /familles              CRUD
+  Origines          /origines              CRUD
+  Fournisseurs      /fournisseurs           CRUD
+  Employés          /employees             CRUD
+  Travailleurs      /travailleurs          CRUD
+  Pointages         /travailleurs/{id}/pointages   GET (historique), POST (créer)
+  Auth              /auth/login, /auth/refresh, /auth/logout
+  Réinitialisation  /password-reset/request, /password-reset/confirm
+  Admin             /admin/me (utilisateur courant, JWT requis)
+
+
+================================================================================
+8. AUTHENTIFICATION (JWT)
+================================================================================
+
+  - Connexion : POST /auth/login avec LoginRequest (email, password).
+    AuthService vérifie les identifiants, charge l'admin (AdminRepository),
+    génère un JWT (JwtUtil) et renvoie AuthResponse (token, refreshToken, infos user).
+
+  - Requêtes protégées : le client envoie "Authorization: Bearer <token>".
+    JwtAuthenticationFilter extrait le token, valide signature et expiration,
+    charge UserDetails (CustomUserDetailsService), met à jour SecurityContext.
+
+  - Refresh : POST /auth/refresh avec RefreshTokenRequest pour obtenir un nouveau
+    access token sans ressaisir le mot de passe.
+
+
+================================================================================
+9. BASE DE DONNÉES ET TRANSACTIONS
+================================================================================
+
+  - JPA/Hibernate avec MySQL (driver dans pom.xml).
+  - Les services sont @Transactional : create, update, delete en lecture-écriture ;
+    getAll, getById en @Transactional(readOnly = true) pour optimisation.
+
+  - Si une exception est levée dans une méthode @Transactional, la transaction
+    est annulée (rollback) et les modifications ne sont pas persistées.
+
+
+================================================================================
+10. CONFIGURATION ET PROPRIÉTÉS
+================================================================================
+
+  - SecurityProperties : CORS (origines autorisées), JWT (secret, expiration).
+  - EmailProperties, PasswordResetProperties : envoi d’emails (réinitialisation).
+  - FamilleInitializer / AdminInitializer : données initiales au démarrage (optionnel).
+  - ScheduledTasks : tâches planifiées si besoin (@EnableScheduling dans DindorApplication).
+
+
+================================================================================
+11. RÉSUMÉ DU FLUX POUR UN EXEMPLE : CRÉATION D'UN ARTICLE
+================================================================================
+
+  1. Client envoie : POST /articles avec body JSON (ArticleRequest).
+  2. SecurityConfig : /articles est en permitAll -> pas de JWT.
+  3. DispatcherServlet route vers ArticleController.create().
+  4. @Valid déclenche la validation du body ; si erreur -> GlobalExceptionHandler -> 400.
+  5. ArticleController appelle articleService.create(request).
+  6. ArticleService :
+     - Vérifie que le code article n'existe pas déjà (existsByCodeArticle).
+     - Vérifie que la désignation (trim) n'existe pas déjà (existsByDesignationIgnoreCase).
+     - ArticleMapper.toEntity(request) -> Article.
+     - articleRepository.save(article).
+     - ArticleMapper.toResponse(saved) -> ArticleResponse.
+  7. Retour au contrôleur : ResponseEntity.status(201).body(ApiResponse.success("Article créé", response)).
+  8. Le client reçoit un JSON avec success=true, message="Article créé", data=ArticleResponse.
+
+  En cas de doublon, ArticleService lève IllegalArgumentException -> GlobalExceptionHandler
+  renvoie 400 avec le message "Un article avec ce code existe déjà" (ou désignation).
+
+
+================================================================================
+FIN DU DOCUMENT
+================================================================================

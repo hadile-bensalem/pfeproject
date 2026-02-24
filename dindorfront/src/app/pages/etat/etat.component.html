@@ -1,0 +1,349 @@
+<div class="etat-container">
+  <header class="page-header">
+    <div>
+      <h2>État</h2>
+      <p class="subtitle">Traites et Retenues à la Source</p>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab" [class.active]="activeTab === 'traites'" (click)="activeTab = 'traites'">Traites</button>
+    <button class="tab" [class.active]="activeTab === 'retenues'" (click)="activeTab = 'retenues'">Retenues à la Source</button>
+  </div>
+
+  <!-- Section Traites -->
+  <section *ngIf="activeTab === 'traites'" class="section-traites">
+    <div class="page-toolbar">
+      <div class="left-actions">
+        <button class="btn primary" (click)="openAddTraiteModal()">Ajouter une Traite</button>
+        <button class="btn secondary" (click)="openRibModal()">Gérer les RIB</button>
+        <button class="btn outline" (click)="exportExcel()">Exporter en Excel</button>
+      </div>
+    </div>
+
+    <div class="card list-card">
+      <div class="list-header">
+        <h3>Historique des Traites</h3>
+        <div class="filters-row">
+          <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onFilterChange()" placeholder="Rechercher..." class="search-input">
+          <input type="text" [(ngModel)]="filterRib" (ngModelChange)="onFilterChange()" placeholder="Filtrer par RIB" class="filter-input">
+          <input type="text" [(ngModel)]="filterFournisseur" (ngModelChange)="onFilterChange()" placeholder="Filtrer par Fournisseur" class="filter-input">
+          <select [(ngModel)]="filterStatut" (ngModelChange)="onFilterChange()" class="select-filter">
+            <option value="">Tous les statuts</option>
+            <option value="non_imprimee">Non Imprimée</option>
+            <option value="imprimee">Imprimée</option>
+            <option value="echue">Échue</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>N° Ordre</th>
+              <th>Fournisseur</th>
+              <th>Tireur</th>
+              <th>Montant</th>
+              <th>Date Création</th>
+              <th>Échéance</th>
+              <th>RIB</th>
+              <th>Domiciliation</th>
+              <th>Statut</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredTraites.length === 0">
+              <td colspan="10" class="empty-state">Aucune traite. Cliquez sur "Ajouter une Traite" pour commencer.</td>
+            </tr>
+            <tr *ngFor="let t of filteredTraites">
+              <td>{{ t.ordrePaiement }}</td>
+              <td>{{ t.fournisseurNom }}</td>
+              <td>{{ t.tireur }}</td>
+              <td>{{ t.montant | number:'1.2-2':'fr' }} {{ t.valeurEn }}</td>
+              <td>{{ formatDate(t.dateCreation) }}</td>
+              <td>{{ formatDate(t.dateEcheance) }}</td>
+              <td>{{ getRibDisplay(t.ribId) }}</td>
+              <td>{{ t.domiciliation }}</td>
+              <td><span class="statut-badge" [class]="'statut-' + t.statut">{{ getStatutLabel(t.statut) }}</span></td>
+              <td class="actions-col">
+                <button class="chip neutral" (click)="voirTraite(t)">Voir</button>
+                <button class="chip primary" (click)="imprimerTraite(t)">Imprimer</button>
+                <button class="chip danger" (click)="supprimerTraite(t)">Supprimer</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section Retenues à la Source -->
+  <section *ngIf="activeTab === 'retenues'" class="section-retenues">
+    <div class="page-toolbar">
+      <button class="btn primary" (click)="openAddRetenueModal()">Ajouter une Retenue</button>
+    </div>
+    <div class="retenues-layout">
+      <div class="retenues-form-panel card">
+        <h3>Saisie Retenue</h3>
+        <p class="form-hint">N° Retenue : {{ getNextNumeroRetenue() }} (auto-généré)</p>
+        <form [formGroup]="retenueForm" (ngSubmit)="onSubmitRetenue()">
+          <div class="form-grid">
+            <div class="form-group wide">
+              <label>Fournisseur <span class="required">*</span></label>
+              <select formControlName="fournisseurId" (change)="onFournisseurChangeRetenue()" class="select-input">
+                <option [ngValue]="null">— Choisir un fournisseur —</option>
+                <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.raisonSociale }} ({{ f.matricule }})</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Retenue effectuée le <span class="required">*</span></label>
+              <input type="date" formControlName="dateRetenue">
+            </div>
+            <div class="form-group">
+              <label>Lot</label>
+              <input type="text" formControlName="lot" placeholder="Ex: KSIBET">
+            </div>
+            <div class="form-group">
+              <label>Taux (%) <span class="required">*</span></label>
+              <input type="number" formControlName="taux" step="0.01" min="0" max="100" placeholder="1, 5, 15...">
+            </div>
+            <div class="form-group wide">
+              <label>N° Facture</label>
+              <select formControlName="numeroFacture" (change)="onFactureChangeRetenue()" class="select-input">
+                <option value="">— Choisir une facture —</option>
+                <option *ngFor="let fac of facturesFournisseur" [value]="fac.numeroFacture">
+                  {{ fac.numeroFacture }} — {{ fac.montantTotal | number:'1.2-2':'fr' }} DT
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Montant Brut (DT) <span class="required">*</span></label>
+              <input type="number" formControlName="montantBrut" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label>Retenue (Ret)</label>
+              <input type="number" formControlName="retenue" readonly class="input-readonly">
+            </div>
+            <div class="form-group">
+              <label>Montant Net</label>
+              <input type="number" formControlName="montantNet" readonly class="input-readonly">
+            </div>
+            <div class="form-group wide">
+              <label>Libellé</label>
+              <input type="text" formControlName="libelle" placeholder="Retenue à la source marché (1%)">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn success">OK</button>
+            <button type="button" class="btn secondary" (click)="onSubmitRetenueAndPrint()">OK et Imprimer</button>
+          </div>
+        </form>
+      </div>
+      <div class="retenues-table-panel card">
+        <h3>Liste des Retenues</h3>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>N° Retenue</th>
+                <th>Fournisseur</th>
+                <th>Date</th>
+                <th>N° Facture</th>
+                <th>Taux</th>
+                <th class="num-col">Montant Brut</th>
+                <th class="num-col">Retenue</th>
+                <th class="num-col">Net</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="retenues.length === 0">
+                <td colspan="9" class="empty-state">Aucune retenue. Cliquez sur "Ajouter une Retenue".</td>
+              </tr>
+              <tr *ngFor="let r of retenues">
+                <td>{{ r.numeroRetenue }}</td>
+                <td>{{ r.fournisseurNom }}</td>
+                <td>{{ formatDate(r.dateRetenue) }}</td>
+                <td>{{ r.numeroFacture || '—' }}</td>
+                <td>{{ r.taux }}%</td>
+                <td class="num-col">{{ r.montantBrut | number:'1.2-2':'fr' }}</td>
+                <td class="num-col">{{ r.retenue | number:'1.2-2':'fr' }}</td>
+                <td class="num-col">{{ r.montantNet | number:'1.2-2':'fr' }}</td>
+                <td class="actions-col">
+                  <button class="chip neutral" (click)="voirRetenue(r)">Voir</button>
+                  <button class="chip primary" (click)="imprimerRetenue(r)">Imprimer</button>
+                  <button class="chip danger" (click)="supprimerRetenue(r)">Supprimer</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Modal Ajouter une Traite -->
+<div class="modal-backdrop" *ngIf="isModalTraiteOpen" (click)="closeTraiteModal()">
+  <div class="modal-dialog modal-traite" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3>Ajouter une Traite</h3>
+        <p class="modal-subtitle">Renseignez les informations de la lettre de change.</p>
+      </div>
+      <button class="close-btn" type="button" (click)="closeTraiteModal()">&times;</button>
+    </div>
+
+    <form [formGroup]="traiteForm" (ngSubmit)="onSubmitTraite()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group wide">
+            <label>N° Compte RIB</label>
+            <div class="rib-choice">
+              <select formControlName="ribSelect" (change)="onRibSelectChange()" class="select-input">
+                <option value="">— Choisir un RIB existant —</option>
+                <option *ngFor="let opt of ribListForSelect" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+              <span class="rib-or">ou saisir manuellement :</span>
+              <input type="text" formControlName="ribManual" (input)="onRibManualInput()"
+                placeholder="08 | 505 | 00027100209688">
+            </div>
+            <small class="form-hint">Format : Code Établissement | Code Agence | N° Compte</small>
+          </div>
+
+          <div class="form-group wide">
+            <label>Fournisseur <span class="required">*</span></label>
+            <select formControlName="fournisseurId" class="select-input">
+              <option [ngValue]="null">— Choisir un fournisseur —</option>
+              <option *ngFor="let f of fournisseursFiltres" [ngValue]="f.id">{{ f.raisonSociale }} ({{ f.matricule }})</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Tireur <span class="required">*</span></label>
+            <input type="text" formControlName="tireur" placeholder="Ex: STE DINDOR">
+          </div>
+          <div class="form-group">
+            <label>Tiré (À)</label>
+            <input type="text" formControlName="tire" placeholder="Ex: KSIBET">
+          </div>
+
+          <div class="form-group">
+            <label>Montant en chiffres <span class="required">*</span></label>
+            <input type="number" formControlName="montant" step="0.001" min="0" placeholder="10 000,000">
+          </div>
+          <div class="form-group">
+            <label>Montant en lettres</label>
+            <input type="text" formControlName="montantLettres" readonly class="readonly">
+          </div>
+
+          <div class="form-group">
+            <label>Date de création <span class="required">*</span></label>
+            <input type="date" formControlName="dateCreation">
+          </div>
+          <div class="form-group">
+            <label>Date d'échéance <span class="required">*</span></label>
+            <input type="date" formControlName="dateEcheance">
+          </div>
+
+          <div class="form-group">
+            <label>Lieu de création</label>
+            <input type="text" formControlName="lieuCreation" placeholder="Ex: KSIBET">
+          </div>
+          <div class="form-group">
+            <label>Domiciliation</label>
+            <input type="text" formControlName="domiciliation" placeholder="Ex: BIAT KSIBET EL M.">
+          </div>
+
+          <div class="form-group wide">
+            <label>Nom &amp; adresse du Tiré</label>
+            <input type="text" formControlName="nomAdresseTire" placeholder="Ex: STE DINDOR">
+          </div>
+          <div class="form-group">
+            <label>Valeur en</label>
+            <input type="text" formControlName="valeurEn" placeholder="DT">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn neutral" type="button" (click)="closeTraiteModal()">Annuler</button>
+        <button class="btn success" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Gestion RIB -->
+<div class="modal-backdrop" *ngIf="isModalRibOpen" (click)="closeRibModal()">
+  <div class="modal-dialog modal-rib" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3>{{ ribModalView === 'form' ? (isModalRibEdit ? 'Modifier le RIB' : 'Ajouter un RIB') : 'Gestion des RIB' }}</h3>
+        <p class="modal-subtitle">{{ ribModalView === 'form' ? 'Code Établissement | Code Agence | N° Compte' : 'Liste des RIB enregistrés' }}</p>
+      </div>
+      <button class="close-btn" type="button" (click)="closeRibModal()">&times;</button>
+    </div>
+
+    <div *ngIf="ribModalView === 'list'">
+      <div class="modal-body">
+        <button class="btn primary btn-add-rib" (click)="ribModalView = 'form'; openRibModalForm()">Ajouter un RIB</button>
+        <div class="table-wrapper rib-table">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>RIB</th>
+                <th>Domiciliation</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="ribs.length === 0">
+                <td colspan="3" class="empty-state">Aucun RIB. Cliquez sur "Ajouter un RIB".</td>
+              </tr>
+              <tr *ngFor="let r of ribs">
+                <td>{{ r.codeEtablissement }} | {{ r.codeAgence }} | {{ r.numeroCompte }}</td>
+                <td>{{ r.domiciliation }}</td>
+                <td class="actions-col">
+                  <button class="chip primary" (click)="editRib(r)">Modifier</button>
+                  <button class="chip danger" (click)="deleteRib(r)">Supprimer</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <form *ngIf="ribModalView === 'form'" [formGroup]="ribForm" (ngSubmit)="onSubmitRib()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Code Établissement <span class="required">*</span></label>
+            <input type="text" formControlName="codeEtablissement">
+          </div>
+          <div class="form-group">
+            <label>Code Agence <span class="required">*</span></label>
+            <input type="text" formControlName="codeAgence" >
+          </div>
+          <div class="form-group">
+            <label>N° Compte <span class="required">*</span></label>
+            <input type="text" formControlName="numeroCompte">
+          </div>
+          <div class="form-group wide">
+            <label>Domiciliation / Nom de la banque <span class="required">*</span></label>
+            <input type="text" formControlName="domiciliation" >
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn neutral" type="button" (click)="ribModalView = 'list'">Retour à la liste</button>
+        <button class="btn success" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+

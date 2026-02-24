@@ -1,0 +1,184 @@
+<div class="travailleurs-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Travailleurs</h2>
+      <p class="subtitle">Liste, suivi et pointage des travailleurs de Dind'Or</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn-primary" (click)="openCreate()">Ajouter Travailleur</button>
+      <button type="button" class="btn-secondary" (click)="allerHome()">Fermer</button>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <input
+      class="search-field"
+      type="text"
+      [(ngModel)]="searchTerm"
+      (ngModelChange)="applyFilter()"
+      placeholder="Rechercher par nom, prénom, CIN, type, tarif...">
+  </section>
+
+  <section class="table-section" *ngIf="!isLoading; else loadingTpl">
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>CIN</th>
+          <th>Type</th>
+          <th>CNSS</th>
+          <th>Tarif Jour</th>
+          <th>Rendement</th>
+          <th>Actif</th>
+          <th class="actions-header">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of filteredTravailleurs">
+          <td>{{ row.nom }}</td>
+          <td>{{ row.prenom }}</td>
+          <td>{{ row.cin }}</td>
+          <td>{{ row.typeTravailleur === 'PERMANENT' ? 'Permanent' : 'Saisonnier' }}</td>
+          <td>
+            <span class="badge" [class.badge-success]="row.statutCNSS" [class.badge-muted]="!row.statutCNSS">
+              {{ row.statutCNSS ? 'Déclaré' : 'Non CNSS' }}
+            </span>
+          </td>
+          <td>{{ row.tarifJournalier | number:'1.0-2' }}</td>
+          <td>{{ row.rendement | number:'1.1-1' }}</td>
+          <td>{{ row.actif ? 'Oui' : 'Non' }}</td>
+          <td class="actions-cell">
+            <button type="button" (click)="openView(row)">Détails</button>
+            <button type="button" (click)="openEdit(row)">Modifier</button>
+            <button type="button" (click)="supprimer(row)">Supprimer</button>
+            <button type="button" (click)="allerPointage(row)">Pointage</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <ng-template #loadingTpl>
+    <div class="loading-container">
+      <p>Chargement des travailleurs...</p>
+    </div>
+  </ng-template>
+
+  <!-- Modal formulaire travailleur -->
+  <div class="modal-backdrop" *ngIf="isModalOpen">
+    <div class="modal-dialog" [formGroup]="form">
+      <div class="modal-header">
+        <h3>
+          {{ isViewOnly ? 'Détails du travailleur' : (isEditing ? 'Modifier travailleur' : 'Nouveau travailleur') }}
+        </h3>
+        <button type="button" class="close-btn" (click)="closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <section class="form-section">
+          <h4>Informations personnelles</h4>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nom <span class="required">*</span></label>
+              <input type="text" formControlName="nom">
+            </div>
+            <div class="form-group">
+              <label>Prénom <span class="required">*</span></label>
+              <input type="text" formControlName="prenom">
+            </div>
+            <div class="form-group">
+              <label>CIN <span class="required">*</span></label>
+              <input type="text" formControlName="cin">
+            </div>
+            <div class="form-group">
+              <label>Téléphone</label>
+              <input type="text" formControlName="telephone" placeholder="+216 ...">
+            </div>
+            <div class="form-group full-width">
+              <label>Adresse</label>
+              <input type="text" formControlName="adresse">
+            </div>
+            <div class="form-group">
+              <label>Date de naissance</label>
+              <input type="date" formControlName="dateNaissance">
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h4>Informations contractuelles</h4>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Date d'embauche <span class="required">*</span></label>
+              <input type="date" formControlName="dateEmbauche">
+            </div>
+            <div class="form-group">
+              <label>Type de travailleur <span class="required">*</span></label>
+              <select formControlName="typeTravailleur">
+                <option value="PERMANENT">Permanent</option>
+                <option value="SAISONNIER">Saisonnier</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" formControlName="statutCNSS">
+                Déclaré CNSS
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h4>Informations de paie</h4>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Tarif journalier <span class="required">*</span></label>
+              <input type="number" formControlName="tarifJournalier">
+            </div>
+            <div class="form-group">
+              <label>Heures de travail / jour</label>
+              <input type="number" formControlName="heuresTravailJour">
+            </div>
+            <div class="form-group full-width">
+              <label>Rendement (0.5 - 2.0)</label>
+              <input type="number" step="0.1" min="0.5" max="2" formControlName="rendement">
+            </div>
+            <div class="form-group full-width salary-box">
+              <span>Salaire journalier estimé :</span>
+              <strong>{{ salaireFinal | number:'1.0-2' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h4>Autres</h4>
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label>Observations</label>
+              <textarea rows="3" formControlName="observations"></textarea>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" formControlName="actif">
+                Travailleur actif
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeModal()">Annuler</button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="form.invalid || isViewOnly"
+          (click)="onSubmitForm()">
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

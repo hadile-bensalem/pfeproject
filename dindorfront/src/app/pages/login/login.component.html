@@ -1,0 +1,179 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="left-section">
+      <div class="illustration">
+        <!-- Illustration de volaille stylisée -->
+        <svg viewBox="0 0 400 350" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background blobs -->
+          <ellipse cx="200" cy="280" rx="180" ry="60" fill="#FFE5B4" opacity="0.3"/>
+          <circle cx="80" cy="100" r="60" fill="#8B1A1A" opacity="0.15"/>
+          <circle cx="320" cy="150" r="50" fill="#DAA520" opacity="0.15"/>
+
+          <!-- Decorative leaves -->
+          <path d="M 60 200 Q 50 180 70 170 Q 80 165 85 175 Q 90 185 80 195 Z" fill="#2D5016"/>
+          <path d="M 340 220 Q 350 210 360 220 Q 365 230 355 240 Q 345 245 340 235 Z" fill="#4A7C2F"/>
+          <path d="M 70 280 Q 60 270 75 260 Q 85 255 90 265 Q 95 275 85 285 Z" fill="#3D6B23"/>
+
+          <!-- Main chicken/poultry illustration -->
+          <g class="chicken-group">
+            <!-- Body -->
+            <ellipse cx="200" cy="220" rx="70" ry="85" fill="#FFFFFF" stroke="#8B1A1A" stroke-width="3"/>
+            <!-- Wing -->
+            <ellipse cx="155" cy="210" rx="35" ry="50" fill="#F5F5F5" stroke="#8B1A1A" stroke-width="2"/>
+            <!-- Head -->
+            <circle cx="200" cy="140" r="35" fill="#FFFFFF" stroke="#8B1A1A" stroke-width="3"/>
+            <!-- Comb (crête) -->
+            <path d="M 185 115 Q 190 100 195 115 Q 200 105 205 115 Q 210 100 215 115"
+                  fill="#8B1A1A" stroke="#8B1A1A" stroke-width="2"/>
+            <!-- Beak -->
+            <path d="M 220 145 L 240 140 L 220 150 Z" fill="#DAA520"/>
+            <!-- Eye -->
+            <circle cx="210" cy="135" r="4" fill="#000000"/>
+            <!-- Wattle (barbillon) -->
+            <ellipse cx="200" cy="165" rx="8" ry="12" fill="#8B1A1A"/>
+            <!-- Legs -->
+            <line x1="180" y1="300" x2="180" y2="270" stroke="#DAA520" stroke-width="4"/>
+            <line x1="220" y1="300" x2="220" y2="270" stroke="#DAA520" stroke-width="4"/>
+            <!-- Feet -->
+            <path d="M 170 300 L 180 300 L 190 300" stroke="#DAA520" stroke-width="3" fill="none"/>
+            <path d="M 210 300 L 220 300 L 230 300" stroke="#DAA520" stroke-width="3" fill="none"/>
+          </g>
+
+          <!-- Decorative eggs -->
+          <ellipse cx="120" cy="290" rx="15" ry="20" fill="#FFFACD" stroke="#DAA520" stroke-width="2"/>
+          <ellipse cx="280" cy="285" rx="12" ry="16" fill="#FFF8DC" stroke="#DAA520" stroke-width="2"/>
+          <ellipse cx="150" cy="300" rx="10" ry="14" fill="#FFEFD5" stroke="#DAA520" stroke-width="2"/>
+
+          <!-- Wheat/grain decorative elements -->
+          <g class="wheat-left">
+            <line x1="30" y1="250" x2="30" y2="200" stroke="#B8860B" stroke-width="2"/>
+            <ellipse cx="30" cy="195" rx="4" ry="8" fill="#DAA520"/>
+            <ellipse cx="28" cy="205" rx="3" ry="6" fill="#DAA520"/>
+            <ellipse cx="32" cy="210" rx="3" ry="6" fill="#DAA520"/>
+          </g>
+
+          <g class="wheat-right">
+            <line x1="370" y1="260" x2="370" y2="210" stroke="#B8860B" stroke-width="2"/>
+            <ellipse cx="370" cy="205" rx="4" ry="8" fill="#DAA520"/>
+            <ellipse cx="368" cy="215" rx="3" ry="6" fill="#DAA520"/>
+            <ellipse cx="372" cy="220" rx="3" ry="6" fill="#DAA520"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <div class="login-form">
+        <div class="logo-container">
+          <a routerLink="/welcome" class="logo-link">
+            <img src="assets/images/logo.png" alt="Dind'or Logo" class="logo-image">
+          </a>
+        </div>
+
+        <h1>Bienvenue !</h1>
+        <p class="subtitle">Veuillez vous connecter à votre compte pour accéder à la plateforme Dindor</p>
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+          <div class="form-group">
+            <label for="email">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+              </svg>
+              Nom d'utilisateur ou Email
+            </label>
+            <input
+              type="text"
+              id="email"
+              formControlName="email"
+              placeholder="exemple@dindor.com"
+              [class.error]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+            >
+            <span class="error-message" *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
+              <span *ngIf="loginForm.get('email')?.errors?.['required']">Ce champ est requis</span>
+              <span *ngIf="loginForm.get('email')?.errors?.['email']">Veuillez entrer un email valide</span>
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="password">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 8H17V6C17 3.24 14.76 1 12 1C9.24 1 7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM12 3C13.66 3 15 4.34 15 6V8H9V6C9 4.34 10.34 3 12 3ZM18 20H6V10H18V20Z" fill="currentColor"/>
+              </svg>
+              Mot de passe
+            </label>
+            <div class="password-input">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                id="password"
+                formControlName="password"
+                placeholder="••••••••••••"
+                [class.error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+              >
+              <button type="button" class="toggle-password" (click)="togglePassword()">
+                <svg *ngIf="!showPassword" class="icon-eye" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12C2.73 16.39 7 19.5 12 19.5C17 19.5 21.27 16.39 23 12C21.27 7.61 17 4.5 12 4.5ZM12 17C9.24 17 7 14.76 7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12C17 14.76 14.76 17 12 17ZM12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="currentColor"/>
+                </svg>
+                <svg *ngIf="showPassword" class="icon-eye-off" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 7C14.76 7 17 9.24 17 12C17 12.65 16.87 13.26 16.64 13.82L19.56 16.74C21.07 15.49 22.26 13.86 23 12C21.27 7.61 17 4.5 12 4.5C10.6 4.5 9.26 4.75 8 5.2L10.17 7.37C10.74 7.13 11.35 7 12 7ZM2 4.27L4.28 6.55L4.73 7C3.08 8.3 1.78 10.02 1 12C2.73 16.39 7 19.5 12 19.5C13.55 19.5 15.03 19.2 16.38 18.66L16.81 19.09L19.73 22L21 20.73L3.27 3L2 4.27ZM7.53 9.8L9.08 11.35C9.03 11.56 9 11.77 9 12C9 13.66 10.34 15 12 15C12.23 15 12.44 14.97 12.65 14.92L14.2 16.47C13.53 16.8 12.79 17 12 17C9.24 17 7 14.76 7 12C7 11.21 7.2 10.47 7.53 9.8ZM11.84 9.02L14.98 12.16C14.98 12.11 15 12.06 15 12C15 10.34 13.66 9 12 9C11.94 9 11.89 9.02 11.84 9.02Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <span class="error-message" *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+              <span *ngIf="loginForm.get('password')?.errors?.['required']">Le mot de passe est requis</span>
+              <span *ngIf="loginForm.get('password')?.errors?.['minlength']">Le mot de passe doit contenir au moins 6 caractères</span>
+            </span>
+          </div>
+
+          <div class="form-options">
+            <label class="remember-me">
+              <input type="checkbox" formControlName="rememberMe">
+              <span>Se souvenir de moi</span>
+            </label>
+            <a routerLink="/forgot-password" class="forgot-password">Mot de passe oublié ?</a>
+          </div>
+
+          <div class="error-message-container" *ngIf="errorMessage">
+            <span class="error-message-text">{{ errorMessage }}</span>
+          </div>
+
+          <button type="submit" class="btn-login" [disabled]="loginForm.invalid || isLoading">
+            <span *ngIf="!isLoading">Se connecter</span>
+            <span *ngIf="isLoading" class="spinner"></span>
+          </button>
+
+          <button type="button" class="btn-register" routerLink="/signin">
+            Créer un compte
+          </button>
+        </form>
+
+        <div class="divider">
+          <span>ou continuer avec</span>
+        </div>
+
+        <div class="social-login">
+          <button class="social-btn google" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google
+          </button>
+          <button class="social-btn facebook" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#1877F2">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+            Facebook
+          </button>
+          <button class="social-btn twitter" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#1DA1F2">
+              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+            </svg>
+            Twitter
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

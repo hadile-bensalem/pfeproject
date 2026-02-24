@@ -1,0 +1,293 @@
+<div class="achat-container">
+  <header class="page-header">
+    <div>
+      <h2>Gestion des Achats et Articles</h2>
+      <p class="subtitle">Factures d'achat et catalogue d'articles</p>
+    </div>
+  </header>
+
+  <div class="page-toolbar">
+    <div class="toolbar-buttons">
+      <button type="button" class="btn primary" (click)="openFactureAchatModal()">
+        <span class="btn-icon">📄</span>
+        Ajouter Facture Achat
+      </button>
+      <button type="button" class="btn secondary" (click)="openAddArticleModal()">
+        <span class="btn-icon">+</span>
+        Ajouter Article
+      </button>
+      <button type="button" class="btn outline" (click)="openFamilleModal()">Gérer Familles</button>
+      <button type="button" class="btn outline" (click)="openOrigineModal()">Gérer Origines</button>
+    </div>
+  </div>
+
+  <section class="card filters-card">
+    <div class="filters-row">
+      <div class="radio-group">
+        <label class="radio-label">
+          <input type="radio" name="filterBloc" [checked]="filterBloc === 'non-bloques'" (change)="setFilterBloc('non-bloques')">
+          <span>Non Bloqués</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="filterBloc" [checked]="filterBloc === 'bloques'" (change)="setFilterBloc('bloques')">
+          <span>Bloqués</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="filterBloc" [checked]="filterBloc === 'globale'" (change)="setFilterBloc('globale')">
+          <span>Globale</span>
+        </label>
+      </div>
+      <div class="filters-actions">
+        <input
+          type="text"
+          class="search-input"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Rechercher article, code, famille..."
+        >
+        <span class="total-badge">Total : {{ totalValeur | currencyFormat }}</span>
+        <button type="button" class="btn outline" (click)="quitter()">Quitter</button>
+        <button type="button" class="btn neutral" (click)="initialiser()">Initialiser</button>
+        <button type="button" class="btn outline" (click)="transfertExcel()">Transfert EXCEL</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card list-card">
+    <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            <th (click)="sortBy('codeArticle')" class="sortable">Article</th>
+            <th (click)="sortBy('designation')" class="sortable col-libelle">Libellé</th>
+            <th (click)="sortBy('famille')" class="sortable">Famille</th>
+            <th (click)="sortBy('stock1')" class="sortable numeric">Stock 1</th>
+            <th (click)="sortBy('unite')" class="sortable">Unité</th>
+            <th (click)="sortBy('prixAchatHT')" class="sortable numeric">PAHT</th>
+            <th (click)="sortBy('pump')" class="sortable numeric">PUMP</th>
+            <th class="numeric">Valeur</th>
+            <th (click)="sortBy('stock2')" class="sortable numeric">Stock 2</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredArticles.length === 0">
+            <td colspan="11" class="empty-state">Aucun article. Cliquez sur « Ajouter Article » pour en créer.</td>
+          </tr>
+          <tr *ngFor="let a of filteredArticles; let i = index">
+            <td class="col-num">{{ i + 1 }}</td>
+            <td>{{ a.codeArticle }}</td>
+            <td class="col-libelle link-cell" (click)="openEditArticle(a)">{{ a.designation }}</td>
+            <td>{{ a.famille }}</td>
+            <td class="numeric">{{ a.stock1 | numberFormat }}</td>
+            <td>{{ a.unite }}</td>
+            <td class="numeric">{{ a.prixAchatHT | currencyFormat }}</td>
+            <td class="numeric">{{ a.pump | currencyFormat }}</td>
+            <td class="numeric">{{ valeurArticle(a) | currencyFormat }}</td>
+            <td class="numeric">{{ a.stock2 | numberFormat }}</td>
+            <td class="actions-col">
+              <button type="button" class="chip primary" (click)="openEditArticle(a)">Modifier</button>
+              <button type="button" class="chip danger" (click)="deleteArticle(a, $event)">Supprimer</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #loadingTpl>
+      <div class="loading-state">Chargement des articles...</div>
+    </ng-template>
+    <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+  </section>
+</div>
+
+<!-- Modal Facture Achat -->
+<div class="modal-backdrop" *ngIf="isModalFactureAchatOpen" (click)="closeFactureAchatModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Ajouter Facture Achat</h3>
+      <button type="button" class="close-btn" (click)="closeFactureAchatModal()">&times;</button>
+    </div>
+    <form [formGroup]="factureAchatForm" (ngSubmit)="onSubmitFactureAchat()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group wide">
+            <label>Fournisseur <span class="required">*</span></label>
+            <select formControlName="fournisseurId">
+              <option [ngValue]="null">— Choisir —</option>
+              <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.matricule }} — {{ f.raisonSociale }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>N° Facture <span class="required">*</span></label>
+            <input type="text" formControlName="numeroFacture" readonly class="input-readonly" placeholder="Saisie automatique">
+          </div>
+          <div class="form-group">
+            <label>Date <span class="required">*</span></label>
+            <input type="date" formControlName="date">
+          </div>
+          <div class="form-group">
+            <label>Montant HT</label>
+            <input type="number" formControlName="montantHT" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Montant TVA</label>
+            <input type="number" formControlName="montantTVA" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Montant TTC</label>
+            <input type="number" formControlName="montantTTC" step="0.01" min="0">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn neutral" (click)="closeFactureAchatModal()">Annuler</button>
+        <button type="submit" class="btn success" [disabled]="factureAchatForm.invalid">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal AJOUT ARTICLE -->
+<div class="modal-backdrop" *ngIf="isModalArticleOpen" (click)="closeArticleModal()">
+  <div class="modal-dialog modal-article" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ isEditingArticle ? 'Modifier l\'article' : 'AJOUT ARTICLE' }}</h3>
+      <button type="button" class="close-btn" (click)="closeArticleModal()">&times;</button>
+    </div>
+    <form [formGroup]="articleForm">
+      <div class="modal-body">
+        <div class="form-grid article-form">
+          <div class="form-group">
+            <label>Code Article <span class="required">*</span></label>
+            <input type="text" formControlName="codeArticle" readonly class="input-readonly" placeholder="Généré automatiquement (1, 2, 3...)">
+          </div>
+          <div class="form-group wide">
+            <label>Désignation <span class="required">*</span></label>
+            <input type="text" formControlName="designation" placeholder="Nom / description de l'article">
+            <span class="field-error" *ngIf="articleForm.get('designation')?.invalid && articleForm.get('designation')?.touched">Désignation requise</span>
+          </div>
+          <div class="form-group">
+            <label>Unité <span class="required">*</span></label>
+            <select formControlName="unite">
+              <option value="">— Sélectionner —</option>
+              <option *ngFor="let u of unites" [value]="u">{{ u }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Famille <span class="required">*</span></label>
+            <select formControlName="famille">
+              <option value="">— Sélectionner —</option>
+              <option *ngFor="let f of familles" [ngValue]="f.code">{{ f.code }} — {{ f.nom }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Origine</label>
+            <select formControlName="origine">
+              <option value="">— Sélectionner —</option>
+              <option *ngFor="let o of origines" [ngValue]="o.code">{{ o.code }} — {{ o.designation }}</option>
+            </select>
+          </div>
+          <p *ngIf="articleDuplicateError" class="field-error msg-block">{{ articleDuplicateError }}</p>
+        </div>
+      </div>
+      <div class="modal-footer modal-footer-four">
+        <button type="button" class="btn success" (click)="onAjouterArticle()">{{ isEditingArticle ? 'Enregistrer' : 'Ajouter' }}</button>
+        <button type="button" class="btn neutral" (click)="onViderArticle()">Vider</button>
+        <button type="button" class="btn outline" (click)="closeArticleModal()">Fermer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Famille -->
+<div class="modal-backdrop" *ngIf="isModalFamilleOpen" (click)="closeFamilleModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ isEditingFamille ? 'Modifier la famille' : 'Gérer Familles' }}</h3>
+      <button type="button" class="close-btn" (click)="closeFamilleModal()">&times;</button>
+    </div>
+    <form [formGroup]="familleForm" (ngSubmit)="onSubmitFamille()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Code Famille <span class="required">*</span></label>
+            <input type="number" formControlName="code">
+          </div>
+          <div class="form-group">
+            <label>Nom Famille <span class="required">*</span></label>
+            <input type="text" formControlName="nom">
+          </div>
+        </div>
+        <div class="list-inline">
+          <h4>Liste des familles</h4>
+          <div class="mini-table-wrap">
+            <table class="mini-table">
+              <thead><tr><th>Code</th><th>Nom</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let f of familles">
+                  <td>{{ f.code }}</td>
+                  <td>{{ f.nom }}</td>
+                  <td>
+                    <button type="button" class="chip primary" (click)="editFamille(f)">Modifier</button>
+                    <button type="button" class="chip danger" (click)="deleteFamille(f)">Supprimer</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn neutral" (click)="closeFamilleModal()">Fermer</button>
+        <button type="submit" class="btn success" [disabled]="familleForm.invalid">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Origine -->
+<div class="modal-backdrop" *ngIf="isModalOrigineOpen" (click)="closeOrigineModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ isEditingOrigine ? 'Modifier l\'origine' : 'Gérer Origines' }}</h3>
+      <button type="button" class="close-btn" (click)="closeOrigineModal()">&times;</button>
+    </div>
+    <form [formGroup]="origineForm" (ngSubmit)="onSubmitOrigine()">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Code Origine <span class="required">*</span></label>
+            <input type="number" formControlName="code">
+          </div>
+          <div class="form-group">
+            <label>Désignation <span class="required">*</span></label>
+            <input type="text" formControlName="designation">
+          </div>
+        </div>
+        <div class="list-inline">
+          <h4>Liste des origines</h4>
+          <div class="mini-table-wrap">
+            <table class="mini-table">
+              <thead><tr><th>Code</th><th>Désignation</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let o of origines">
+                  <td>{{ o.code }}</td>
+                  <td>{{ o.designation }}</td>
+                  <td>
+                    <button type="button" class="chip primary" (click)="editOrigine(o)">Modifier</button>
+                    <button type="button" class="chip danger" (click)="deleteOrigine(o)">Supprimer</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn neutral" (click)="closeOrigineModal()">Fermer</button>
+        <button type="submit" class="btn success" [disabled]="origineForm.invalid">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>

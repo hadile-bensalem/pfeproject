@@ -1,0 +1,151 @@
+<div class="employee-details-container" *ngIf="employee; else loadingTpl">
+  <header class="page-header">
+    <div>
+      <h2>{{ employee.prenom }} {{ employee.nom }}</h2>
+      <p class="subtitle">Matricule: {{ employee.matricule }} | {{ employee.poste }}</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn neutral" (click)="goBack()">Retour</button>
+      <button type="button" class="btn primary" (click)="goToEdit()">Modifier</button>
+    </div>
+  </header>
+
+  <div class="details-grid">
+    <!-- Informations Personnelles -->
+    <section class="detail-card">
+      <h3>Informations Personnelles</h3>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">CIN:</span>
+          <span class="value">{{ employee.cin }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Téléphone:</span>
+          <span class="value">{{ employee.telephone || 'Non renseigné' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Email:</span>
+          <span class="value">{{ employee.email || 'Non renseigné' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Adresse:</span>
+          <span class="value">{{ employee.adresse || 'Non renseignée' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Date de naissance:</span>
+          <span class="value">{{ employee.dateNaissance | date:'dd/MM/yyyy' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Situation familiale:</span>
+          <span class="value">{{ employee.situationFamiliale || 'Non renseignée' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Nombre d'enfants:</span>
+          <span class="value">{{ employee.nombreEnfants || 0 }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Informations Professionnelles -->
+    <section class="detail-card">
+      <h3>Informations Professionnelles</h3>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">Département:</span>
+          <span class="value">{{ employee.departement }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Type de contrat:</span>
+          <span class="value">{{ employee.typeContrat }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Date de recrutement:</span>
+          <span class="value">{{ employee.dateRecrutement | date:'dd/MM/yyyy' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Statut:</span>
+          <span class="value badge" [class.badge-active]="employee.statut === 'ACTIF'" 
+                [class.badge-suspended]="employee.statut === 'SUSPENDU'"
+                [class.badge-quitted]="employee.statut === 'QUITTÉ'">
+            {{ employee.statut }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rémunération -->
+    <section class="detail-card">
+      <h3>Rémunération</h3>
+      <div class="info-grid" *ngIf="employee.typeContrat === 'CDI' || employee.typeContrat === 'CDD'">
+        <div class="info-item">
+          <span class="label">Salaire de base:</span>
+          <span class="value">{{ employee.salaireBase || 0 | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Primes fixes:</span>
+          <span class="value">{{ employee.primesFixes || 0 | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Prime de rendement:</span>
+          <span class="value">{{ employee.primeRendement || 0 | number:'1.2-2' }} DT</span>
+        </div>
+      </div>
+      <div class="info-grid" *ngIf="employee.typeContrat === 'JOURNALIER'">
+        <div class="info-item">
+          <span class="label">Tarif journalier:</span>
+          <span class="value">{{ employee.tarifJournalier || 0 | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Jours travaillés:</span>
+          <span class="value">{{ employee.joursTravail || 0 }}</span>
+        </div>
+      </div>
+      <div class="info-grid" *ngIf="employee.typeContrat === 'HORAIRE'">
+        <div class="info-item">
+          <span class="label">Tarif horaire:</span>
+          <span class="value">{{ employee.tarifHoraire || 0 | number:'1.2-2' }} DT</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Heures normales:</span>
+          <span class="value">{{ employee.heuresNormales || 0 }}h</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Heures supplémentaires:</span>
+          <span class="value">{{ employee.heuresSupplementaires || 0 }}h</span>
+        </div>
+      </div>
+      <div class="salary-summary">
+        <div class="salary-box">
+          <span class="salary-label">Salaire mensuel estimé:</span>
+          <span class="salary-value">{{ salaireFinal | number:'1.2-2' }} DT</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions Rapides -->
+    <section class="detail-card actions-card">
+      <h3>Actions Rapides</h3>
+      <div class="actions-grid">
+        <button type="button" class="action-btn" (click)="goToAttendance()">
+          <span class="action-icon">📅</span>
+          <span>Pointage</span>
+        </button>
+        <button type="button" class="action-btn" (click)="goToLeaves()">
+          <span class="action-icon">🏖️</span>
+          <span>Congés</span>
+        </button>
+        <button type="button" class="action-btn" (click)="goToPayroll()">
+          <span class="action-icon">💰</span>
+          <span>Fiche de paie</span>
+        </button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<ng-template #loadingTpl>
+  <div class="loading-container">
+    <p *ngIf="isLoading">Chargement...</p>
+    <p *ngIf="errorMessage">{{ errorMessage }}</p>
+  </div>
+</ng-template>

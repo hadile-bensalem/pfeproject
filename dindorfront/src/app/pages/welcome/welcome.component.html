@@ -1,0 +1,398 @@
+<div class="welcome-container">
+  <div class="welcome-content">
+    <!-- Header -->
+    <header class="welcome-header">
+      <div class="logo-section">
+        <a routerLink="/welcome" class="logo-link">
+          <img src="assets/images/logo.png" alt="Dind'or Logo" class="logo-image">
+        </a>
+      </div>
+      <nav class="welcome-main-nav">
+        <a href="#hero" class="nav-link">Accueil</a>
+        <a href="#about" class="nav-link">À propos de nous</a>
+        <a routerLink="/articles" class="nav-link">Articles</a>
+        <a href="#contact" class="nav-link">Contact</a>
+      </nav>
+      <nav class="welcome-nav">
+        <button class="nav-btn" routerLink="/login">Connexion</button>
+        <button class="nav-btn primary" routerLink="/signin">S'inscrire</button>
+      </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero-section" id="hero">
+      <div class="hero-content">
+        <div class="hero-text">
+          <h1 class="hero-title">
+            Bienvenue chez <span class="highlight">Dind'or</span>
+          </h1>
+          <p class="hero-subtitle">
+            Votre partenaire de confiance pour une gestion professionnelle de votre élevage de volaille
+          </p>
+          <p class="hero-description">
+            Découvrez une plateforme moderne et intuitive conçue pour simplifier la gestion de votre entreprise avicole.
+            Suivez vos productions, gérez vos stocks et optimisez vos opérations en toute simplicité.
+          </p>
+          <div class="hero-actions">
+            <button class="btn-primary" (click)="navigateToSignin()">
+              Commencer maintenant
+              <span class="arrow">→</span>
+            </button>
+            <button class="btn-secondary" (click)="navigateToLogin()">
+              J'ai déjà un compte
+            </button>
+          </div>
+        </div>
+        <div class="hero-illustration">
+          <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background decorative elements -->
+            <circle cx="250" cy="250" r="200" fill="#FFE5B4" opacity="0.2"/>
+            <circle cx="100" cy="100" r="80" fill="#8B1A1A" opacity="0.1"/>
+            <circle cx="400" cy="150" r="70" fill="#DAA520" opacity="0.1"/>
+
+            <!-- Decorative elements -->
+            <g class="decorative-elements">
+              <path d="M 50 300 Q 40 280 60 270 Q 70 265 75 275 Q 80 285 70 295 Z" fill="#2D5016"/>
+              <path d="M 450 350 Q 460 340 470 350 Q 475 360 465 370 Q 455 375 450 365 Z" fill="#4A7C2F"/>
+            </g>
+
+            <!-- Main chicken illustration -->
+            <g class="chicken-main">
+              <!-- Body -->
+              <ellipse cx="250" cy="280" rx="90" ry="110" fill="#FFFFFF" stroke="#8B1A1A" stroke-width="4"/>
+              <!-- Wing -->
+              <ellipse cx="190" cy="270" rx="45" ry="65" fill="#F5F5F5" stroke="#8B1A1A" stroke-width="3"/>
+              <!-- Head -->
+              <circle cx="250" cy="170" r="45" fill="#FFFFFF" stroke="#8B1A1A" stroke-width="4"/>
+              <!-- Comb -->
+              <path d="M 230 135 Q 235 115 240 135 Q 245 120 250 135 Q 255 120 260 135 Q 265 115 270 135"
+                    fill="#8B1A1A" stroke="#8B1A1A" stroke-width="3"/>
+              <!-- Beak -->
+              <path d="M 280 180 L 310 175 L 280 190 Z" fill="#DAA520"/>
+              <!-- Eye -->
+              <circle cx="265" cy="165" r="5" fill="#000000"/>
+              <!-- Wattle -->
+              <ellipse cx="250" cy="210" rx="10" ry="15" fill="#8B1A1A"/>
+              <!-- Legs -->
+              <line x1="220" y1="385" x2="220" y2="350" stroke="#DAA520" stroke-width="5"/>
+              <line x1="280" y1="385" x2="280" y2="350" stroke="#DAA520" stroke-width="5"/>
+              <!-- Feet -->
+              <path d="M 205 385 L 220 385 L 235 385" stroke="#DAA520" stroke-width="4" fill="none"/>
+              <path d="M 265 385 L 280 385 L 295 385" stroke="#DAA520" stroke-width="4" fill="none"/>
+            </g>
+
+            <!-- Decorative eggs -->
+            <ellipse cx="150" cy="380" rx="20" ry="25" fill="#FFFACD" stroke="#DAA520" stroke-width="3"/>
+            <ellipse cx="350" cy="375" rx="16" ry="20" fill="#FFF8DC" stroke="#DAA520" stroke-width="3"/>
+            <ellipse cx="180" cy="390" rx="14" ry="18" fill="#FFEFD5" stroke="#DAA520" stroke-width="3"/>
+
+            <!-- Wheat/grain elements -->
+            <g class="wheat-left">
+              <line x1="50" y1="320" x2="50" y2="260" stroke="#B8860B" stroke-width="3"/>
+              <ellipse cx="50" cy="255" rx="5" ry="10" fill="#DAA520"/>
+              <ellipse cx="48" cy="270" rx="4" ry="8" fill="#DAA520"/>
+              <ellipse cx="52" cy="280" rx="4" ry="8" fill="#DAA520"/>
+            </g>
+
+            <g class="wheat-right">
+              <line x1="450" y1="340" x2="450" y2="280" stroke="#B8860B" stroke-width="3"/>
+              <ellipse cx="450" cy="275" rx="5" ry="10" fill="#DAA520"/>
+              <ellipse cx="448" cy="290" rx="4" ry="8" fill="#DAA520"/>
+              <ellipse cx="452" cy="300" rx="4" ry="8" fill="#DAA520"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Articles à commander -->
+    <section class="products-section" id="products">
+      <div class="products-header">
+        <div>
+          <h2 class="section-title small">Articles recommandés</h2>
+          <p class="products-subtitle">
+            Quelques produits essentiels pour votre élevage, prêts à être commandés.
+          </p>
+        </div>
+      </div>
+
+      <div class="products-grid">
+        <article class="product-card" *ngFor="let article of articles">
+          <div class="product-image-wrapper" (click)="openArticleDetails(article)">
+            <img
+              [src]="article.imageUrl"
+              [alt]="article.name"
+              class="product-image"
+            />
+          </div>
+          <div class="product-header">
+            <span class="product-category">{{ article.category }}</span>
+            <span class="product-fav" [class.active]="article.isFavorite" (click)="toggleFavorite(article)">
+              {{ article.isFavorite ? 'Favori' : 'Ajouter aux favoris' }}
+            </span>
+          </div>
+          <h3 class="product-name">{{ article.name }}</h3>
+          <p class="product-description">
+            {{ article.description }}
+          </p>
+          <div class="product-meta">
+            <div class="product-price">
+              <span class="price">{{ article.price | number:'1.0-2' }} DT</span>
+              <span class="unit">/ {{ article.unit }}</span>
+            </div>
+          </div>
+          <div class="product-actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              [class.active]="article.isFavorite"
+              (click)="toggleFavorite(article)">
+              {{ article.isFavorite ? 'Retirer des favoris' : 'Favori' }}
+            </button>
+            <button
+              type="button"
+              class="btn-primary"
+              [class.outline]="article.inCart"
+              (click)="toggleCart(article)">
+              {{ article.inCart ? 'Retirer du panier' : 'Ajouter au panier' }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Détail produit type e-commerce -->
+    <section class="product-detail-overlay" *ngIf="selectedArticle">
+      <div class="product-detail-backdrop" (click)="closeArticleDetails()"></div>
+      <div class="product-detail-dialog">
+        <button type="button" class="detail-close" (click)="closeArticleDetails()">×</button>
+        <div class="detail-layout">
+          <div class="detail-image-wrapper">
+            <img
+              [src]="selectedArticle.imageUrl"
+              [alt]="selectedArticle.name"
+              class="detail-image"
+            />
+          </div>
+          <div class="detail-info">
+            <span class="product-category large">{{ selectedArticle.category }}</span>
+            <h3 class="detail-name">{{ selectedArticle.name }}</h3>
+            <p class="detail-description">
+              {{ selectedArticle.description }}
+            </p>
+            <div class="detail-price-row">
+              <div class="detail-price">
+                <span class="price">{{ selectedArticle.price | number:'1.0-2' }} DT</span>
+                <span class="unit">/ {{ selectedArticle.unit }}</span>
+              </div>
+            </div>
+            <div class="detail-flags">
+              <span *ngIf="selectedArticle.isFavorite" class="flag">Article en favoris</span>
+              <span *ngIf="selectedArticle.inCart" class="flag secondary">Dans le panier</span>
+            </div>
+            <div class="detail-actions">
+              <button
+                type="button"
+                class="btn-secondary"
+                [class.active]="selectedArticle.isFavorite"
+                (click)="toggleFavorite(selectedArticle)">
+                {{ selectedArticle.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris' }}
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                [class.outline]="selectedArticle.inCart"
+                (click)="toggleCart(selectedArticle)">
+                {{ selectedArticle.inCart ? 'Retirer du panier' : 'Ajouter au panier' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+      <h2 class="section-title">Pourquoi choisir Dind'or ?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM7 10H9V17H7V10ZM11 7H13V17H11V7ZM15 13H17V17H15V13Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Gestion complète</h3>
+          <p class="feature-description">
+            Suivez toutes vos opérations en temps réel avec des outils puissants et intuitifs
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 6L18.29 8.29L13.41 13.17L9.41 9.17L2 16.59L3.41 18L9.41 12L13.41 16L19.71 9.71L22 12V6H16Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Analyses avancées</h3>
+          <p class="feature-description">
+            Obtenez des insights précieux pour optimiser votre production et vos performances
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 8H17V6C17 3.24 14.76 1 12 1C9.24 1 7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM12 3C13.66 3 15 4.34 15 6V8H9V6C9 4.34 10.34 3 12 3ZM18 20H6V10H18V20Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Sécurité garantie</h3>
+          <p class="feature-description">
+            Vos données sont protégées avec les meilleures pratiques de sécurité
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 3C8.03 3 4 7.03 4 12H1L4.89 15.89L4.96 16.03L9 12H6C6 8.13 9.13 5 13 5C16.87 5 20 8.13 20 12C20 15.87 16.87 19 13 19C11.07 19 9.32 18.21 8.06 16.94L6.64 18.36C8.27 20 10.5 21 13 21C17.97 21 22 16.97 22 12C22 7.03 17.97 3 13 3ZM12 8V13L16.28 15.54L17 14.33L13.5 12.25V8H12Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Performance optimale</h3>
+          <p class="feature-description">
+            Une plateforme rapide et réactive pour une expérience utilisateur exceptionnelle
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about-section" id="about">
+      <div class="about-content">
+        <h2 class="section-title">À propos de Dind'or</h2>
+        <div class="about-grid">
+          <div class="about-card">
+            <div class="about-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h3 class="about-title">Notre Histoire</h3>
+            <p class="about-description">
+              Fondée en <strong>2014</strong>, Dind'or est une entreprise tunisienne spécialisée dans l'élevage de volaille de qualité supérieure. Depuis plus de 10 ans, nous nous engageons à fournir des produits d'excellence tout en modernisant les pratiques du secteur avicole.
+            </p>
+          </div>
+
+          <div class="about-card">
+            <div class="about-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h3 class="about-title">Fondateur</h3>
+            <p class="about-description">
+              <strong>Marouane Slama</strong>, visionnaire et entrepreneur passionné, a créé Dind'or avec la conviction que l'innovation technologique peut transformer l'industrie avicole tunisienne. Son leadership a permis à l'entreprise de devenir une référence dans le secteur.
+            </p>
+          </div>
+
+          <div class="about-card">
+            <div class="about-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h3 class="about-title">Localisation</h3>
+            <p class="about-description">
+              Basée en <strong>Tunisie</strong>, Dind'or opère depuis ses installations modernes et respectueuses de l'environnement. Notre présence locale nous permet de comprendre les besoins spécifiques du marché tunisien tout en maintenant les plus hauts standards de qualité.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+      <div class="cta-content">
+        <h2 class="cta-title">Prêt à commencer ?</h2>
+        <p class="cta-description">
+          Rejoignez dès maintenant la communauté Dind'or et transformez votre façon de gérer votre élevage
+        </p>
+        <div class="cta-actions">
+          <button class="btn-primary large" (click)="navigateToSignin()">
+            Créer mon compte gratuitement
+          </button>
+          <button class="btn-secondary large" (click)="navigateToLogin()">
+            Se connecter
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section Contact inspirée e-commerce -->
+    <section class="contact-section" id="contact">
+      <div class="contact-inner">
+        <div class="contact-header">
+          <h2 class="section-title">Contactez-nous</h2>
+          <p class="contact-subtitle">
+            Une question sur la gestion de votre élevage ou sur notre plateforme ? Envoyez-nous un message.
+          </p>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-map-card">
+            <div class="contact-card-title">Localisation</div>
+            <div class="contact-map-wrapper">
+              <iframe
+                class="contact-map"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3190.518764677608!2d10.165960515423916!3d36.806494979948974!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1302c4c4d5b5f18f%3A0x4a3c7f0e1f5e5d5d!2sTunis!5e0!3m2!1sfr!2stn!4v1700000000000"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+              </iframe>
+            </div>
+          </div>
+
+          <div class="contact-form-column">
+            <div class="contact-form-card">
+              <div class="contact-card-title">Envoyer un message</div>
+              <form>
+                <input type="text" class="contact-input" placeholder="Votre nom">
+                <input type="email" class="contact-input" placeholder="Votre email">
+                <textarea class="contact-textarea" rows="4" placeholder="Votre message"></textarea>
+                <button type="button" class="btn-primary contact-submit">
+                  Envoyer le message
+                </button>
+              </form>
+            </div>
+
+            <div class="contact-info-row">
+              <div class="contact-info-card">
+                <div class="contact-info-title">Adresse</div>
+                <p class="contact-info-text">
+                  Rue Exemple, Tunis, Tunisie
+                </p>
+              </div>
+              <div class="contact-info-card">
+                <div class="contact-info-title">Email</div>
+                <p class="contact-info-text">
+                  support&#64;dindor.tn
+                </p>
+              </div>
+              <div class="contact-info-card">
+                <div class="contact-info-title">Téléphone</div>
+                <p class="contact-info-text">
+                  +216 00 000 000
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="welcome-footer">
+      <p> 2024 Dind'or. Tous droits réservés.</p>
+      <div class="footer-links">
+        <a href="#">Conditions d'utilisation</a>
+        <a href="#">Politique de confidentialité</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </footer>
+  </div>
+</div>

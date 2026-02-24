@@ -1,0 +1,85 @@
+<div class="attendance-container">
+  <header class="page-header">
+    <div>
+      <h2>Pointage - {{ employee?.prenom }} {{ employee?.nom }}</h2>
+      <p class="subtitle">Gestion du temps de travail</p>
+    </div>
+    <button type="button" class="btn neutral" (click)="goBack()">Retour</button>
+  </header>
+
+  <div class="attendance-content">
+    <!-- Formulaire de pointage -->
+    <section class="form-section">
+      <h3>Nouveau Pointage</h3>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date <span class="required">*</span></label>
+            <input type="date" formControlName="date">
+            <span class="error" *ngIf="form.get('date')?.touched && form.get('date')?.hasError('required')">Date obligatoire</span>
+          </div>
+
+          <div class="form-group">
+            <label>Heure d'entrée <span class="required">*</span></label>
+            <input type="time" formControlName="heureEntree">
+            <span class="error" *ngIf="form.get('heureEntree')?.touched && form.get('heureEntree')?.hasError('required')">Heure d'entrée obligatoire</span>
+          </div>
+
+          <div class="form-group">
+            <label>Heure de sortie <span class="required">*</span></label>
+            <input type="time" formControlName="heureSortie">
+            <span class="error" *ngIf="form.get('heureSortie')?.touched && form.get('heureSortie')?.hasError('required')">Heure de sortie obligatoire</span>
+          </div>
+
+          <div class="form-group">
+            <label>Mode <span class="required">*</span></label>
+            <select formControlName="mode">
+              <option value="MANUEL">Manuel</option>
+              <option value="MOBILE">Mobile</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Enregistrer le pointage</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Historique et statistiques -->
+    <section class="stats-section">
+      <div class="stat-card">
+        <h4>Total heures ce mois</h4>
+        <p class="stat-value">{{ totalHeuresMois | number:'1.1-1' }}h</p>
+      </div>
+    </section>
+
+    <!-- Historique des pointages -->
+    <section class="history-section">
+      <h3>Historique des pointages</h3>
+      <table *ngIf="attendances.length > 0; else noData">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Entrée</th>
+            <th>Sortie</th>
+            <th>Heures</th>
+            <th>Mode</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let att of attendances">
+            <td>{{ att.date | date:'dd/MM/yyyy' }}</td>
+            <td>{{ att.heureEntree }}</td>
+            <td>{{ att.heureSortie }}</td>
+            <td>{{ att.heuresTravaillees | number:'1.1-1' }}h</td>
+            <td>{{ att.mode }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noData>
+        <p class="no-data">Aucun pointage enregistré</p>
+      </ng-template>
+    </section>
+  </div>
+</div>
