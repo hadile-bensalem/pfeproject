@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Article, UNITES_ARTICLE } from '../../models/article.model';
 import { ArticleService } from '../../services/article.service';
 import { FournisseurService } from '../../services/fournisseur.service';
@@ -12,6 +12,11 @@ import { Famille } from '../../models/famille.model';
 import { Origine } from '../../models/origine.model';
 import { CurrencyFormatPipe } from '../../pipes/currency-format.pipe';
 import { NumberFormatPipe } from '../../pipes/number-format.pipe';
+import { FactureAchatService } from '../../services/facture-achat.service';
+import { FactureAchat, FactureAchatRequest, LigneFactureAchatRequest, PaiementAchatRequest } from '../../models/facture-achat.model';
+import { TraiteService } from '../../services/traite.service';
+import { RetenueSourceService } from '../../services/retenue-source.service';
+import { montantEnLettres } from '../../utils/montant-en-lettres';
 
 type FilterBloc = 'non-bloques' | 'bloques' | 'globale';
 
@@ -33,12 +38,12 @@ export class AchatComponent implements OnInit {
   sortColumn: keyof Article | '' = '';
   sortDirection: 'asc' | 'desc' = 'asc';
 
-  isModalFactureAchatOpen = false;
   isModalArticleOpen = false;
   isEditingArticle = false;
   articleForm!: FormGroup;
-  factureAchatForm!: FormGroup;
   articleDuplicateError = '';
+  /** Articles ajoutés dans la modale pendant la session (affichés dans un tableau) */
+  articlesAddedInModal: Article[] = [];
 
   unites = [...UNITES_ARTICLE];
   familles: Famille[] = [];
@@ -50,16 +55,423 @@ export class AchatComponent implements OnInit {
   familleForm!: FormGroup;
   origineForm!: FormGroup;
 
+  // ── Factures d'achat ──────────────────────────────────────────────────
+  factures: FactureAchat[] = [];
+  facturesLoading = false;
+  activeTab: 'factures' | 'articles' = 'factures';
+  traitesAlert: { numeroFacture: string; fournisseur: string; dateEcheance: string; joursRestants: number }[] = [];
+
+  // ── SAISIE INLINE ─────────────────────────────────────────────────────────
+  showSaisiePanel = false;
+  saisieHeaderForm!: FormGroup;
+  saisieIsSaving = false;
+  saisieError = '';
+  saisieSuccess = '';
+  nextNumeroFacture = '';
+
+  // ── Article picker modal ──────────────────────────────────────────────
+  isArticlePickerOpen = false;
+  articlePickerRowIdx = -1;
+  articlePickerSearch = '';
+
+  get filteredArticlesPicker(): Article[] {
+    const term = this.articlePickerSearch.toLowerCase().trim();
+    if (!term) return this.articles;
+    return this.articles.filter(a =>
+      a.codeArticle.toLowerCase().includes(term) ||
+      a.designation.toLowerCase().includes(term)
+    );
+  }
+
+  openArticlePicker(rowIdx: number): void {
+    this.articlePickerRowIdx = rowIdx;
+    this.articlePickerSearch = '';
+    this.isArticlePickerOpen = true;
+    setTimeout(() => (document.getElementById('article-picker-search') as HTMLInputElement)?.focus(), 80);
+  }
+
+  closeArticlePicker(): void {
+    this.isArticlePickerOpen = false;
+    this.articlePickerRowIdx = -1;
+  }
+
+  selectArticleFromPicker(article: Article): void {
+    const rowIdx = this.articlePickerRowIdx;
+    this.saisiesLignes.at(rowIdx).patchValue({
+      codeArticle: article.codeArticle,
+      designation: article.designation,
+      puHT: article.prixAchatHT ?? 0,
+      tva:  article.tva ?? 0
+    });
+    this.closeArticlePicker();
+    setTimeout(() => this.focusCell(rowIdx, 'qte'), 80);
+  }
+
+  // Gardé pour rétro-compatibilité (plus utilisé)
+  articleDropdownSearch: (string | undefined)[] = [];
+  showArticleDropdowns: boolean[] = [];
+  filteredArticlesForRow(_rowIdx: number): Article[] { return []; }
+  onArticleFocus(_rowIdx: number): void {}
+  onArticleSearchInput(_rowIdx: number, _value: string): void {}
+  selectArticleForRow(_rowIdx: number, _article: Article): void {}
+  hideArticleDropdown(_rowIdx: number): void {}
+
+  // Paiement — toujours affiché
+  saisieWithPaiement = true;
+  saisiePaiementForm!: FormGroup;
+  fournisseurAvecRS = false;
+
+  get saisieModePaiement(): string {
+    return this.saisiePaiementForm?.get('modePaiement')?.value ?? '';
+  }
+
+  /** Montant en espèces saisi */
+  get saisieMontantEspeces(): number {
+    return +(this.saisiePaiementForm?.get('montantEspeces')?.value) || 0;
+  }
+
+  /** Montant restant (traite ou crédit) */
+  get saisieMontantReste(): number {
+    const net = this.saisieStats.netAPayer;
+    const mode = this.saisieModePaiement;
+    if (mode === 'especes') return 0;
+    if (mode === 'especes_traite' || mode === 'especes_credit') {
+      return Math.max(0, net - this.saisieMontantEspeces);
+    }
+    return net; // traite ou credit intégral
+  }
+
+  private buildSaisiePaiementForm(): void {
+    const today = new Date().toISOString().slice(0, 10);
+    this.saisiePaiementForm = this.fb.group({
+      modePaiement:       ['especes', Validators.required],
+      montantEspeces:     [0, [Validators.min(0)]],
+      // Traite
+      numeroTraite:       [''],
+      ribCompte:          [''],
+      tireur:             [''],
+      tire:               [''],
+      domiciliation:      [''],
+      dateCreationTraite: [today],
+      dateEcheance:       [today],
+      lieuCreation:       ['KSIBET'],
+      valeurEn:           ['Dinars Tunisiens'],
+      // Crédit
+      dateLimiteCredit:   [today]
+    });
+  }
+
+  syncMontantPaye(): void {
+    const mode = this.saisieModePaiement;
+    if (mode === 'especes') {
+      this.saisiePaiementForm.patchValue({ montantEspeces: +(this.saisieStats.netAPayer.toFixed(3)) });
+    }
+  }
+
+  onFournisseurChange(): void {
+    const id = this.saisieHeaderForm.get('fournisseurId')?.value;
+    const found = this.fournisseurs.find(f => f.id === +id);
+    this.fournisseurAvecRS = found?.avecRS ?? false;
+    this.saisieWithRetenue = found?.avecRS ?? false;
+  }
+
+  // Retenue à la source
+  saisieWithRetenue = false;
+  saisieRetenueForm!: FormGroup;
+
+  get montantRetenu(): number {
+    const taux = +(this.saisieRetenueForm?.get('tauxRetenue')?.value) || 0;
+    return this.saisieStats.totalHT * taux / 100;
+  }
+
+  private buildSaisieRetenueForm(): void {
+    const today = new Date().toISOString().slice(0, 10);
+    this.saisieRetenueForm = this.fb.group({
+      tauxRetenue:  [1.5, [Validators.required, Validators.min(0.001), Validators.max(99)]],
+      lieuRetenue:  ['', Validators.required],
+      dateRetenue:  [today, Validators.required]
+    });
+  }
+
+  get saisiesLignes(): FormArray {
+    return this.saisieHeaderForm.get('lignes') as FormArray;
+  }
+
+  get saisieStats() {
+    let totalBrut = 0, totalRemise = 0, totalTVA = 0;
+    for (const ctrl of this.saisiesLignes.controls) {
+      const v = ctrl.value;
+      const qte = +v.quantite || 0;
+      const pu  = +v.puHT || 0;
+      const rem = +v.remise || 0;
+      const tva = +v.tva || 0;
+      const brut = qte * pu;
+      const remAmt = brut * rem / 100;
+      totalBrut   += brut;
+      totalRemise += remAmt;
+      totalTVA    += (brut - remAmt) * tva / 100;
+    }
+    const totalHT = totalBrut - totalRemise;
+    const timbre  = totalHT > 0 ? 1.000 : 0;
+    return { totalBrut, totalRemise, totalHT, totalTVA, timbre, netAPayer: totalHT + totalTVA + timbre };
+  }
+
+  getLineMontantHT(i: number): number {
+    const v = this.saisiesLignes.at(i).value;
+    return (+v.quantite || 0) * (+v.puHT || 0) * (1 - (+v.remise || 0) / 100);
+  }
+
+  private buildSaisieHeaderForm(): void {
+    const today = new Date().toISOString().slice(0, 10);
+    this.saisieHeaderForm = this.fb.group({
+      fournisseurId: [null as number | null, Validators.required],
+      dateFacture:   [today, Validators.required],
+      lignes:        this.fb.array([])
+    });
+  }
+
+  private buildSaisieLigneGroup(): FormGroup {
+    return this.fb.group({
+      codeArticle: [''],
+      designation: ['', Validators.required],
+      quantite:    [1,   [Validators.required, Validators.min(0.001)]],
+      puHT:        [0,   [Validators.required, Validators.min(0)]],
+      remise:      [0,   [Validators.min(0), Validators.max(100)]],
+      tva:         [19,  [Validators.min(0), Validators.max(100)]]
+    });
+  }
+
+  openSaisieFacture(): void {
+    this.showSaisiePanel = true;
+    this.saisieError = '';
+    this.saisieSuccess = '';
+    this.saisieWithPaiement = true;
+    this.saisieWithRetenue = false;
+    this.fournisseurAvecRS = false;
+    const today = new Date().toISOString().slice(0, 10);
+    const lignesArr = this.saisieHeaderForm.get('lignes') as FormArray;
+    this.saisieHeaderForm.patchValue({ fournisseurId: null, dateFacture: today });
+    while (lignesArr.length) lignesArr.removeAt(0);
+    this.articleDropdownSearch = [undefined];
+    this.showArticleDropdowns = [false];
+    lignesArr.push(this.buildSaisieLigneGroup());
+    this.buildSaisiePaiementForm();
+    this.buildSaisieRetenueForm();
+    this.factureAchatService.getNextNumero().subscribe({
+      next: n  => this.nextNumeroFacture = n,
+      error: () => this.nextNumeroFacture = '—'
+    });
+    setTimeout(() => {
+      document.getElementById('saisie-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this.focusCell(0, 'desig');
+    }, 120);
+  }
+
+  closeSaisiePanel(): void {
+    this.showSaisiePanel = false;
+    this.saisieError = '';
+    this.saisieSuccess = '';
+  }
+
+  addSaisieLigne(): void {
+    this.saisiesLignes.push(this.buildSaisieLigneGroup());
+    const idx = this.saisiesLignes.length - 1;
+    this.articleDropdownSearch[idx] = undefined;
+    this.showArticleDropdowns[idx] = false;
+    setTimeout(() => this.focusCell(idx, 'desig'), 50);
+  }
+
+  removeSaisieLigne(i: number): void {
+    if (this.saisiesLignes.length > 1) this.saisiesLignes.removeAt(i);
+  }
+
+  onArticleCodeEnter(rowIdx: number): void {
+    const code = (this.saisiesLignes.at(rowIdx).get('codeArticle')?.value ?? '').trim();
+    if (code) {
+      const found = this.articles.find(a => a.codeArticle.toLowerCase() === code.toLowerCase());
+      if (found) {
+        this.saisiesLignes.at(rowIdx).patchValue({
+          designation: found.designation,
+          puHT: found.prixAchatHT ?? 0,
+          tva:  found.tva ?? 0
+        });
+      }
+    }
+    this.focusCell(rowIdx, 'desig');
+  }
+
+  onCellEnter(rowIdx: number, nextField: string): void {
+    this.focusCell(rowIdx, nextField);
+  }
+
+  onLastCellEnter(rowIdx: number): void {
+    if (rowIdx === this.saisiesLignes.length - 1) {
+      this.addSaisieLigne();
+    } else {
+      this.focusCell(rowIdx + 1, 'code');
+    }
+  }
+
+  focusCell(rowIdx: number, fieldId: string): void {
+    setTimeout(() => {
+      const el = document.getElementById(`saisie-${rowIdx}-${fieldId}`) as HTMLInputElement | null;
+      if (el) { el.focus(); el.select(); }
+    }, 30);
+  }
+
+  onSaisieSubmit(): void {
+    if (this.saisieHeaderForm.invalid) {
+      this.saisieHeaderForm.markAllAsTouched();
+      this.saisiesLignes.controls.forEach(c => (c as FormGroup).markAllAsTouched());
+      this.saisieError = 'Veuillez remplir tous les champs obligatoires.';
+      return;
+    }
+    if (this.saisieWithPaiement && this.saisiePaiementForm.invalid) {
+      this.saisiePaiementForm.markAllAsTouched();
+      this.saisieError = 'Veuillez remplir les informations de paiement.';
+      return;
+    }
+    if (this.saisieWithRetenue && this.saisieRetenueForm.invalid) {
+      this.saisieRetenueForm.markAllAsTouched();
+      this.saisieError = 'Veuillez remplir les informations de retenue à la source.';
+      return;
+    }
+    this.saisieIsSaving = true;
+    this.saisieError = '';
+    const hv = this.saisieHeaderForm.value;
+    const stats = this.saisieStats;
+
+    const pv = this.saisiePaiementForm.value;
+    const mode = pv.modePaiement as string;
+    const montantEspeces = +pv.montantEspeces || 0;
+    const montantReste = this.saisieMontantReste;
+    const isTraite = mode === 'traite' || mode === 'especes_traite';
+    const isCredit = mode === 'credit' || mode === 'especes_credit';
+    // Map frontend → backend enum (case-sensitive: ESPECES / AUTRE + sousMode)
+    const backendMode  = mode === 'especes' ? 'ESPECES' : 'AUTRE';
+    const backendSous  = mode === 'especes' ? 'TOUT_ESPECES'
+                       : isTraite            ? 'ACOMPTE_TRAITE'
+                       :                      'ACOMPTE_CREDIT';
+    const paiement: PaiementAchatRequest = {
+      modePaiement:     backendMode,
+      sousMode:         backendSous,
+      montantPaye:      mode === 'especes' ? stats.netAPayer : montantEspeces,
+      montantReste:     montantReste,
+      numeroTraite:     isTraite ? (pv.numeroTraite || undefined) : undefined,
+      dateEcheance:     isTraite ? (pv.dateEcheance || undefined) : undefined,
+      dateLimiteCredit: isCredit ? (pv.dateLimiteCredit || undefined) : undefined,
+      avecRetenue:      this.saisieWithRetenue
+    };
+
+    const request: FactureAchatRequest = {
+      dateFacture:   hv.dateFacture,
+      fournisseurId: hv.fournisseurId,
+      lignes: this.saisiesLignes.controls.map((ctrl, i) => {
+        const v = ctrl.value;
+        return {
+          codeArticle:    v.codeArticle || undefined,
+          designation:    v.designation,
+          quantite:       +v.quantite,
+          prixUnitaireHT: +v.puHT,
+          remise:         +v.remise || 0,
+          tva:            +v.tva || 0,
+          ordre: i + 1
+        } as LigneFactureAchatRequest;
+      }),
+      paiement
+    };
+
+    this.factureAchatService.create(request).subscribe({
+      next: (facture) => {
+        const numeroFacture = facture?.numeroFacture ?? this.nextNumeroFacture;
+        const fournisseur = this.fournisseurs.find(f => f.id === hv.fournisseurId);
+        const tasks: Promise<void>[] = [];
+
+        // ── Enregistrer la traite dans l'état ────────────────────────────
+        if (mode === 'traite' || mode === 'especes_traite') {
+          const pv2 = this.saisiePaiementForm.value;
+          tasks.push(new Promise(resolve => {
+            this.traiteService.create({
+                ribId: 0,
+                fournisseurId: hv.fournisseurId,
+                fournisseurNom: fournisseur?.raisonSociale ?? '',
+                tireur: pv2.tireur || 'STE DINDOR',
+                tire: pv2.tire || '',
+                montant: this.saisieMontantReste,
+                montantLettres: montantEnLettres(this.saisieMontantReste),
+                dateCreation: pv2.dateCreationTraite || new Date().toISOString().slice(0, 10),
+                dateEcheance: pv2.dateEcheance || '',
+                lieuCreation: pv2.lieuCreation || 'KSIBET',
+                domiciliation: pv2.domiciliation || '',
+                nomAdresseTire: fournisseur?.raisonSociale ?? '',
+                valeurEn: pv2.valeurEn || 'DT',
+                statut: 'non_imprimee'
+              }).subscribe(() => resolve());
+          }));
+        }
+
+        // ── Enregistrer la retenue à la source ────────────────────────────
+        if (this.saisieWithRetenue && stats.totalHT > 0) {
+          const rv = this.saisieRetenueForm.value;
+          tasks.push(new Promise(resolve => {
+            const retenuePayload = {
+              fournisseurId: hv.fournisseurId,
+              fournisseurNom: fournisseur?.raisonSociale ?? '',
+              fournisseurAdresse: fournisseur?.adresse ?? '',
+              fournisseurMatricule: fournisseur?.matricule ?? '',
+              fournisseurCodeTVA: fournisseur?.codeTVA ?? '',
+              dateRetenue: rv.dateRetenue,
+              lot: rv.lieuRetenue || 'KSIBET',
+              taux: +rv.tauxRetenue,
+              numeroFacture,
+              montantBrut: stats.totalHT,
+              retenue: stats.totalHT * (+rv.tauxRetenue) / 100,
+              montantNet: stats.totalHT - (stats.totalHT * (+rv.tauxRetenue) / 100),
+              libelle: `Retenue à la source ${rv.tauxRetenue}%`
+            };
+            this.retenueSourceService.create(retenuePayload).subscribe({
+              next: () => resolve(),
+              error: () => resolve()
+            });
+          }));
+        }
+
+        Promise.all(tasks).then(() => {
+          this.saisieIsSaving = false;
+          const msgs: string[] = ['Facture enregistrée.'];
+          if (mode === 'traite' || mode === 'especes_traite') msgs.push('Traite enregistrée dans État.');
+          if (this.saisieWithRetenue) msgs.push('Retenue à la source enregistrée dans État.');
+          this.saisieSuccess = msgs.join(' ');
+          setTimeout(() => { this.closeSaisiePanel(); this.loadFactures(); }, 1800);
+        });
+      },
+      error: err => {
+        this.saisieIsSaving = false;
+        const body = err?.error;
+        const detail = (body?.data && typeof body.data === 'object' && !Array.isArray(body.data))
+          ? Object.entries(body.data as Record<string,string>).map(([k,v]) => `${k}: ${v}`).join(' | ')
+          : body?.message || err?.message || 'Erreur inconnue';
+        this.saisieError = `Erreur [HTTP ${err?.status}] ${detail}`;
+      }
+    });
+  }
+
   constructor(
     private fb: FormBuilder,
     private router: Router,
+    private route: ActivatedRoute,
     private articleService: ArticleService,
     private fournisseurService: FournisseurService,
     private familleService: FamilleService,
-    private origineService: OrigineService
+    private origineService: OrigineService,
+    private factureAchatService: FactureAchatService,
+    private traiteService: TraiteService,
+    private retenueSourceService: RetenueSourceService
   ) {
     this.buildArticleForm();
-    this.buildFactureAchatForm();
+    this.buildSaisieHeaderForm();
+    this.buildSaisiePaiementForm();
+    this.buildSaisieRetenueForm();
     this.buildFamilleForm();
     this.buildOrigineForm();
   }
@@ -101,24 +513,73 @@ export class AchatComponent implements OnInit {
     });
   }
 
-  private buildFactureAchatForm(): void {
-    const today = new Date().toISOString().slice(0, 10);
-    this.factureAchatForm = this.fb.group({
-      fournisseurId: [null as number | null, Validators.required],
-      numeroFacture: ['', Validators.required],
-      date: [today, Validators.required],
-      montantHT: [0, [Validators.required, Validators.min(0)]],
-      montantTVA: [0, Validators.min(0)],
-      montantTTC: [0, Validators.min(0)]
-    });
-  }
-
   ngOnInit(): void {
     this.loadArticles();
     this.loadFamillesEtOrigines();
+    this.loadFactures();
     this.fournisseurService.getAll().subscribe({
       next: (list) => this.fournisseurs = list ?? []
     });
+    // Ouvrir l'onglet demandé (ex: après redirect depuis le wizard)
+    this.route.queryParams.subscribe(params => {
+      if (params['tab'] === 'articles') this.activeTab = 'articles';
+      else this.activeTab = 'factures';
+    });
+  }
+
+  loadFactures(): void {
+    this.facturesLoading = true;
+    this.errorMessage = '';
+    this.factureAchatService.getAll().subscribe({
+      next: (list) => {
+        this.factures = list ?? [];
+        this.facturesLoading = false;
+        this.checkTraitesEcheances();
+      },
+      error: (err) => {
+        this.facturesLoading = false;
+        const status = err?.status;
+        if (status === 0) {
+          this.errorMessage = '⚠️ Serveur inaccessible. Vérifiez que le backend est démarré sur le port 8099.';
+        } else if (status === 401) {
+          this.errorMessage = '⚠️ Session expirée. Reconnectez-vous.';
+        } else {
+          this.errorMessage = `⚠️ Erreur chargement factures [HTTP ${status}].`;
+        }
+      }
+    });
+  }
+
+  checkTraitesEcheances(): void {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    this.traitesAlert = this.factures
+      .filter(f => f.paiement?.dateEcheance)
+      .map(f => {
+        const echeance = new Date(f.paiement!.dateEcheance!);
+        echeance.setHours(0, 0, 0, 0);
+        const joursRestants = Math.ceil((echeance.getTime() - today.getTime()) / 86400000);
+        return {
+          numeroFacture: f.numeroFacture,
+          fournisseur: f.fournisseurRaisonSociale ?? '',
+          dateEcheance: f.paiement!.dateEcheance!,
+          joursRestants
+        };
+      })
+      .filter(t => t.joursRestants >= 0 && t.joursRestants <= 7)
+      .sort((a, b) => a.joursRestants - b.joursRestants);
+  }
+
+  deleteFacture(id: number, numeroFacture: string): void {
+    if (!confirm(`Supprimer la facture ${numeroFacture} ?`)) return;
+    this.factureAchatService.delete(id).subscribe({
+      next: () => { this.factures = this.factures.filter(f => f.id !== id); },
+      error: () => { this.errorMessage = 'Erreur lors de la suppression de la facture.'; }
+    });
+  }
+
+  printFacture(id: number, numeroFacture: string): void {
+    this.factureAchatService.downloadFacturePdf(id, numeroFacture);
   }
 
   private loadFamillesEtOrigines(): void {
@@ -237,64 +698,20 @@ export class AchatComponent implements OnInit {
     return (n + 1).toString();
   }
 
-  private readonly FACTURE_ACHAT_KEY = 'dindor_facture_achat';
-
-  /** Prévisualisation du prochain numéro (sans incrémenter) - utilisé à l'ouverture du formulaire */
-  private getNextNumeroFacturePreview(): string {
-    const year = new Date().getFullYear();
-    const key = `${this.FACTURE_ACHAT_KEY}_${year}`;
-    let counter = 0;
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) counter = parseInt(stored, 10);
-    } catch { /* ignore */ }
-    const seq = (counter + 1).toString().padStart(4, '0');
-    return `${year}${seq}`;
-  }
-
-  /** Génère et consomme le prochain numéro au format AAAA000X - appelé à l'enregistrement */
-  private generateNumeroFacture(): string {
-    const year = new Date().getFullYear();
-    const key = `${this.FACTURE_ACHAT_KEY}_${year}`;
-    let counter = 0;
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) counter = parseInt(stored, 10);
-    } catch { /* ignore */ }
-    counter += 1;
-    localStorage.setItem(key, counter.toString());
-    return `${year}${counter.toString().padStart(4, '0')}`;
-  }
-
   // --- Facture Achat ---
   openFactureAchatModal(): void {
-    this.factureAchatForm.reset({
-      fournisseurId: null,
-      numeroFacture: this.getNextNumeroFacturePreview(),
-      date: new Date().toISOString().slice(0, 10),
-      montantHT: 0,
-      montantTVA: 0,
-      montantTTC: 0
-    });
-    this.isModalFactureAchatOpen = true;
+    this.openSaisieFacture();
   }
 
   closeFactureAchatModal(): void {
-    this.isModalFactureAchatOpen = false;
-  }
-
-  onSubmitFactureAchat(): void {
-    if (this.factureAchatForm.invalid) return;
-    const numero = this.generateNumeroFacture();
-    this.factureAchatForm.patchValue({ numeroFacture: numero });
-    // TODO: API facture achat - utiliser numero et this.factureAchatForm.value
-    this.closeFactureAchatModal();
+    this.closeSaisiePanel();
   }
 
   // --- Article (Ajout) ---
   openAddArticleModal(): void {
     this.isEditingArticle = false;
     this.articleDuplicateError = '';
+    this.articlesAddedInModal = [];
     this.articleForm.reset({
       id: 0,
       codeArticle: this.getNextCodeArticle(),
@@ -318,6 +735,7 @@ export class AchatComponent implements OnInit {
   closeArticleModal(): void {
     this.isModalArticleOpen = false;
     this.articleDuplicateError = '';
+    this.articlesAddedInModal = [];
   }
 
   onViderArticle(): void {
@@ -398,6 +816,7 @@ export class AchatComponent implements OnInit {
         next: (created) => {
           this.articles = [created, ...this.articles];
           this.applyFilterAndSort();
+          this.articlesAddedInModal = [created, ...this.articlesAddedInModal];
           this.onViderArticle();
         },
         error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la création.'

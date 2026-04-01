@@ -500,6 +500,24 @@ export class EtatComponent implements OnInit {
     this.certificatRetenueService.openPrintWindow(r, undefined, false);
   }
 
+  /**
+   * Télécharge le certificat officiel PDF depuis le backend (iText7).
+   * Utilisé pour produire le document conforme DGI.
+   */
+  downloadPdfRetenue(r: RetenueSource): void {
+    this.retenueSourceService.downloadPdf(r.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `certificat-retenue-${r.numeroRetenue}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => alert('Erreur lors de la génération du PDF. Vérifiez que le backend est démarré.')
+    });
+  }
+
   supprimerRetenue(r: RetenueSource): void {
     if (!confirm(`Supprimer la retenue ${r.numeroRetenue} ?`)) return;
     this.retenueSourceService.delete(r.id).subscribe(() => {

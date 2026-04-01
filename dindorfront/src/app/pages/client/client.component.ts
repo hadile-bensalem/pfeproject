@@ -25,6 +25,11 @@ export class ClientComponent implements OnInit {
   isEditingClient = false;
   clientForm!: FormGroup;
 
+  showClientPanel = false;
+  clientPanelError = '';
+  clientPanelSuccess = '';
+  clientIsSaving = false;
+
   isAncienFactureModalOpen = false;
   ancienFactureMessage = '';
   ancienFactureForm!: FormGroup;
@@ -133,8 +138,10 @@ export class ClientComponent implements OnInit {
   }
 
   // --- Bouton Ajouter un Client ---
-  openAddClientModal(): void {
+  openAddClientPanel(): void {
     this.isEditingClient = false;
+    this.clientPanelError = '';
+    this.clientPanelSuccess = '';
     this.clientForm.reset({
       id: 0,
       codeClient: this.generateCodeClient(),
@@ -144,8 +151,13 @@ export class ClientComponent implements OnInit {
       email: '',
       observations: ''
     });
-    this.isModalClientOpen = true;
+    this.showClientPanel = true;
+    setTimeout(() => document.getElementById('client-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
+
+  openAddClientModal(): void { this.openAddClientPanel(); }
+
+  loadEtatClientsPublic(): void { this.loadEtatClients(); }
 
   private generateCodeClient(): string {
     const now = new Date();
@@ -155,12 +167,19 @@ export class ClientComponent implements OnInit {
     return `C${code}`;
   }
 
-  closeClientModal(): void {
-    this.isModalClientOpen = false;
+  closeClientPanel(): void {
+    this.showClientPanel = false;
+    this.clientPanelError = '';
+    this.clientPanelSuccess = '';
   }
 
+  closeClientModal(): void { this.closeClientPanel(); }
+
   onSubmitClient(): void {
-    if (this.clientForm.invalid) return;
+    if (this.clientForm.invalid) { this.clientForm.markAllAsTouched(); return; }
+    this.clientIsSaving = true;
+    this.clientPanelError = '';
+    this.clientPanelSuccess = '';
     const v = this.clientForm.value;
     const payload = {
       codeClient: v.codeClient,
@@ -178,23 +197,35 @@ export class ClientComponent implements OnInit {
             this.etatClients[idx] = { ...this.etatClients[idx], codeClient: updated.codeClient, nomClient: updated.nom };
           }
           this.applyFilter();
-          this.closeClientModal();
+          this.clientIsSaving = false;
+          this.clientPanelSuccess = 'Client mis à jour avec succès.';
+          setTimeout(() => this.closeClientPanel(), 1200);
         },
-        error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la mise à jour.'
+        error: (err) => {
+          this.clientIsSaving = false;
+          this.clientPanelError = err?.error?.message || 'Erreur lors de la mise à jour.';
+        }
       });
     } else {
       this.clientService.create(payload).subscribe({
         next: (created) => {
           this.etatClients = [{ clientId: created.id, codeClient: created.codeClient, nomClient: created.nom, solde: 0, traitementEnCours: 0 }, ...this.etatClients];
           this.applyFilter();
-          this.closeClientModal();
+          this.clientIsSaving = false;
+          this.clientPanelSuccess = 'Client créé avec succès.';
+          setTimeout(() => this.closeClientPanel(), 1200);
         },
-        error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la création.'
+        error: (err) => {
+          this.clientIsSaving = false;
+          this.clientPanelError = err?.error?.message || 'Erreur lors de la création.';
+        }
       });
     }
   }
 
   editClient(e: ClientEtat): void {
+    this.clientPanelError = '';
+    this.clientPanelSuccess = '';
     this.clientService.getById(e.clientId).subscribe({
       next: (c) => {
         if (c) {
@@ -208,7 +239,8 @@ export class ClientComponent implements OnInit {
             observations: c.observations
           });
           this.isEditingClient = true;
-          this.isModalClientOpen = true;
+          this.showClientPanel = true;
+          setTimeout(() => document.getElementById('client-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
         }
       }
     });

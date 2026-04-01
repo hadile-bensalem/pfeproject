@@ -3,8 +3,10 @@ package com.poly.dindor.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +27,15 @@ public class JwtUtil {
     @Value("${app.jwt.refresh-expiration}")
     private Long refreshExpiration;
     
+    @PostConstruct
+    public void validateConfiguration() {
+        Assert.hasText(secret, "La clé JWT (DINDOR_JWT_SECRET) ne doit pas être vide");
+        Assert.isTrue(
+            secret.getBytes(StandardCharsets.UTF_8).length >= 32,
+            "La clé JWT doit faire au minimum 32 octets (256 bits). Générez-en une avec : openssl rand -base64 48"
+        );
+    }
+
     public Long getExpiration() {
         return expiration;
     }

@@ -5,7 +5,7 @@ import { Pipe, PipeTransform } from '@angular/core';
   standalone: true
 })
 export class CurrencyFormatPipe implements PipeTransform {
-  transform(value: number | null | undefined, decimals: number = 2, suffix: string = ' DT'): string {
+  transform(value: number | null | undefined, decimals: number = 3, suffix: string = ' DT'): string {
     if (value == null || isNaN(value)) return '—';
     return new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: decimals,

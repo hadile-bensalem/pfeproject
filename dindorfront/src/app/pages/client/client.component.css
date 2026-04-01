@@ -524,6 +524,232 @@
   }
 }
 
+/* ═══ Header stats ═══ */
+.page-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-stats {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(139, 26, 26, 0.07);
+  border: 1px solid rgba(139, 26, 26, 0.2);
+  border-radius: 14px;
+  padding: 0.45rem 1rem;
+  min-width: 70px;
+}
+
+.stat-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  line-height: 1.1;
+}
+
+.stat-lbl {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+/* ═══ List count badge ═══ */
+.list-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+/* ═══ Solde négatif ═══ */
+.solde-negatif {
+  color: #c62828;
+  font-weight: 600;
+}
+
+/* ═══ CLIENT PANEL ═══ */
+.client-panel {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px rgba(139, 26, 26, 0.10);
+  overflow: hidden;
+  animation: fadeInUp 0.22s ease-out;
+}
+
+/* Panel header */
+.cp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(90deg, rgba(139, 26, 26, 0.08), rgba(218, 165, 32, 0.05));
+  border-bottom: 1px solid rgba(139, 26, 26, 0.15);
+}
+
+.cp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cp-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.cp-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cp-code-preview {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.cp-code-preview strong {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+/* Panel body */
+.cp-body {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cp-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  flex: 1 1 160px;
+}
+
+.cp-field.cp-field-sm  { flex: 0 0 160px; }
+.cp-field.cp-field-lg  { flex: 1 1 220px; }
+.cp-field.cp-field-full { flex: 1 1 100%; }
+
+.cp-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cp-inp {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--background-light);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cp-inp:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px rgba(199, 62, 62, 0.12);
+  background: #fff;
+}
+
+.cp-inp-readonly {
+  background: rgba(139, 26, 26, 0.04);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.cp-textarea {
+  resize: vertical;
+  min-height: 62px;
+}
+
+.req {
+  color: var(--primary-color);
+}
+
+.cp-err {
+  font-size: 0.78rem;
+  color: #c62828;
+}
+
+/* Messages */
+.cp-msgs {
+  padding: 0.5rem 1.5rem;
+}
+
+.cp-error {
+  padding: 0.5rem 0.75rem;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  background: rgba(229, 57, 53, 0.08);
+  color: #c62828;
+}
+
+.cp-success {
+  padding: 0.5rem 0.75rem;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  background: rgba(28, 156, 115, 0.1);
+  color: #1c9c73;
+}
+
+/* Footer */
+.cp-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--background-light);
+}
+
+.cp-hint {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.cp-footer-btns {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.cp-save-btn {
+  min-width: 190px;
+}
+
 @media (max-width: 768px) {
   .clients-container {
     padding: 1.5rem 1rem;
@@ -550,4 +776,15 @@
   .ancien-facture-form .form-row-three {
     grid-template-columns: 1fr;
   }
+
+  .cp-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cp-footer-btns {
+    flex-direction: column;
+  }
+
+  .cp-field.cp-field-sm { flex: 1 1 100%; }
 }

@@ -1,5 +1,11 @@
-/* Global Styles for Dind'or Application */
-* {
+/* ============================================================
+   Global Styles — Dind'Or Application
+   Palette : Bordeaux #8B1A1A · Or #DAA520 · Blanc #FFFFFF
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -14,58 +20,85 @@ html, body {
 
 body {
   margin: 0;
-  background-color: #F8F9FA;
+  background-color: #EDEEF2;
   color: #2C2C2C;
   line-height: 1.6;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
-/* Remove default button styles */
-button {
+button, input, textarea, select {
   font-family: inherit;
 }
 
-/* Remove default input styles */
-input, textarea, select {
-  font-family: inherit;
-}
-
-/* Focus styles for accessibility */
 *:focus-visible {
-  outline: 2px solid #8B1A1A;
+  outline: 2px solid #C9A227;
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #F8F9FA;
-}
-
+/* ── Scrollbar premium ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #EDEEF2; }
 ::-webkit-scrollbar-thumb {
-  background: #E0E0E0;
-  border-radius: 5px;
+  background: linear-gradient(180deg, #C9A227, #8B1A1A);
+  border-radius: 6px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #999999;
+  background: linear-gradient(180deg, #DAA520, #A01F1F);
 }
 
-/* Selection color */
-::selection {
-  background-color: #8B1A1A;
-  color: white;
+/* ── Sélection de texte ── */
+::selection         { background-color: #8B1A1A; color: white; }
+::-moz-selection    { background-color: #8B1A1A; color: white; }
+
+/* ── Variables CSS globales ── */
+:root {
+  --color-primary:   #8B1A1A;
+  --color-primary-l: #C73E3E;
+  --color-gold:      #DAA520;
+  --color-gold-m:    #C9A227;
+  --color-bg:        #EDEEF2;
+  --color-white:     #FFFFFF;
+  --color-border:    #E1E8ED;
+  --color-text:      #1E2A38;
+  --color-text-2:    #5A6C7D;
+  --color-text-3:    #8B9AAB;
 }
 
-::-moz-selection {
-  background-color: #8B1A1A;
-  color: white;
+/* ── Angular Material – overrides Bordeaux/Or ── */
+.mat-primary .mat-mdc-raised-button,
+.mdc-button--raised.mat-primary,
+button.mat-mdc-raised-button.mat-primary {
+  --mdc-filled-button-container-color: #8B1A1A;
+  --mdc-filled-button-label-text-color: #fff;
 }
+
+.mat-mdc-form-field.mat-focused .mdc-floating-label,
+.mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: #8B1A1A !important;
+}
+
+.mat-mdc-form-field.mat-focused .mdc-line-ripple::after,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: #8B1A1A !important;
+}
+
+.mat-step-header .mat-step-icon-selected,
+.mat-step-header .mat-step-icon-state-done,
+.mat-step-header .mat-step-icon-state-edit {
+  background-color: #8B1A1A !important;
+}
+
+.mat-mdc-tab.mdc-tab--active .mdc-tab__text-label { color: #8B1A1A; }
+.mat-mdc-tab-ink-bar { background-color: #8B1A1A; }
+
+.mat-mdc-checkbox.mat-accent { --mdc-checkbox-selected-icon-color: #DAA520; }
+
+.mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled)
+  .mdc-list-item__primary-text {
+  color: #8B1A1A;
+}
+.mat-pseudo-checkbox-checked.mat-pseudo-checkbox-minimal::after { color: #8B1A1A; }

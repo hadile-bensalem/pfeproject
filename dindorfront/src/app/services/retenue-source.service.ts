@@ -1,73 +1,96 @@
-import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { RetenueSource } from '../models/retenue-source.model';
-
-const STORAGE_KEY = 'dindor_retenues_source';
-const NUMERO_KEY = 'dindor_retenue_numero';
+import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class RetenueSourceService {
-  private getStored(): RetenueSource[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
+  private http = inject(HttpClient);
+  private readonly apiUrl = `${environment.apiUrl}/retenue-source`;
 
-  private setStored(list: RetenueSource[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  }
-
-  private nextNumero(): string {
-    const year = new Date().getFullYear();
-    const key = `${NUMERO_KEY}_${year}`;
-    let n = 1;
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) n = parseInt(stored, 10) + 1;
-    } catch {}
-    localStorage.setItem(key, n.toString());
-    return `RS-${year}-${n.toString().padStart(4, '0')}`;
-  }
+  // ── CRUD (backend API) ────────────────────────────────────────────────
 
   getAll(): Observable<RetenueSource[]> {
-    return of(this.getStored());
+    return this.http.get<any>(this.apiUrl).pipe(
+      map(r => (r.data as any[]).map(this.mapToModel))
+    );
   }
 
   getById(id: number): Observable<RetenueSource | null> {
-    const list = this.getStored();
-    return of(list.find(r => r.id === id) ?? null);
+    return this.http.get<any>(`${this.apiUrl}/${id}`).pipe(
+      map(r => this.mapToModel(r.data))
+    );
   }
 
-  create(r: Omit<RetenueSource, 'id' | 'numeroRetenue'>): Observable<RetenueSource> {
-    const list = this.getStored();
-    const nextId = list.length ? Math.max(...list.map(x => x.id)) + 1 : 1;
-    const newRetenue: RetenueSource = {
-      ...r,
-      id: nextId,
-      numeroRetenue: this.nextNumero()
+  /**
+   * Crée une retenue à la source.
+   * Accepte le format plat utilisé par le formulaire etat et le mappe
+   * vers le format RetenueSourceRequest attendu par le backend.
+   */
+  create(payload: any): Observable<RetenueSource> {
+    const request = {
+      fournisseurId: payload.fournisseurId,
+      dateRetenue: payload.dateRetenue,
+      lieuRetenue: payload.lot || 'KSIBET',
+      lignes: [{
+        numeroFacture: payload.numeroFacture || '',
+        montantBrut: payload.montantBrut ?? 0,
+        tauxRetenue: payload.taux ?? 1,
+        ordre: 1
+      }]
     };
-    list.unshift(newRetenue);
-    this.setStored(list);
-    return of(newRetenue);
+    return this.http.post<any>(this.apiUrl, request).pipe(
+      map(r => this.mapToModel(r.data))
+    );
   }
 
   delete(id: number): Observable<void> {
-    const list = this.getStored().filter(x => x.id !== id);
-    this.setStored(list);
-    return of(void 0);
+    return this.http.delete<any>(`${this.apiUrl}/${id}`).pipe(map(() => void 0));
   }
 
+  /**
+   * Génère un numéro de retenue en prévisualisation (sans appel backend).
+   * Format : RS-AAAA-XXXX
+   */
   getNextNumero(): string {
     const year = new Date().getFullYear();
-    const key = `${NUMERO_KEY}_${year}`;
+    const key = `dindor_retenue_seq_${year}`;
     let n = 0;
     try {
       const stored = localStorage.getItem(key);
       if (stored) n = parseInt(stored, 10);
     } catch {}
     return `RS-${year}-${(n + 1).toString().padStart(4, '0')}`;
+  }
+
+  // ── PDF (backend API) ─────────────────────────────────────────────────
+
+  downloadPdf(id: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${id}/pdf`, { responseType: 'blob' });
+  }
+
+  // ── Mapping backend → modèle frontend ────────────────────────────────
+
+  private mapToModel(r: any): RetenueSource {
+    const premiereLigne = r.lignes?.[0];
+    return {
+      id:                  r.id,
+      numeroRetenue:       r.numeroDocument ?? '',
+      fournisseurId:       r.fournisseurId,
+      fournisseurNom:      r.fournisseurRaisonSociale ?? '',
+      fournisseurAdresse:  r.fournisseurAdresse ?? '',
+      fournisseurMatricule:r.fournisseurMatricule ?? '',
+      fournisseurCodeTVA:  '',
+      dateRetenue:         r.dateRetenue ?? '',
+      lot:                 r.lieuRetenue ?? '',
+      taux:                premiereLigne?.tauxRetenue ?? 0,
+      numeroFacture:       premiereLigne?.numeroFacture ?? '',
+      montantBrut:         r.totalMontantBrut ?? 0,
+      retenue:             r.totalRetenue ?? 0,
+      montantNet:          r.totalMontantNet ?? 0,
+      libelle:             ''
+    };
   }
 }

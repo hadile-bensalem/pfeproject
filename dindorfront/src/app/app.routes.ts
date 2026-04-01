@@ -65,7 +65,11 @@ export const routes: Routes = [
   },
   {
     path: 'articles',
-    loadComponent: () => import('./pages/articles/articles.component').then(m => m.ArticlesComponent)
+    loadComponent: () => import('./layout/layout.component').then(m => m.LayoutComponent),
+    canActivate: [authGuard],
+    children: [
+      { path: '', loadComponent: () => import('./pages/articles/articles.component').then(m => m.ArticlesComponent) }
+    ]
   },
   {
     path: 'home',
@@ -80,7 +84,8 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/layout.component').then(m => m.LayoutComponent),
     canActivate: [authGuard],
     children: [
-      { path: '', loadComponent: () => import('./pages/achat/achat.component').then(m => m.AchatComponent) }
+      { path: '', loadComponent: () => import('./pages/achat/achat.component').then(m => m.AchatComponent) },
+      { path: 'facture/new', loadComponent: () => import('./pages/achat/facture-achat-wizard/facture-achat-wizard.component').then(m => m.FactureAchatWizardComponent) }
     ]
   },
   {

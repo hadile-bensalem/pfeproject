@@ -1,25 +1,37 @@
 <div class="layout-container">
+
+  <!-- ══ HEADER ══ -->
   <header class="layout-header">
     <div class="header-content">
       <div class="header-left">
         <button class="sidebar-toggle" (click)="toggleSidebar()" *ngIf="!isLoading" type="button" aria-label="Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M3 18H21V16H3V18ZM3 13H21V11H3V13ZM3 6V8H21V6H3Z" fill="currentColor"/>
           </svg>
         </button>
-        <div class="logo-section">
-          <a routerLink="/home" class="logo-link">
-            <img src="assets/images/logo.png" alt="Dind'or Logo" class="logo">
-          </a>
-        </div>
+        <a routerLink="/home" class="logo-link">
+          <img src="assets/images/logo.png" alt="Dind'or Logo" class="logo">
+        </a>
       </div>
+
+      <div class="header-center" *ngIf="!isLoading">
+        <span class="brand-dot"></span>
+        <span class="brand-tagline">Commercialisation de Volaille</span>
+      </div>
+
       <div class="user-section">
         <div class="user-info" *ngIf="adminInfo">
-          <span class="welcome-text">Bienvenue,</span>
-          <span class="user-name">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+          <div class="user-avatar">
+            {{ adminInfo.firstName.charAt(0) }}{{ adminInfo.lastName.charAt(0) }}
+          </div>
+          <div class="user-text">
+            <span class="welcome-text">Connecté en tant que</span>
+            <span class="user-name">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+          </div>
         </div>
+        <div class="header-divider"></div>
         <button class="btn-logout" (click)="logout()" type="button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor"/>
           </svg>
           Déconnexion
@@ -28,41 +40,67 @@
     </div>
   </header>
 
+  <!-- ══ BODY ══ -->
   <div class="main-layout" *ngIf="!isLoading">
+
+    <!-- ══ SIDEBAR ══ -->
     <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
-      <div class="sidebar-content">
+      <div class="sidebar-inner">
+
         <nav class="sidebar-nav">
-          <ul class="menu-list">
-            <li *ngFor="let item of navItems" class="menu-item">
-              <a
-                [routerLink]="item.path"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="{ exact: item.path === '/home' }"
-                class="menu-link"
-                [title]="item.label">
-                <span class="menu-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path [attr.d]="item.iconPath" fill="currentColor"/>
-                  </svg>
-                </span>
-                <span class="menu-label">{{ item.label }}</span>
-                <span class="menu-indicator"></span>
-              </a>
-            </li>
-          </ul>
+          <ng-container *ngFor="let section of navSections; let last = last">
+            <div class="menu-section">
+              <span class="menu-section-label">{{ section.label }}</span>
+              <ul class="menu-list">
+                <li *ngFor="let item of section.items" class="menu-item">
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="active"
+                    [routerLinkActiveOptions]="{ exact: item.path === '/home' }"
+                    class="menu-link"
+                    [title]="item.label">
+                    <span class="menu-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path [attr.d]="item.iconPath" fill="currentColor"/>
+                      </svg>
+                    </span>
+                    <span class="menu-label">{{ item.label }}</span>
+                    <span class="menu-indicator"></span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div *ngIf="!last" class="menu-divider"></div>
+          </ng-container>
         </nav>
+
+        <!-- Profil utilisateur fixé en bas de sidebar -->
+        <div class="sidebar-user" *ngIf="adminInfo">
+          <div class="sidebar-user-avatar">
+            {{ adminInfo.firstName.charAt(0) }}{{ adminInfo.lastName.charAt(0) }}
+          </div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+            <span class="sidebar-user-role">Administrateur</span>
+          </div>
+        </div>
+
       </div>
     </aside>
 
-    <main class="main-content" [class.sidebar-open]="!sidebarCollapsed">
+    <!-- ══ CONTENU PRINCIPAL ══ -->
+    <main class="main-content">
       <div class="content-wrapper">
         <router-outlet />
       </div>
     </main>
+
   </div>
 
+  <!-- ══ LOADING ══ -->
   <div class="loading-container" *ngIf="isLoading">
     <div class="spinner"></div>
     <p>Chargement...</p>
   </div>
+
 </div>

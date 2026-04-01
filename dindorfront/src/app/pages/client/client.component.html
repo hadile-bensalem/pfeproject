@@ -1,42 +1,159 @@
 <div class="clients-container">
+
   <header class="page-header">
-    <div>
-      <h2>Gestion des Clients</h2>
-      <p class="subtitle">Ajout, consultation et régularisation des comptes clients</p>
+    <div class="page-header-content">
+      <div>
+        <h2>Gestion des Clients</h2>
+        <p class="subtitle">Ajout, consultation et régularisation des comptes clients</p>
+      </div>
+      <div class="header-stats" *ngIf="etatClients.length > 0">
+        <div class="stat-chip">
+          <span class="stat-val">{{ etatClients.length }}</span>
+          <span class="stat-lbl">Clients</span>
+        </div>
+      </div>
     </div>
   </header>
 
+  <!-- Toolbar -->
   <div class="page-toolbar">
     <div class="toolbar-buttons">
-      <button type="button" class="btn primary" (click)="openAddClientModal()">
-        <span class="btn-icon">➕</span>
-        Ajouter un Client
+      <button type="button" class="btn primary" (click)="openAddClientPanel()">
+        <span class="btn-icon">＋</span>
+        Nouveau Client
       </button>
       <button type="button" class="btn secondary" (click)="openAncienFactureModal()">
         <span class="btn-icon">📄</span>
-        Ancien Facture Client
+        Ancien Facture
       </button>
-      <button type="button" class="btn outline primary-outline" (click)="openBonLivraisonModal()">
+      <button type="button" class="btn outline" (click)="openBonLivraisonModal()">
         <span class="btn-icon">📦</span>
         Bon de Livraison
       </button>
       <button type="button" class="btn outline" (click)="openClientCrediteurModal()">
         <span class="btn-icon">💰</span>
-        Client Créditeur
+        Clients Créditeurs
+      </button>
+      <button type="button" class="btn neutral" (click)="loadEtatClientsPublic()">
+        <span class="btn-icon">↻</span>
+        Actualiser
       </button>
     </div>
   </div>
 
+  <!-- ═══ PANNEAU AJOUT / MODIFICATION INLINE ═══ -->
+  <div id="client-panel" class="client-panel" *ngIf="showClientPanel" [formGroup]="clientForm">
+
+    <!-- En-tête panneau -->
+    <div class="cp-header">
+      <div class="cp-header-left">
+        <div class="cp-icon">{{ isEditingClient ? '✏️' : '👤' }}</div>
+        <div>
+          <h3>{{ isEditingClient ? 'Modifier le client' : 'Nouveau client' }}</h3>
+          <span class="cp-code-preview" *ngIf="!isEditingClient">
+            Code : <strong>{{ clientForm.get('codeClient')?.value }}</strong>
+          </span>
+        </div>
+      </div>
+      <button type="button" class="close-btn" (click)="closeClientPanel()" title="Fermer">×</button>
+    </div>
+
+    <!-- Corps du formulaire -->
+    <div class="cp-body">
+
+      <!-- Ligne 1 : code + nom -->
+      <div class="cp-row">
+        <div class="cp-field cp-field-sm">
+          <label>Code Client <span class="req">*</span></label>
+          <input type="text" formControlName="codeClient"
+                 class="cp-inp" [class.cp-inp-readonly]="!isEditingClient"
+                 [readonly]="!isEditingClient"
+                 placeholder="Généré automatiquement">
+          <span class="cp-err" *ngIf="clientForm.get('codeClient')?.invalid && clientForm.get('codeClient')?.touched">
+            Obligatoire
+          </span>
+        </div>
+        <div class="cp-field cp-field-lg">
+          <label>Nom / Raison Sociale <span class="req">*</span></label>
+          <input type="text" formControlName="nom"
+                 class="cp-inp" placeholder="Nom complet du client" autofocus>
+          <span class="cp-err" *ngIf="clientForm.get('nom')?.invalid && clientForm.get('nom')?.touched">
+            Obligatoire
+          </span>
+        </div>
+      </div>
+
+      <!-- Ligne 2 : adresse -->
+      <div class="cp-row">
+        <div class="cp-field cp-field-full">
+          <label>Adresse</label>
+          <input type="text" formControlName="adresse"
+                 class="cp-inp" placeholder="Adresse complète">
+        </div>
+      </div>
+
+      <!-- Ligne 3 : téléphone + email -->
+      <div class="cp-row">
+        <div class="cp-field">
+          <label>Téléphone</label>
+          <input type="tel" formControlName="telephone"
+                 class="cp-inp" placeholder="+216 XX XXX XXX">
+        </div>
+        <div class="cp-field">
+          <label>Email</label>
+          <input type="email" formControlName="email"
+                 class="cp-inp" placeholder="email@exemple.com">
+          <span class="cp-err" *ngIf="clientForm.get('email')?.invalid && clientForm.get('email')?.touched">
+            Email invalide
+          </span>
+        </div>
+      </div>
+
+      <!-- Ligne 4 : observations -->
+      <div class="cp-row">
+        <div class="cp-field cp-field-full">
+          <label>Observations</label>
+          <textarea formControlName="observations" class="cp-inp cp-textarea"
+                    rows="2" placeholder="Notes, remarques…"></textarea>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Messages -->
+    <div class="cp-msgs" *ngIf="clientPanelError || clientPanelSuccess">
+      <div class="cp-error" *ngIf="clientPanelError">⚠ {{ clientPanelError }}</div>
+      <div class="cp-success" *ngIf="clientPanelSuccess">✓ {{ clientPanelSuccess }}</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="cp-footer">
+      <span class="cp-hint">Les champs marqués <span class="req">*</span> sont obligatoires</span>
+      <div class="cp-footer-btns">
+        <button type="button" class="btn neutral" (click)="closeClientPanel()">Annuler</button>
+        <button type="button" class="btn success cp-save-btn"
+                (click)="onSubmitClient()" [disabled]="clientIsSaving">
+          <span *ngIf="!clientIsSaving">✓&nbsp; {{ isEditingClient ? 'Enregistrer les modifications' : 'Créer le client' }}</span>
+          <span *ngIf="clientIsSaving">Enregistrement…</span>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /client-panel -->
+
+  <!-- Liste des clients -->
   <section class="card list-card">
     <div class="list-header">
-      <h3>Liste des clients</h3>
+      <h3>
+        Liste des clients
+        <span class="list-count" *ngIf="filteredEtat.length > 0">{{ filteredEtat.length }}</span>
+      </h3>
       <div class="search-box">
-        <input
-          type="text"
-          [(ngModel)]="searchTerm"
-          (ngModelChange)="onSearchChange()"
-          placeholder="Rechercher par code ou nom..."
-        >
+        <span class="search-icon">🔍</span>
+        <input type="text"
+               [(ngModel)]="searchTerm"
+               (ngModelChange)="onSearchChange()"
+               placeholder="Rechercher par code ou nom…">
       </div>
     </div>
 
@@ -44,21 +161,27 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Code Client</th>
+            <th>Code</th>
             <th>Nom Client</th>
             <th class="numeric">Solde</th>
-            <th class="numeric">Traitement en cours</th>
+            <th class="numeric">En cours</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="filteredEtat.length === 0">
-            <td colspan="5" class="empty-state">Aucun client. Utilisez « Ajouter un Client » pour en créer.</td>
+            <td colspan="5" class="empty-state">
+              Aucun client. Cliquez sur « Nouveau Client » pour commencer.
+            </td>
           </tr>
-          <tr *ngFor="let e of filteredEtat" (click)="goToDetail(e)" class="row-clickable">
+          <tr *ngFor="let e of filteredEtat"
+              (click)="goToDetail(e)" class="row-clickable">
             <td class="code-cell">{{ e.codeClient }}</td>
             <td class="nom-cell">{{ e.nomClient }}</td>
-            <td class="numeric">{{ formatMontant(e.solde) }}</td>
+            <td class="numeric" [class.solde-negatif]="e.solde < 0"
+                [class.solde-positif]="e.solde > 0">
+              {{ formatMontant(e.solde) }}
+            </td>
             <td class="numeric">{{ formatMontant(e.traitementEnCours) }}</td>
             <td class="actions-col" (click)="$event.stopPropagation()">
               <button type="button" class="chip primary" (click)="editClient(e)">Modifier</button>
@@ -70,66 +193,14 @@
     </div>
 
     <ng-template #loadingTpl>
-      <div class="loading-state">Chargement des clients...</div>
+      <div class="loading-state">Chargement des clients…</div>
     </ng-template>
     <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
   </section>
+
 </div>
 
-<!-- Modal Ajouter/Modifier Client -->
-<div class="modal-backdrop" *ngIf="isModalClientOpen" (click)="closeClientModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h3>{{ isEditingClient ? 'Modifier le client' : 'Ajouter un client' }}</h3>
-      <button type="button" class="close-btn" (click)="closeClientModal()">&times;</button>
-    </div>
-    <form [formGroup]="clientForm" (ngSubmit)="onSubmitClient()">
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Code Client <span class="required">*</span></label>
-            <input type="text" formControlName="codeClient" placeholder="Ex. C20250101001">
-            <span class="field-error" *ngIf="clientForm.get('codeClient')?.invalid && clientForm.get('codeClient')?.touched">
-              Code client requis
-            </span>
-          </div>
-          <div class="form-group wide">
-            <label>Nom Client <span class="required">*</span></label>
-            <input type="text" formControlName="nom" placeholder="Nom ou raison sociale">
-            <span class="field-error" *ngIf="clientForm.get('nom')?.invalid && clientForm.get('nom')?.touched">
-              Nom requis
-            </span>
-          </div>
-          <div class="form-group wide">
-            <label>Adresse</label>
-            <input type="text" formControlName="adresse" placeholder="Adresse complète">
-          </div>
-          <div class="form-group">
-            <label>Téléphone</label>
-            <input type="tel" formControlName="telephone" placeholder="+216 ...">
-          </div>
-          <div class="form-group">
-            <label>Email</label>
-            <input type="email" formControlName="email" placeholder="email@exemple.com">
-            <span class="field-error" *ngIf="clientForm.get('email')?.invalid && clientForm.get('email')?.touched">
-              Email invalide
-            </span>
-          </div>
-          <div class="form-group wide">
-            <label>Observations</label>
-            <textarea formControlName="observations" rows="3" placeholder="Notes"></textarea>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn neutral" (click)="closeClientModal()">Annuler</button>
-        <button type="submit" class="btn success" [disabled]="clientForm.invalid">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Modal Ancien Facture Client -->
+<!-- ═══ Modal Ancien Facture Client ═══ -->
 <div class="modal-backdrop" *ngIf="isAncienFactureModalOpen" (click)="closeAncienFactureModal()">
   <div class="modal-dialog modal-ancien-facture" (click)="$event.stopPropagation()">
     <div class="modal-header ancien-facture-header">
@@ -151,7 +222,7 @@
             <input type="date" formControlName="date">
           </div>
           <div class="form-group wide">
-            <label>Code Client <span class="required">*</span></label>
+            <label>Client <span class="required">*</span></label>
             <select formControlName="clientId">
               <option [ngValue]="null">— Choisir un client —</option>
               <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.codeClient }} — {{ c.nom }}</option>
@@ -189,9 +260,14 @@
           </div>
           <div class="form-group montant-facture-row">
             <label>MONTANT FACTURE</label>
-            <div class="montant-facture-value" [class.has-value]="montantFactureTotal > 0">{{ formatMontant(montantFactureTotal) }}</div>
+            <div class="montant-facture-value" [class.has-value]="montantFactureTotal > 0">
+              {{ formatMontant(montantFactureTotal) }}
+            </div>
           </div>
-          <p *ngIf="ancienFactureMessage" class="ancien-facture-msg" [class.error]="ancienFactureMessage.includes('Veuillez')">{{ ancienFactureMessage }}</p>
+          <p *ngIf="ancienFactureMessage" class="ancien-facture-msg"
+             [class.error]="ancienFactureMessage.includes('Veuillez')">
+            {{ ancienFactureMessage }}
+          </p>
         </div>
       </div>
       <div class="modal-footer modal-footer-four">
@@ -204,7 +280,7 @@
   </div>
 </div>
 
-<!-- Modal Bon de Livraison -->
+<!-- ═══ Modal Bon de Livraison ═══ -->
 <div class="modal-backdrop" *ngIf="isBonLivraisonModalOpen" (click)="closeBonLivraisonModal()">
   <div class="modal-dialog" (click)="$event.stopPropagation()">
     <div class="modal-header">
@@ -243,7 +319,7 @@
   </div>
 </div>
 
-<!-- Modal Client Créditeur -->
+<!-- ═══ Modal Clients Créditeurs ═══ -->
 <div class="modal-backdrop" *ngIf="isClientCrediteurModalOpen" (click)="closeClientCrediteurModal()">
   <div class="modal-dialog modal-large" (click)="$event.stopPropagation()">
     <div class="modal-header">
@@ -258,7 +334,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Code Client</th>
+              <th>Code</th>
               <th>Nom Client</th>
               <th class="numeric">Solde créditeur</th>
             </tr>
@@ -267,7 +343,8 @@
             <tr *ngIf="clientsCrediteurs.length === 0">
               <td colspan="3" class="empty-state">Aucun client créditeur.</td>
             </tr>
-            <tr *ngFor="let e of clientsCrediteurs" (click)="goToDetail(e); closeClientCrediteurModal()" class="row-clickable">
+            <tr *ngFor="let e of clientsCrediteurs"
+                (click)="goToDetail(e); closeClientCrediteurModal()" class="row-clickable">
               <td>{{ e.codeClient }}</td>
               <td>{{ e.nomClient }}</td>
               <td class="numeric solde-positif">{{ formatMontant(e.solde) }}</td>

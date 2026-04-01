@@ -6,145 +6,605 @@
     </div>
   </header>
 
-  <div class="page-toolbar">
-    <div class="toolbar-buttons">
-      <button type="button" class="btn primary" (click)="openFactureAchatModal()">
-        <span class="btn-icon">📄</span>
-        Ajouter Facture Achat
-      </button>
-      <button type="button" class="btn secondary" (click)="openAddArticleModal()">
-        <span class="btn-icon">+</span>
-        Ajouter Article
-      </button>
-      <button type="button" class="btn outline" (click)="openFamilleModal()">Gérer Familles</button>
-      <button type="button" class="btn outline" (click)="openOrigineModal()">Gérer Origines</button>
-    </div>
+  <!-- Tabs Navigation -->
+  <div class="tabs-nav">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'factures'" (click)="activeTab = 'factures'">
+      📄 Factures d'Achat
+      <span class="tab-count" *ngIf="factures.length > 0">{{ factures.length }}</span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'articles'" (click)="activeTab = 'articles'">
+      📦 Articles
+      <span class="tab-count" *ngIf="articles.length > 0">{{ articles.length }}</span>
+    </button>
   </div>
 
-  <section class="card filters-card">
-    <div class="filters-row">
-      <div class="radio-group">
-        <label class="radio-label">
-          <input type="radio" name="filterBloc" [checked]="filterBloc === 'non-bloques'" (change)="setFilterBloc('non-bloques')">
-          <span>Non Bloqués</span>
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="filterBloc" [checked]="filterBloc === 'bloques'" (change)="setFilterBloc('bloques')">
-          <span>Bloqués</span>
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="filterBloc" [checked]="filterBloc === 'globale'" (change)="setFilterBloc('globale')">
-          <span>Globale</span>
-        </label>
-      </div>
-      <div class="filters-actions">
-        <input
-          type="text"
-          class="search-input"
-          [(ngModel)]="searchTerm"
-          (ngModelChange)="onSearchChange()"
-          placeholder="Rechercher article, code, famille..."
-        >
-        <span class="total-badge">Total : {{ totalValeur | currencyFormat }}</span>
+  <!-- ═══════════ TAB FACTURES ═══════════ -->
+  <div *ngIf="activeTab === 'factures'">
+    <div class="page-toolbar">
+      <div class="toolbar-buttons">
+        <button type="button" class="btn primary" (click)="openFactureAchatModal()">
+          <span class="btn-icon">📄</span>
+          Nouvelle Facture Achat
+        </button>
+        <button type="button" class="btn neutral" (click)="loadFactures()">
+          <span class="btn-icon">↻</span>
+          Actualiser
+        </button>
         <button type="button" class="btn outline" (click)="quitter()">Quitter</button>
-        <button type="button" class="btn neutral" (click)="initialiser()">Initialiser</button>
-        <button type="button" class="btn outline" (click)="transfertExcel()">Transfert EXCEL</button>
       </div>
     </div>
-  </section>
 
-  <section class="card list-card">
-    <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
-      <table class="data-table">
+    <!-- ═══ Alertes traites proches ═══ -->
+    <div class="traites-alert-bar" *ngIf="traitesAlert.length > 0">
+      <div class="traite-alert-icon">⚠</div>
+      <div class="traite-alert-list">
+        <div class="traite-alert-item" *ngFor="let t of traitesAlert"
+             [class.traite-today]="t.joursRestants === 0"
+             [class.traite-urgent]="t.joursRestants <= 3 && t.joursRestants > 0">
+          <strong>{{ t.numeroFacture }}</strong> — {{ t.fournisseur }} :
+          <span *ngIf="t.joursRestants === 0">⚡ Échéance AUJOURD'HUI !</span>
+          <span *ngIf="t.joursRestants === 1">Échéance demain ({{ t.dateEcheance | date:'dd/MM/yyyy' }})</span>
+          <span *ngIf="t.joursRestants > 1">Échéance dans {{ t.joursRestants }} jours ({{ t.dateEcheance | date:'dd/MM/yyyy' }})</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SAISIE INLINE PANEL ═══ -->
+    <div id="saisie-panel" class="saisie-panel" *ngIf="showSaisiePanel" [formGroup]="saisieHeaderForm">
+
+      <!-- Panel header -->
+      <div class="saisie-panel-hdr">
+        <div class="saisie-panel-title">
+          <div class="saisie-title-icon">📄</div>
+          <div>
+            <h3>Nouvelle Facture d'Achat</h3>
+            <span class="saisie-num-preview">N° <strong>{{ nextNumeroFacture || '…' }}</strong></span>
+          </div>
+        </div>
+        <button type="button" class="close-btn" (click)="closeSaisiePanel()" title="Fermer">×</button>
+      </div>
+
+      <!-- Fields header bar -->
+      <div class="saisie-fields-bar">
+        <div class="saisie-field saisie-fournisseur-field">
+          <label>Fournisseur <span class="req">*</span></label>
+          <select formControlName="fournisseurId" class="saisie-select" (change)="onFournisseurChange()">
+            <option [ngValue]="null">— Sélectionner un fournisseur —</option>
+            <option *ngFor="let f of fournisseurs" [ngValue]="f.id">
+              {{ f.matricule }} · {{ f.raisonSociale }}
+              <ng-container *ngIf="f.avecRS"> ★ RS</ng-container>
+            </option>
+          </select>
+          <span class="saisie-rs-badge" *ngIf="fournisseurAvecRS">★ Retenue à la source activée</span>
+        </div>
+        <div class="saisie-field">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" formControlName="dateFacture" class="saisie-date-inp">
+        </div>
+      </div>
+
+      <!-- Lines table -->
+      <div class="saisie-tbl-wrap" formArrayName="lignes">
+        <table class="saisie-tbl">
+          <thead>
+            <tr>
+              <th class="sc-desig" colspan="2">Article / Désignation</th>
+              <th class="sc-num">Qté</th>
+              <th class="sc-pu">PU HT</th>
+              <th class="sc-pct">Rem%</th>
+              <th class="sc-pct">TVA%</th>
+              <th class="sc-total">Total HT</th>
+              <th class="sc-del"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ligne of saisiesLignes.controls; let i = index"
+                [formGroupName]="i" class="saisie-row">
+              <td colspan="2" class="art-select-cell">
+                <div class="art-picker-wrap">
+                  <input [id]="'saisie-' + i + '-desig'"
+                         type="text"
+                         formControlName="designation"
+                         class="saisie-inp art-picker-inp"
+                         placeholder="— Sélectionner un article —"
+                         readonly
+                         (keydown.enter)="openArticlePicker(i)"
+                         [class.inp-invalid]="ligne.get('designation')?.invalid && ligne.get('designation')?.touched">
+                  <button type="button" class="art-picker-btn" (click)="openArticlePicker(i)" tabindex="-1" title="Choisir un article">
+                    ▾
+                  </button>
+                </div>
+              </td>
+              <td class="sc-num">
+                <input [id]="'saisie-' + i + '-qte'"
+                       type="number" formControlName="quantite"
+                       class="saisie-inp saisie-inp-r" min="0.001" step="1"
+                       (input)="syncMontantPaye()"
+                       (keydown.enter)="onCellEnter(i, 'pu')">
+              </td>
+              <td class="sc-pu">
+                <input [id]="'saisie-' + i + '-pu'"
+                       type="number" formControlName="puHT"
+                       class="saisie-inp saisie-inp-r" min="0" step="0.001"
+                       (input)="syncMontantPaye()"
+                       (keydown.enter)="onCellEnter(i, 'rem')">
+              </td>
+              <td class="sc-pct">
+                <input [id]="'saisie-' + i + '-rem'"
+                       type="number" formControlName="remise"
+                       class="saisie-inp saisie-inp-r" min="0" max="100" step="0.01"
+                       (input)="syncMontantPaye()"
+                       (keydown.enter)="onCellEnter(i, 'tva')">
+              </td>
+              <td class="sc-pct">
+                <input [id]="'saisie-' + i + '-tva'"
+                       type="number" formControlName="tva"
+                       class="saisie-inp saisie-inp-r" min="0" max="100" step="0.01"
+                       (input)="syncMontantPaye()"
+                       (keydown.enter)="onLastCellEnter(i)">
+              </td>
+              <td class="sc-total">{{ getLineMontantHT(i) | currencyFormat }}</td>
+              <td class="sc-del">
+                <button type="button" class="btn-del-ligne"
+                        (click)="removeSaisieLigne(i)"
+                        *ngIf="saisiesLignes.length > 1"
+                        title="Supprimer">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <button type="button" class="btn-add-ligne" (click)="addSaisieLigne()">
+          + Ajouter une ligne
+        </button>
+      </div>
+
+      <!-- ═══ RETENUE toggle (si fournisseur sans RS auto) ═══ -->
+      <div class="saisie-options-bar" *ngIf="!fournisseurAvecRS">
+        <label class="saisie-toggle-lbl">
+          <input type="checkbox" [(ngModel)]="saisieWithRetenue" [ngModelOptions]="{standalone: true}">
+          <span class="saisie-toggle-txt">Retenue à la source</span>
+        </label>
+      </div>
+
+      <!-- ═══ SECTION PAIEMENT (toujours visible) ═══ -->
+      <div class="saisie-section" [formGroup]="saisiePaiementForm">
+        <div class="saisie-section-title">
+          <span class="saisie-section-icon">💳</span>
+          Mode de Paiement
+        </div>
+        <div class="saisie-section-body">
+
+          <!-- Modes -->
+          <div class="pay-modes">
+            <label class="pay-mode-btn" [class.active]="saisieModePaiement === 'especes'"
+                   (click)="syncMontantPaye()">
+              <input type="radio" formControlName="modePaiement" value="especes">
+              <span class="pay-mode-icon">💵</span>
+              <span class="pay-mode-lbl">Espèces<br><small>Règlement intégral</small></span>
+            </label>
+            <label class="pay-mode-btn" [class.active]="saisieModePaiement === 'especes_traite'">
+              <input type="radio" formControlName="modePaiement" value="especes_traite">
+              <span class="pay-mode-icon">💵+📄</span>
+              <span class="pay-mode-lbl">Espèces + Traite<br><small>Partie espèces + traite</small></span>
+            </label>
+            <label class="pay-mode-btn" [class.active]="saisieModePaiement === 'traite'">
+              <input type="radio" formControlName="modePaiement" value="traite">
+              <span class="pay-mode-icon">📄</span>
+              <span class="pay-mode-lbl">Traite intégrale<br><small>Tout par traite</small></span>
+            </label>
+            <label class="pay-mode-btn" [class.active]="saisieModePaiement === 'especes_credit'">
+              <input type="radio" formControlName="modePaiement" value="especes_credit">
+              <span class="pay-mode-icon">💵+🔖</span>
+              <span class="pay-mode-lbl">Espèces + Crédit<br><small>Partie espèces + crédit</small></span>
+            </label>
+            <label class="pay-mode-btn" [class.active]="saisieModePaiement === 'credit'">
+              <input type="radio" formControlName="modePaiement" value="credit">
+              <span class="pay-mode-icon">🔖</span>
+              <span class="pay-mode-lbl">Crédit<br><small>Dette fournisseur</small></span>
+            </label>
+          </div>
+
+          <!-- Résumé montants auto-calculés -->
+          <div class="pay-amounts-bar">
+            <div class="pay-amt-block">
+              <span class="pay-amt-lbl">Net à payer</span>
+              <span class="pay-amt-val">{{ saisieStats.netAPayer | currencyFormat }}</span>
+            </div>
+            <ng-container *ngIf="saisieModePaiement === 'especes_traite' || saisieModePaiement === 'especes_credit'">
+              <div class="pay-amt-sep">→</div>
+              <div class="pay-amt-block">
+                <span class="pay-amt-lbl">Espèces</span>
+                <span class="pay-amt-val pay-especes">{{ saisieMontantEspeces | currencyFormat }}</span>
+              </div>
+              <div class="pay-amt-sep">+</div>
+              <div class="pay-amt-block">
+                <span class="pay-amt-lbl">{{ saisieModePaiement === 'especes_traite' ? 'Traite' : 'Crédit' }}</span>
+                <span class="pay-amt-val pay-reste">{{ saisieMontantReste | currencyFormat }}</span>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="saisieModePaiement === 'traite'">
+              <div class="pay-amt-sep">=</div>
+              <div class="pay-amt-block">
+                <span class="pay-amt-lbl">Montant traite</span>
+                <span class="pay-amt-val pay-reste">{{ saisieMontantReste | currencyFormat }}</span>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="saisieModePaiement === 'credit'">
+              <div class="pay-amt-sep">=</div>
+              <div class="pay-amt-block">
+                <span class="pay-amt-lbl">Montant crédit</span>
+                <span class="pay-amt-val pay-reste">{{ saisieMontantReste | currencyFormat }}</span>
+              </div>
+            </ng-container>
+          </div>
+
+          <!-- Champs dynamiques selon mode -->
+          <div class="saisie-pay-grid" style="margin-top: 1rem; padding: 0 1.6rem 1rem;">
+
+            <!-- Montant espèces (modes mixtes) -->
+            <div class="saisie-pay-field"
+                 *ngIf="saisieModePaiement === 'especes_traite' || saisieModePaiement === 'especes_credit'">
+              <label>Montant en espèces (DT)</label>
+              <input type="number" formControlName="montantEspeces"
+                     class="saisie-date-inp" min="0" step="0.001"
+                     placeholder="0.000" (input)="syncMontantPaye()">
+            </div>
+
+            <!-- Crédit : date limite -->
+            <div class="saisie-pay-field"
+                 *ngIf="saisieModePaiement === 'credit' || saisieModePaiement === 'especes_credit'">
+              <label>Date limite crédit <span class="req">*</span></label>
+              <input type="date" formControlName="dateLimiteCredit" class="saisie-date-inp">
+            </div>
+          </div>
+
+          <!-- ═══ Formulaire Traite complet ═══ -->
+          <div class="traite-form-grid"
+               *ngIf="saisieModePaiement === 'traite' || saisieModePaiement === 'especes_traite'">
+            <div class="traite-form-title">📄 Informations de la Traite</div>
+
+            <div class="saisie-pay-grid" style="padding: 0 1.6rem 1rem;">
+
+              <div class="saisie-pay-field tf-full">
+                <label>N° Compte RIB</label>
+                <input type="text" formControlName="ribCompte"
+                       class="saisie-date-inp" placeholder="08 | 505 | 00027100209688">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>N° Traite <span class="req">*</span></label>
+                <input type="text" formControlName="numeroTraite"
+                       class="saisie-date-inp" placeholder="TRT-2026-001">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Tireur <span class="req">*</span></label>
+                <input type="text" formControlName="tireur"
+                       class="saisie-date-inp" placeholder="Ex: STE DINDOR">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Tiré (À)</label>
+                <input type="text" formControlName="tire"
+                       class="saisie-date-inp" placeholder="Nom de la banque / du tiré">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Domiciliation</label>
+                <input type="text" formControlName="domiciliation"
+                       class="saisie-date-inp" placeholder="Ex: BIAT KSIBET EL M.">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Montant (DT) <span class="req">*</span></label>
+                <input type="number" [value]="saisieMontantReste | number:'1.3-3'"
+                       class="saisie-date-inp pay-reste-inp" readonly>
+              </div>
+
+              <div class="saisie-pay-field tf-full">
+                <label>Montant en lettres</label>
+                <input type="text" [value]="montantEnLettres(saisieMontantReste)"
+                       class="saisie-date-inp" readonly style="text-transform: uppercase; font-weight:600;">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Date de création <span class="req">*</span></label>
+                <input type="date" formControlName="dateCreationTraite" class="saisie-date-inp">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Date d'échéance <span class="req">*</span></label>
+                <input type="date" formControlName="dateEcheance" class="saisie-date-inp">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Lieu de création</label>
+                <input type="text" formControlName="lieuCreation"
+                       class="saisie-date-inp" placeholder="Ex: KSIBET">
+              </div>
+
+              <div class="saisie-pay-field">
+                <label>Valeur en</label>
+                <input type="text" formControlName="valeurEn"
+                       class="saisie-date-inp" placeholder="Ex: Dinars Tunisiens">
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section retenue à la source -->
+      <div class="saisie-section saisie-section-retenue" *ngIf="saisieWithRetenue" [formGroup]="saisieRetenueForm">
+        <div class="saisie-section-title">
+          <span class="saisie-section-icon">📋</span>
+          Retenue à la source
+        </div>
+        <div class="saisie-section-body">
+          <div class="saisie-pay-grid">
+            <div class="saisie-pay-field">
+              <label>Taux de retenue (%) <span class="req">*</span></label>
+              <input type="number" formControlName="tauxRetenue" class="saisie-date-inp" min="0.001" max="99" step="0.001">
+            </div>
+            <div class="saisie-pay-field">
+              <label>Montant retenu</label>
+              <input type="number" [value]="montantRetenu | number:'1.3-3'" class="saisie-date-inp" readonly>
+            </div>
+            <div class="saisie-pay-field">
+              <label>Date retenue <span class="req">*</span></label>
+              <input type="date" formControlName="dateRetenue" class="saisie-date-inp">
+            </div>
+            <div class="saisie-pay-field">
+              <label>Lieu retenue <span class="req">*</span></label>
+              <input type="text" formControlName="lieuRetenue" class="saisie-date-inp" placeholder="ex: Tunis">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totals bar -->
+      <div class="saisie-totals-bar">
+        <div class="tot-block">
+          <span class="tot-lbl">Total Brut</span>
+          <span class="tot-val">{{ saisieStats.totalBrut | currencyFormat }}</span>
+        </div>
+        <span class="tot-op">−</span>
+        <div class="tot-block">
+          <span class="tot-lbl">Remise</span>
+          <span class="tot-val tot-remise">{{ saisieStats.totalRemise | currencyFormat }}</span>
+        </div>
+        <span class="tot-op">=</span>
+        <div class="tot-block">
+          <span class="tot-lbl">Total HT</span>
+          <span class="tot-val">{{ saisieStats.totalHT | currencyFormat }}</span>
+        </div>
+        <span class="tot-op">+</span>
+        <div class="tot-block">
+          <span class="tot-lbl">TVA</span>
+          <span class="tot-val">{{ saisieStats.totalTVA | currencyFormat }}</span>
+        </div>
+        <span class="tot-op">+</span>
+        <div class="tot-block">
+          <span class="tot-lbl">Timbre</span>
+          <span class="tot-val">{{ saisieStats.timbre | currencyFormat }}</span>
+        </div>
+        <span class="tot-op">=</span>
+        <div class="tot-block tot-net-block">
+          <span class="tot-lbl">Net à Payer</span>
+          <span class="tot-val tot-net-val">{{ saisieStats.netAPayer | currencyFormat }}</span>
+        </div>
+      </div>
+
+      <!-- Error / success messages -->
+      <div class="saisie-msgs" *ngIf="saisieError || saisieSuccess">
+        <div class="saisie-error-msg" *ngIf="saisieError">⚠ {{ saisieError }}</div>
+        <div class="saisie-success-msg" *ngIf="saisieSuccess">✓ {{ saisieSuccess }}</div>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="saisie-footer">
+        <span class="saisie-kbd-hint">Appuyez sur <kbd>Entrée</kbd> pour naviguer · Code article → auto-complétion</span>
+        <div class="saisie-footer-btns">
+          <button type="button" class="btn neutral" (click)="closeSaisiePanel()">Annuler</button>
+          <button type="button" class="btn success saisie-save-btn"
+                  (click)="onSaisieSubmit()" [disabled]="saisieIsSaving">
+            <span *ngIf="!saisieIsSaving">✓&nbsp;&nbsp;Enregistrer la Facture</span>
+            <span *ngIf="saisieIsSaving">Enregistrement en cours…</span>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /saisie-panel -->
+
+    <section class="card list-card">
+      <div class="table-wrapper" *ngIf="!facturesLoading; else loadingFacturesTpl">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th>N° Facture</th>
+              <th>Date</th>
+              <th>Fournisseur</th>
+              <th class="numeric">Total HT</th>
+              <th class="numeric">TVA</th>
+              <th class="numeric">Net à Payer</th>
+              <th>Statut</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="factures.length === 0">
+              <td colspan="9" class="empty-state">Aucune facture. Cliquez sur « Nouvelle Facture Achat » pour créer.</td>
+            </tr>
+            <tr *ngFor="let f of factures; let i = index">
+              <td class="col-num">{{ i + 1 }}</td>
+              <td class="facture-num">{{ f.numeroFacture }}</td>
+              <td>{{ f.dateFacture | date:'dd/MM/yyyy' }}</td>
+              <td>{{ f.fournisseurRaisonSociale }}</td>
+              <td class="numeric">{{ f.totalHT | currencyFormat }}</td>
+              <td class="numeric">{{ f.totalTVA | currencyFormat }}</td>
+              <td class="numeric net-a-payer">{{ f.netAPayer | currencyFormat }}</td>
+              <td>
+                <span class="status-badge" [class]="'status-' + (f.statut | lowercase)">{{ f.statut }}</span>
+              </td>
+              <td class="actions-col">
+                <button type="button" class="chip info" (click)="printFacture(f.id!, f.numeroFacture)" title="Imprimer PDF">🖨️</button>
+                <button type="button" class="chip danger" (click)="deleteFacture(f.id!, f.numeroFacture)" title="Supprimer">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #loadingFacturesTpl>
+        <div class="loading-state">Chargement des factures...</div>
+      </ng-template>
+      <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+    </section>
+  </div>
+
+  <!-- ═══════════ TAB ARTICLES ═══════════ -->
+  <div *ngIf="activeTab === 'articles'">
+    <div class="page-toolbar">
+      <div class="toolbar-buttons">
+        <button type="button" class="btn secondary" (click)="openAddArticleModal()">
+          <span class="btn-icon">+</span>
+          Ajouter Article
+        </button>
+        <button type="button" class="btn outline" (click)="openFamilleModal()">Gérer Familles</button>
+        <button type="button" class="btn outline" (click)="openOrigineModal()">Gérer Origines</button>
+      </div>
+    </div>
+
+    <section class="card filters-card">
+      <div class="filters-row">
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="filterBloc" [checked]="filterBloc === 'non-bloques'" (change)="setFilterBloc('non-bloques')">
+            <span>Non Bloqués</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="filterBloc" [checked]="filterBloc === 'bloques'" (change)="setFilterBloc('bloques')">
+            <span>Bloqués</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="filterBloc" [checked]="filterBloc === 'globale'" (change)="setFilterBloc('globale')">
+            <span>Globale</span>
+          </label>
+        </div>
+        <div class="filters-actions">
+          <input
+            type="text"
+            class="search-input"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="onSearchChange()"
+            placeholder="Rechercher article, code, famille..."
+          >
+          <span class="total-badge">Total : {{ totalValeur | currencyFormat }}</span>
+          <button type="button" class="btn outline" (click)="quitter()">Quitter</button>
+          <button type="button" class="btn neutral" (click)="initialiser()">Initialiser</button>
+          <button type="button" class="btn outline" (click)="transfertExcel()">Transfert EXCEL</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card list-card">
+      <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th (click)="sortBy('codeArticle')" class="sortable">Article</th>
+              <th (click)="sortBy('designation')" class="sortable col-libelle">Libellé</th>
+              <th (click)="sortBy('famille')" class="sortable">Famille</th>
+              <th (click)="sortBy('stock1')" class="sortable numeric">Stock 1</th>
+              <th (click)="sortBy('unite')" class="sortable">Unité</th>
+              <th (click)="sortBy('prixAchatHT')" class="sortable numeric">PAHT</th>
+              <th (click)="sortBy('pump')" class="sortable numeric">PUMP</th>
+              <th class="numeric">Valeur</th>
+              <th (click)="sortBy('stock2')" class="sortable numeric">Stock 2</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredArticles.length === 0">
+              <td colspan="11" class="empty-state">Aucun article. Cliquez sur « Ajouter Article » pour en créer.</td>
+            </tr>
+            <tr *ngFor="let a of filteredArticles; let i = index">
+              <td class="col-num">{{ i + 1 }}</td>
+              <td>{{ a.codeArticle }}</td>
+              <td class="col-libelle link-cell" (click)="openEditArticle(a)">{{ a.designation }}</td>
+              <td>{{ a.famille }}</td>
+              <td class="numeric">{{ a.stock1 | numberFormat }}</td>
+              <td>{{ a.unite }}</td>
+              <td class="numeric">{{ a.prixAchatHT | currencyFormat }}</td>
+              <td class="numeric">{{ a.pump | currencyFormat }}</td>
+              <td class="numeric">{{ valeurArticle(a) | currencyFormat }}</td>
+              <td class="numeric">{{ a.stock2 | numberFormat }}</td>
+              <td class="actions-col">
+                <button type="button" class="chip primary" (click)="openEditArticle(a)">Modifier</button>
+                <button type="button" class="chip danger" (click)="deleteArticle(a, $event)">Supprimer</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #loadingTpl>
+        <div class="loading-state">Chargement des articles...</div>
+      </ng-template>
+      <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ Modal Sélection Article ═══ -->
+<div class="modal-backdrop" *ngIf="isArticlePickerOpen" (click)="closeArticlePicker()">
+  <div class="modal-dialog modal-article-picker" (click)="$event.stopPropagation()">
+    <div class="modal-header picker-header">
+      <div>
+        <h3>Sélectionner un article</h3>
+        <p class="modal-subtitle">{{ filteredArticlesPicker.length }} article(s) disponible(s)</p>
+      </div>
+      <button type="button" class="close-btn" (click)="closeArticlePicker()">&times;</button>
+    </div>
+    <div class="picker-search-bar">
+      <span class="picker-search-icon">🔍</span>
+      <input id="article-picker-search"
+             type="text"
+             class="picker-search-inp"
+             [(ngModel)]="articlePickerSearch"
+             placeholder="Rechercher par code ou désignation…"
+             autocomplete="off">
+    </div>
+    <div class="picker-table-wrap">
+      <table class="picker-table">
         <thead>
           <tr>
-            <th class="col-num">#</th>
-            <th (click)="sortBy('codeArticle')" class="sortable">Article</th>
-            <th (click)="sortBy('designation')" class="sortable col-libelle">Libellé</th>
-            <th (click)="sortBy('famille')" class="sortable">Famille</th>
-            <th (click)="sortBy('stock1')" class="sortable numeric">Stock 1</th>
-            <th (click)="sortBy('unite')" class="sortable">Unité</th>
-            <th (click)="sortBy('prixAchatHT')" class="sortable numeric">PAHT</th>
-            <th (click)="sortBy('pump')" class="sortable numeric">PUMP</th>
-            <th class="numeric">Valeur</th>
-            <th (click)="sortBy('stock2')" class="sortable numeric">Stock 2</th>
-            <th class="actions-col">Actions</th>
+            <th>Code</th>
+            <th>Désignation</th>
+            <th>Famille</th>
+            <th class="numeric">Stock</th>
+            <th class="numeric">Prix HT</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngIf="filteredArticles.length === 0">
-            <td colspan="11" class="empty-state">Aucun article. Cliquez sur « Ajouter Article » pour en créer.</td>
+          <tr *ngIf="filteredArticlesPicker.length === 0">
+            <td colspan="5" class="empty-state">Aucun article trouvé.</td>
           </tr>
-          <tr *ngFor="let a of filteredArticles; let i = index">
-            <td class="col-num">{{ i + 1 }}</td>
-            <td>{{ a.codeArticle }}</td>
-            <td class="col-libelle link-cell" (click)="openEditArticle(a)">{{ a.designation }}</td>
+          <tr *ngFor="let a of filteredArticlesPicker"
+              class="picker-row"
+              (click)="selectArticleFromPicker(a)">
+            <td class="picker-code">{{ a.codeArticle }}</td>
+            <td class="picker-desig">{{ a.designation }}</td>
             <td>{{ a.famille }}</td>
             <td class="numeric">{{ a.stock1 | numberFormat }}</td>
-            <td>{{ a.unite }}</td>
-            <td class="numeric">{{ a.prixAchatHT | currencyFormat }}</td>
-            <td class="numeric">{{ a.pump | currencyFormat }}</td>
-            <td class="numeric">{{ valeurArticle(a) | currencyFormat }}</td>
-            <td class="numeric">{{ a.stock2 | numberFormat }}</td>
-            <td class="actions-col">
-              <button type="button" class="chip primary" (click)="openEditArticle(a)">Modifier</button>
-              <button type="button" class="chip danger" (click)="deleteArticle(a, $event)">Supprimer</button>
-            </td>
+            <td class="numeric picker-prix">{{ a.prixAchatHT | currencyFormat }}</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <ng-template #loadingTpl>
-      <div class="loading-state">Chargement des articles...</div>
-    </ng-template>
-    <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
-  </section>
-</div>
-
-<!-- Modal Facture Achat -->
-<div class="modal-backdrop" *ngIf="isModalFactureAchatOpen" (click)="closeFactureAchatModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h3>Ajouter Facture Achat</h3>
-      <button type="button" class="close-btn" (click)="closeFactureAchatModal()">&times;</button>
+    <div class="modal-footer">
+      <button type="button" class="btn neutral" (click)="closeArticlePicker()">Annuler</button>
     </div>
-    <form [formGroup]="factureAchatForm" (ngSubmit)="onSubmitFactureAchat()">
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="form-group wide">
-            <label>Fournisseur <span class="required">*</span></label>
-            <select formControlName="fournisseurId">
-              <option [ngValue]="null">— Choisir —</option>
-              <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.matricule }} — {{ f.raisonSociale }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>N° Facture <span class="required">*</span></label>
-            <input type="text" formControlName="numeroFacture" readonly class="input-readonly" placeholder="Saisie automatique">
-          </div>
-          <div class="form-group">
-            <label>Date <span class="required">*</span></label>
-            <input type="date" formControlName="date">
-          </div>
-          <div class="form-group">
-            <label>Montant HT</label>
-            <input type="number" formControlName="montantHT" step="0.01" min="0">
-          </div>
-          <div class="form-group">
-            <label>Montant TVA</label>
-            <input type="number" formControlName="montantTVA" step="0.01" min="0">
-          </div>
-          <div class="form-group">
-            <label>Montant TTC</label>
-            <input type="number" formControlName="montantTTC" step="0.01" min="0">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn neutral" (click)="closeFactureAchatModal()">Annuler</button>
-        <button type="submit" class="btn success" [disabled]="factureAchatForm.invalid">Enregistrer</button>
-      </div>
-    </form>
   </div>
 </div>
 
@@ -189,6 +649,34 @@
             </select>
           </div>
           <p *ngIf="articleDuplicateError" class="field-error msg-block">{{ articleDuplicateError }}</p>
+        </div>
+        <!-- Articles ajoutés (même affichage que le formulaire) -->
+        <div class="articles-added-in-modal" *ngIf="!isEditingArticle && articlesAddedInModal.length > 0">
+          <h4>Articles ajoutés</h4>
+          <div class="articles-added-list">
+            <div class="article-added-row form-grid article-form" *ngFor="let a of articlesAddedInModal; let i = index">
+              <div class="form-group">
+                <label>Code Article</label>
+                <input type="text" [value]="a.codeArticle" readonly class="input-readonly">
+              </div>
+              <div class="form-group wide">
+                <label>Désignation</label>
+                <input type="text" [value]="a.designation" readonly class="input-readonly">
+              </div>
+              <div class="form-group">
+                <label>Unité</label>
+                <input type="text" [value]="a.unite" readonly class="input-readonly">
+              </div>
+              <div class="form-group">
+                <label>Famille</label>
+                <input type="text" [value]="a.famille" readonly class="input-readonly">
+              </div>
+              <div class="form-group">
+                <label>Origine</label>
+                <input type="text" [value]="a.origine" readonly class="input-readonly">
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer modal-footer-four">

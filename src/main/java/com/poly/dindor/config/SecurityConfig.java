@@ -42,9 +42,9 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**", "/password-reset/**", "/error").permitAll()
-                // APIs achat/employés/fournisseurs : permitAll pour démo (pour prod, retirer et exiger JWT)
-                .requestMatchers("/employees/**", "/familles/**", "/origines/**", "/articles/**", "/fournisseurs/**", "/travailleurs/**").permitAll()
-                .anyRequest().authenticated()
+                // Tous les autres endpoints exigent un JWT valide avec le rôle ADMIN.
+                // Tout nouveau controller est automatiquement protégé sans modifier cette classe.
+                .anyRequest().hasRole("ADMIN")
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

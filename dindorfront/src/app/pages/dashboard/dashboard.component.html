@@ -1,74 +1,257 @@
 <div class="dashboard-page">
-  <div class="welcome-section">
-    <h2>Tableau de bord</h2>
-    <p class="subtitle">Gestion administrative de Dind'Or</p>
+
+  <!-- ══ BANNIÈRE D'ACCUEIL ══ -->
+  <div class="dash-banner">
+    <div class="banner-deco deco-1"></div>
+    <div class="banner-deco deco-2"></div>
+    <div class="banner-deco deco-3"></div>
+
+    <div class="banner-content">
+      <div class="banner-left">
+        <div class="banner-badge-top">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor"/>
+          </svg>
+          <span>Dind'Or — Volaille</span>
+        </div>
+        <p class="banner-greeting">{{ greeting }},</p>
+        <h1 class="banner-title" *ngIf="adminInfo">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</h1>
+        <h1 class="banner-title" *ngIf="!adminInfo">Administrateur</h1>
+        <p class="banner-sub">Tableau de bord · Gestion administrative</p>
+      </div>
+      <div class="banner-right">
+        <div class="banner-date-card">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/>
+          </svg>
+          <span>{{ todayLabel }}</span>
+        </div>
+        <div class="banner-icon-wrap">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+            <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor" opacity="0.85"/>
+          </svg>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="dashboard-stats">
-    <div class="stat-card">
-      <div class="stat-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- ══ KPI STATS ══ -->
+  <div class="kpi-grid">
+
+    <div class="kpi-card kpi-ventes">
+      <div class="kpi-strip"></div>
+      <div class="kpi-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M7 18C8.1 18 9 17.1 9 16C9 14.9 8.1 14 7 14C5.9 14 5 14.9 5 16C5 17.1 5.9 18 7 18ZM1 2V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.5C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C18.1 18 19 17.1 19 16C19 14.9 18.1 14 17 14C15.9 14 15 14.9 15 16C15 17.1 15.9 18 17 18Z" fill="currentColor"/>
         </svg>
       </div>
-      <div class="stat-info">
-        <h3>Ventes</h3>
-        <p class="stat-value">0</p>
+      <div class="kpi-body">
+        <span class="kpi-label">Ventes du jour</span>
+        <span class="kpi-value">0 <small>MAD</small></span>
+        <span class="kpi-trend neutral">— Aucune vente</span>
       </div>
     </div>
 
-    <div class="stat-card">
-      <div class="stat-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="kpi-card kpi-stock">
+      <div class="kpi-strip"></div>
+      <div class="kpi-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M20 6H17V4C17 2.9 16.1 2 15 2H9C7.9 2 7 2.9 7 4V6H4C2.9 6 2 6.9 2 8V19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V8C22 6.9 21.1 6 20 6ZM9 4H15V6H9V4ZM20 19H4V8H20V19Z" fill="currentColor"/>
         </svg>
       </div>
-      <div class="stat-info">
-        <h3>Stock</h3>
-        <p class="stat-value">0</p>
+      <div class="kpi-body">
+        <span class="kpi-label">Articles en stock</span>
+        <span class="kpi-value">0 <small>réf.</small></span>
+        <span class="kpi-trend neutral">— Stock vide</span>
       </div>
     </div>
 
-    <div class="stat-card">
-      <div class="stat-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+    <div class="kpi-card kpi-clients">
+      <div class="kpi-strip"></div>
+      <div class="kpi-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M16 11C17.66 11 18.99 9.66 18.99 8C18.99 6.34 17.66 5 16 5C14.34 5 13 6.34 13 8C13 9.66 14.34 11 16 11ZM8 11C9.66 11 10.99 9.66 10.99 8C10.99 6.34 9.66 5 8 5C6.34 5 5 6.34 5 8C5 9.66 6.34 11 8 11ZM8 13C5.67 13 1 14.17 1 16.5V19H15V16.5C15 14.17 10.33 13 8 13ZM16 13C15.71 13 15.38 13.02 15.03 13.05C16.19 13.89 17 15.02 17 16.5V19H23V16.5C23 14.17 18.33 13 16 13Z" fill="currentColor"/>
         </svg>
       </div>
-      <div class="stat-info">
-        <h3>Clients</h3>
-        <p class="stat-value">0</p>
+      <div class="kpi-body">
+        <span class="kpi-label">Clients actifs</span>
+        <span class="kpi-value">0</span>
+        <span class="kpi-trend neutral">— Aucun client</span>
       </div>
     </div>
 
-    <div class="stat-card">
-      <div class="stat-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M11.8 10.9C9.53 10.31 8.8 9.7 8.8 8.75C8.8 7.66 9.81 6.9 11.5 6.9C13.28 6.9 14.2 7.75 14.2 8.9H16.1C16.1 6.36 14.3 4.5 11.5 4.5C8.7 4.5 6.9 6.26 6.9 8.75C6.9 11.1 8.5 12.1 10.9 12.7C13.4 13.3 14.1 14.1 14.1 15.1C14.1 16.2 13.1 17 11.3 17C9.32 17 8.2 16.05 8.2 14.9H6.3C6.3 17.54 8.1 19.5 11.3 19.5C14.5 19.5 16.7 17.44 16.7 15.1C16.7 12.6 14.9 11.5 11.8 10.9ZM3 3H21V5H3V3ZM3 19H21V21H3V19Z" fill="currentColor"/>
+    <div class="kpi-card kpi-tresorerie">
+      <div class="kpi-strip"></div>
+      <div class="kpi-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M21 18V19C21 20.1 20.1 21 19 21H5C3.89 21 3 20.1 3 19V5C3 3.9 3.89 3 5 3H19C20.1 3 21 3.9 21 5V6H12C10.89 6 10 6.9 10 8V16C10 17.1 10.89 18 12 18H21ZM12 16H22V8H12V16ZM16 13.5C15.17 13.5 14.5 12.83 14.5 12C14.5 11.17 15.17 10.5 16 10.5C16.83 10.5 17.5 11.17 17.5 12C17.5 12.83 16.83 13.5 16 13.5Z" fill="currentColor"/>
         </svg>
       </div>
-      <div class="stat-info">
-        <h3>Trésorerie</h3>
-        <p class="stat-value">0 MAD</p>
+      <div class="kpi-body">
+        <span class="kpi-label">Solde trésorerie</span>
+        <span class="kpi-value">0 <small>MAD</small></span>
+        <span class="kpi-trend neutral">— Non renseigné</span>
       </div>
     </div>
+
   </div>
 
-  <div class="admin-info-card" *ngIf="adminInfo">
-    <h3>Informations du compte</h3>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="info-label">Email :</span>
-        <span class="info-value">{{ adminInfo.email }}</span>
+  <!-- ══ ACCÈS RAPIDE + PROFIL ══ -->
+  <div class="dash-bottom">
+
+    <!-- Accès rapide aux modules -->
+    <div class="quick-access-card">
+      <div class="card-header-line">
+        <div class="card-header-icon red">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor"/>
+          </svg>
+        </div>
+        <h3>Accès rapide</h3>
+        <span class="card-badge">8 modules</span>
       </div>
-      <div class="info-item">
-        <span class="info-label">Nom complet :</span>
-        <span class="info-value">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">ID :</span>
-        <span class="info-value">#{{ adminInfo.id }}</span>
+      <div class="quick-grid">
+
+        <a routerLink="/achat" class="quick-item">
+          <div class="qi-icon qi-red">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M7 18C8.1 18 9 17.1 9 16C9 14.9 8.1 14 7 14C5.9 14 5 14.9 5 16C5 17.1 5.9 18 7 18ZM1 2V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.5C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C18.1 18 19 17.1 19 16C19 14.9 18.1 14 17 14C15.9 14 15 14.9 15 16C15 17.1 15.9 18 17 18Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Achat</span>
+          <span class="qi-desc">Factures fournisseurs</span>
+        </a>
+
+        <a routerLink="/articles" class="quick-item">
+          <div class="qi-icon qi-gold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM9 17H7V10H9V17ZM13 17H11V7H13V17ZM17 17H15V13H17V17Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Articles</span>
+          <span class="qi-desc">Catalogue produits</span>
+        </a>
+
+        <a routerLink="/vente" class="quick-item">
+          <div class="qi-icon qi-red">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Vente</span>
+          <span class="qi-desc">Gestion des ventes</span>
+        </a>
+
+        <a routerLink="/stock" class="quick-item">
+          <div class="qi-icon qi-gold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6H17V4C17 2.9 16.1 2 15 2H9C7.9 2 7 2.9 7 4V6H4C2.9 6 2 6.9 2 8V19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V8C22 6.9 21.1 6 20 6ZM9 4H15V6H9V4ZM20 19H4V8H20V19Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Stock</span>
+          <span class="qi-desc">Niveaux & entrées</span>
+        </a>
+
+        <a routerLink="/client" class="quick-item">
+          <div class="qi-icon qi-red">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Clients</span>
+          <span class="qi-desc">Base clients</span>
+        </a>
+
+        <a routerLink="/fournisseur" class="quick-item">
+          <div class="qi-icon qi-gold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 8H17.19C16.74 7.22 16.12 6.55 15.37 6.04L17 4.41L15.59 3L13.42 5.17C12.96 5.06 12.49 5 12 5S11.04 5.06 10.59 5.17L8.41 3L7 4.41L8.62 6.04C7.88 6.55 7.26 7.22 6.81 8H4V10H6.09C6.04 10.33 6 10.66 6 11V12H4V14H6V15C6 15.34 6.04 15.67 6.09 16H4V18H6.81C7.85 19.79 9.78 21 12 21S16.15 19.79 17.19 18H20V16H17.91C17.96 15.67 18 15.34 18 15V14H20V12H18V11C18 10.66 17.96 10.33 17.91 10H20V8Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Fournisseurs</span>
+          <span class="qi-desc">Partenaires achat</span>
+        </a>
+
+        <a routerLink="/facture" class="quick-item">
+          <div class="qi-icon qi-red">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6C4.9 2 4.01 2.9 4.01 4L4 20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2ZM16 18H8V16H16V18ZM16 14H8V12H16V14ZM13 9V3.5L18.5 9H13Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Factures</span>
+          <span class="qi-desc">Édition & suivi</span>
+        </a>
+
+        <a routerLink="/tresorerie" class="quick-item">
+          <div class="qi-icon qi-gold">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M21 18V19C21 20.1 20.1 21 19 21H5C3.89 21 3 20.1 3 19V5C3 3.9 3.89 3 5 3H19C20.1 3 21 3.9 21 5V6H12C10.89 6 10 6.9 10 8V16C10 17.1 10.89 18 12 18H21ZM12 16H22V8H12V16ZM16 13.5C15.17 13.5 14.5 12.83 14.5 12C14.5 11.17 15.17 10.5 16 10.5C16.83 10.5 17.5 11.17 17.5 12C17.5 12.83 16.83 13.5 16 13.5Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="qi-label">Trésorerie</span>
+          <span class="qi-desc">Flux & solde</span>
+        </a>
+
       </div>
     </div>
+
+    <!-- Profil administrateur -->
+    <div class="profile-card" *ngIf="adminInfo">
+      <div class="card-header-line">
+        <div class="card-header-icon gold">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
+          </svg>
+        </div>
+        <h3>Profil administrateur</h3>
+      </div>
+
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar">
+          {{ adminInfo.firstName.charAt(0) }}{{ adminInfo.lastName.charAt(0) }}
+        </div>
+        <div class="profile-name-wrap">
+          <span class="profile-fullname">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
+          <span class="profile-badge">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor"/>
+            </svg>
+            Administrateur
+          </span>
+        </div>
+      </div>
+
+      <div class="profile-details">
+        <div class="profile-row">
+          <span class="pr-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" fill="currentColor"/>
+            </svg>
+          </span>
+          <div class="pr-content">
+            <span class="pr-label">Email</span>
+            <span class="pr-val">{{ adminInfo.email }}</span>
+          </div>
+        </div>
+        <div class="profile-row">
+          <span class="pr-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/>
+            </svg>
+          </span>
+          <div class="pr-content">
+            <span class="pr-label">Identifiant</span>
+            <span class="pr-val">#{{ adminInfo.id }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-status">
+        <span class="status-dot"></span>
+        <span class="status-text">Session active</span>
+      </div>
+    </div>
+
   </div>
+
 </div>

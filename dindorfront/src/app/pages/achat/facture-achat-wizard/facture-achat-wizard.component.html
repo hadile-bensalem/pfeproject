@@ -1,0 +1,566 @@
+<div class="wiz-page">
+
+  <!-- ══ Bandeau titre ══════════════════════════════════════════════════ -->
+  <div class="wiz-topbar">
+    <div class="wiz-topbar-left">
+      <span class="wiz-logo-icon material-icons">receipt_long</span>
+      <div class="wiz-topbar-text">
+        <span class="wiz-topbar-title">Nouvelle Facture d'Achat</span>
+        <span class="wiz-topbar-sub" *ngIf="headerForm.get('numeroFacture')?.value">
+          N° {{ headerForm.get('numeroFacture')?.value }}
+        </span>
+      </div>
+    </div>
+    <button mat-stroked-button color="warn" (click)="annuler()" type="button" class="btn-cancel">
+      <span class="material-icons btn-icon-sm">close</span> Annuler
+    </button>
+  </div>
+
+  <!-- ══ Chargement ══════════════════════════════════════════════════════ -->
+  <div class="wiz-loading" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement…</p>
+  </div>
+
+  <!-- ══ Banners ════════════════════════════════════════════════════════ -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    <span class="material-icons">check_circle</span>
+    <span class="alert-msg">{{ successMessage }}</span>
+    <div class="alert-actions">
+      <button mat-raised-button *ngIf="savedFactureId" (click)="printFacture()"
+              class="btn-print-facture">
+        <span class="material-icons btn-icon-sm">print</span>
+        Imprimer la facture
+      </button>
+      <button mat-stroked-button *ngIf="savedRetenueId" (click)="printRetenue()"
+              class="btn-print-retenue">
+        <span class="material-icons btn-icon-sm">receipt</span>
+        Retenue à la source
+      </button>
+      <button mat-stroked-button (click)="router.navigate(['/achat'])" class="btn-return">
+        <span class="material-icons btn-icon-sm">arrow_back</span>
+        Retour à la liste
+      </button>
+    </div>
+  </div>
+  <div class="alert alert-error" *ngIf="errorMessage">
+    <span class="material-icons">error_outline</span>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <!-- ══ STEPPER ════════════════════════════════════════════════════════ -->
+  <mat-stepper linear #stepper class="wiz-stepper"
+    (selectionChange)="$event.selectedIndex === 2 && onStep3Enter()">
+
+    <!-- ─────────────────── ÉTAPE 1 : EN-TÊTE ─────────────────────── -->
+    <mat-step [stepControl]="headerForm" label="En-tête">
+      <form [formGroup]="headerForm" class="step-body">
+
+        <div class="section-card">
+          <div class="section-header">
+            <span class="material-icons section-icon">edit_document</span>
+            Informations générales
+          </div>
+
+          <div class="grid-2">
+            <mat-form-field appearance="outline" class="mff">
+              <mat-label>N° Facture (généré automatiquement)</mat-label>
+              <input matInput formControlName="numeroFacture" readonly>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="mff">
+              <mat-label>Date de la facture *</mat-label>
+              <input matInput type="date" formControlName="dateFacture">
+              <mat-error>Date obligatoire</mat-error>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="mff mff-full">
+            <mat-label>Fournisseur *</mat-label>
+            <mat-select formControlName="fournisseurId">
+              <mat-option [value]="null" disabled>— Sélectionner un fournisseur —</mat-option>
+              <mat-option *ngFor="let f of fournisseurs" [value]="f.id">
+                {{ f.raisonSociale }} &nbsp;·&nbsp; {{ f.matricule }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Fournisseur obligatoire</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="step-footer">
+          <button mat-raised-button color="primary" matStepperNext type="button"
+                  [disabled]="headerForm.invalid">
+            Suivant <span class="material-icons btn-icon-sm">arrow_forward</span>
+          </button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- ─────────────────── ÉTAPE 2 : LIGNES ──────────────────────── -->
+    <mat-step [stepControl]="lignesForm" label="Lignes">
+      <form [formGroup]="lignesForm" class="step-body">
+
+        <!-- Lignes articles -->
+        <div class="lignes-list" formArrayName="lignes">
+          <div *ngFor="let ctrl of lignesArray.controls; let i = index"
+               [formGroupName]="i" class="ligne-card">
+
+            <!-- Header de ligne -->
+            <div class="ligne-card-head">
+              <span class="ligne-num">
+                <span class="material-icons">inventory_2</span>
+                Ligne {{ i + 1 }}
+              </span>
+              <button mat-icon-button color="warn" type="button"
+                      (click)="removeLigne(i)"
+                      [disabled]="lignesArray.length === 1"
+                      matTooltip="Supprimer">
+                <span class="material-icons">delete_outline</span>
+              </button>
+            </div>
+
+            <!-- Code article + Désignation avec autocomplete bidirectionnel -->
+            <div class="grid-2 ligne-card-body">
+
+              <!-- ── Champ CODE ── -->
+              <div class="autocomplete-wrap">
+                <mat-form-field appearance="outline" class="mff">
+                  <mat-label>Code article</mat-label>
+                  <input matInput
+                         [value]="ligneFg(i).get('codeArticle')?.value || ''"
+                         (input)="onCodeInput(i, $any($event.target).value)"
+                         (blur)="hideCodeDropdown(i)"
+                         autocomplete="off"
+                         placeholder="Ex: ART001">
+                </mat-form-field>
+                <!-- Dropdown suggestions par CODE -->
+                <div class="article-dropdown" *ngIf="showCodeDropdown[i]">
+                  <div class="article-option"
+                       *ngFor="let a of codeFilteredList[i]"
+                       (mousedown)="selectArticle(i, a)">
+                    <span class="art-code">{{ a.codeArticle }}</span>
+                    <span class="art-label">{{ a.designation }}</span>
+                    <span class="art-price">{{ a.prixAchatHT | currencyFormat }}</span>
+                  </div>
+                  <div class="art-hint" *ngIf="codeFilteredList[i].length === 0">
+                    Aucun article trouvé
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Champ DÉSIGNATION ── -->
+              <div class="autocomplete-wrap">
+                <mat-form-field appearance="outline" class="mff">
+                  <mat-label>Désignation *</mat-label>
+                  <input matInput
+                         [value]="ligneFg(i).get('designation')?.value || ''"
+                         (input)="onDesignInput(i, $any($event.target).value)"
+                         (blur)="hideDesignDropdown(i)"
+                         autocomplete="off"
+                         placeholder="Tapez pour rechercher…">
+                  <mat-error>Obligatoire</mat-error>
+                </mat-form-field>
+                <!-- Dropdown suggestions par DÉSIGNATION -->
+                <div class="article-dropdown" *ngIf="showDesignDropdown[i]">
+                  <div class="article-option"
+                       *ngFor="let a of designFilteredList[i]"
+                       (mousedown)="selectArticle(i, a)">
+                    <span class="art-code">{{ a.codeArticle }}</span>
+                    <span class="art-label">{{ a.designation }}</span>
+                    <span class="art-price">{{ a.prixAchatHT | currencyFormat }}</span>
+                  </div>
+                  <div class="art-hint" *ngIf="designFilteredList[i].length === 0">
+                    Aucun article trouvé
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Quantité / Prix / Remise / TVA -->
+            <div class="grid-4 ligne-card-body">
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Quantité *</mat-label>
+                <input matInput type="number" formControlName="quantite" min="0.001" step="0.001">
+                <mat-error>Min 0.001</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Prix unitaire HT (DT) *</mat-label>
+                <input matInput type="number" formControlName="prixUnitaireHT" min="0" step="0.001">
+                <mat-error>≥ 0</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Remise (%)</mat-label>
+                <input matInput type="number" formControlName="remise" min="0" max="100" step="0.01">
+                <mat-error>0 – 100</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>TVA (%)</mat-label>
+                <mat-select formControlName="tva">
+                  <mat-option *ngFor="let t of TVA_OPTIONS" [value]="t">{{ t }} %</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <!-- Totaux calculés de la ligne -->
+            <div class="ligne-totals">
+              <div class="tot-box">
+                <span class="tot-lbl">Prix remisé</span>
+                <span class="tot-val">{{ ligneFg(i).get('prixRemise')?.value | currencyFormat }}</span>
+              </div>
+              <div class="tot-box">
+                <span class="tot-lbl">Total HT</span>
+                <span class="tot-val">{{ ligneFg(i).get('totalHT')?.value | currencyFormat }}</span>
+              </div>
+              <div class="tot-box">
+                <span class="tot-lbl">Montant TVA</span>
+                <span class="tot-val">{{ ligneFg(i).get('montantTVA')?.value | currencyFormat }}</span>
+              </div>
+              <div class="tot-box tot-box-accent">
+                <span class="tot-lbl">Total TTC</span>
+                <span class="tot-val">{{ ligneFg(i).get('totalTTC')?.value | currencyFormat }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ajouter ligne -->
+        <button mat-stroked-button color="primary" type="button"
+                (click)="addLigne()" class="btn-add-ligne">
+          <span class="material-icons">add</span> Ajouter une ligne
+        </button>
+
+        <!-- Récapitulatif totaux -->
+        <div class="recap-block">
+          <div class="recap-title">
+            <span class="material-icons">calculate</span> Récapitulatif
+          </div>
+          <div class="recap-rows">
+            <div class="recap-row"><span>Total brut HT</span><span>{{ totalBrut | currencyFormat }}</span></div>
+            <div class="recap-row recap-row-remise"><span>Remise totale</span><span>− {{ totalRemise | currencyFormat }}</span></div>
+            <div class="recap-row"><span>Total HT net</span><span>{{ totalHT | currencyFormat }}</span></div>
+            <div class="recap-row"><span>Total TVA</span><span>{{ totalTVA | currencyFormat }}</span></div>
+            <div class="recap-row"><span>Timbre fiscal</span><span>{{ TIMBRE_FISCAL | currencyFormat }}</span></div>
+            <div class="recap-divider"></div>
+            <div class="recap-row recap-row-net">
+              <span>Net à payer</span>
+              <span class="recap-net-val">{{ netAPayer | currencyFormat }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-footer">
+          <button mat-stroked-button matStepperPrevious type="button">
+            <span class="material-icons btn-icon-sm">arrow_back</span> Précédent
+          </button>
+          <button mat-raised-button color="primary" matStepperNext type="button"
+                  [disabled]="lignesArray.length === 0 || lignesForm.invalid">
+            Suivant <span class="material-icons btn-icon-sm">arrow_forward</span>
+          </button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- ─────────────────── ÉTAPE 3 : PAIEMENT ────────────────────── -->
+    <mat-step [stepControl]="paiementForm" label="Paiement">
+      <form [formGroup]="paiementForm" class="step-body">
+
+        <!-- Résumé net à payer -->
+        <div class="net-banner">
+          <div class="net-banner-left">
+            <span class="material-icons net-banner-icon">payments</span>
+            <div>
+              <div class="net-banner-lbl">Net à payer</div>
+              <div class="net-banner-amount">{{ netAPayer | currencyFormat }}</div>
+            </div>
+          </div>
+          <div class="net-banner-right">
+            <span>HT : {{ totalHT | currencyFormat }}</span>
+            <span>TVA : {{ totalTVA | currencyFormat }}</span>
+            <span>Timbre : {{ TIMBRE_FISCAL | currencyFormat }}</span>
+          </div>
+        </div>
+
+        <!-- Mode de paiement -->
+        <div class="section-card">
+          <div class="section-header">
+            <span class="material-icons section-icon">credit_card</span>
+            Mode de paiement
+          </div>
+
+          <mat-radio-group formControlName="modePaiement" class="radio-group">
+            <mat-radio-button value="ESPECES" class="radio-btn">
+              <span class="material-icons radio-icon">money</span> Espèces
+            </mat-radio-button>
+            <mat-radio-button value="AUTRE" class="radio-btn">
+              <span class="material-icons radio-icon">account_balance</span> Autre
+            </mat-radio-button>
+          </mat-radio-group>
+
+          <!-- Sous-mode AUTRE -->
+          <div *ngIf="modePaiement === 'AUTRE'" class="sous-mode-box">
+            <mat-radio-group formControlName="sousMode" class="radio-group radio-group-sm">
+              <mat-radio-button value="TOUT_ESPECES">Tout espèces</mat-radio-button>
+              <mat-radio-button value="ACOMPTE_TRAITE">Acompte + Traite</mat-radio-button>
+              <mat-radio-button value="ACOMPTE_CREDIT">Acompte + Crédit</mat-radio-button>
+            </mat-radio-group>
+
+            <div class="grid-2" *ngIf="sousMode === 'ACOMPTE_TRAITE'" style="margin-top:12px">
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Date d'échéance</mat-label>
+                <input matInput type="date" formControlName="dateEcheance">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Numéro de traite</mat-label>
+                <input matInput formControlName="numeroTraite">
+              </mat-form-field>
+            </div>
+
+            <div class="grid-2" *ngIf="sousMode === 'ACOMPTE_CREDIT'" style="margin-top:12px">
+              <mat-form-field appearance="outline" class="mff">
+                <mat-label>Date limite de crédit</mat-label>
+                <input matInput type="date" formControlName="dateLimiteCredit">
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Montants -->
+          <div class="grid-2" style="margin-top:16px">
+            <mat-form-field appearance="outline" class="mff">
+              <mat-label>Montant payé (DT)</mat-label>
+              <input matInput type="number" formControlName="montantPaye"
+                     min="0" step="0.001" (input)="onMontantPayeChange()">
+              <mat-error>Montant invalide (min 0)</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="mff">
+              <mat-label>Montant restant (DT)</mat-label>
+              <input matInput formControlName="montantReste" readonly>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- ══ Retenue à la Source — Certificat ════════════════════════ -->
+        <div class="cert-wrapper" [formGroup]="retenueForm">
+
+          <p class="retenue-hint">
+            Remplissez ce certificat <strong>uniquement si une retenue est applicable</strong>,
+            puis cliquez sur <em>« Enregistrer la retenue à la source »</em>.
+          </p>
+
+          <div class="cert-doc">
+
+            <!-- ══ EN-TÊTE ══════════════════════════════════════════════ -->
+            <div class="cert-hdr">
+              <div class="cert-hdr-left">
+                <div class="cert-hdr-rep">REPUBLIQUE TUNISIENNE</div>
+                <div class="cert-hdr-min">MINISTERE DU PLAN ET DES FINANCES</div>
+                <div class="cert-hdr-dgcf">
+                  <div>DIRECTION GENERALE</div>
+                  <div>DU CONTROLE FISCAL</div>
+                </div>
+              </div>
+              <div class="cert-hdr-right">
+                <div class="cert-hdr-title">
+                  CERTIFICAT DE RETENUE D'IMPÔT<br>
+                  SUR LE REVENU<br>
+                  OU D'IMPÔT SUR LES SOCIÉTÉS
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ BARRE DATE / LIEU ══════════════════════════════════ -->
+            <div class="cert-date-bar">
+              <span class="cert-lbl">Retenue effectuée le ou pendant <sup>(1)</sup> :</span>
+              <div class="cert-yr-boxes">
+                <span class="cert-yr-box" *ngFor="let c of currentYearChars">{{ c }}</span>
+              </div>
+              <span class="cert-lbl cert-date-sep">–&nbsp;Date :</span>
+              <input type="date" formControlName="dateRetenue" class="cert-inp">
+              <span class="cert-lbl">&nbsp;à&nbsp;</span>
+              <input type="text" formControlName="lieuRetenue" class="cert-inp cert-inp-lieu" placeholder="Lieu">
+            </div>
+
+            <!-- ══ SECTION A — PERSONNE OU ORGANISME PAYEUR ══════════ -->
+            <table class="cert-tbl">
+              <tbody>
+                <tr>
+                  <td rowspan="3" class="cert-sec-lbl">A - PERSONNE OU<br>ORGANISME PAYEUR</td>
+                  <td colspan="14" class="cert-ident-hdr">IDENTIFIANT</td>
+                </tr>
+                <tr>
+                  <th colspan="9" class="cert-col-hdr">Matricule fiscal</th>
+                  <th class="cert-col-hdr">Code<br>T.V.A</th>
+                  <th class="cert-col-hdr">Code<br>catégorie <sup>(2)</sup></th>
+                  <th colspan="3" class="cert-col-hdr">N° Etab<br>secondaire</th>
+                </tr>
+                <tr>
+                  <td *ngFor="let c of matriculeChars" class="cert-dc">{{ c }}</td>
+                  <td class="cert-dc">{{ company.codeTVA }}</td>
+                  <td class="cert-dc">{{ company.codeCategorie }}</td>
+                  <td *ngFor="let c of etablissementChars" class="cert-dc">{{ c }}</td>
+                </tr>
+                <tr>
+                  <td colspan="15" class="cert-full-row">
+                    <span class="cert-lbl">Dénomination de la personne ou de l'organisme payeur :</span>&nbsp;<span class="cert-val">{{ company.denomination }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="15" class="cert-full-row">
+                    <span class="cert-lbl">Adresse :</span>&nbsp;<span class="cert-val">{{ company.adresse }} – {{ company.ville }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- ══ SECTION B — RETENUES EFFECTUÉES ══════════════════ -->
+            <table class="cert-tbl cert-tbl-b">
+              <thead>
+                <tr>
+                  <th class="cert-b-col-lbl">B - RETENUES EFFECTUÉES SUR</th>
+                  <th class="cert-b-hdr">MONTANT BRUT</th>
+                  <th class="cert-b-hdr">RETENUE</th>
+                  <th class="cert-b-hdr">MONTANT NET</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cert-b-row-lbl">
+                    Retenue à la source marché
+                    (<input type="number" formControlName="tauxRetenue"
+                            class="cert-taux-inp" min="0.001" step="0.001"
+                            (input)="recalcRetenue()"> %)
+                  </td>
+                  <td class="cert-b-td cert-b-num">{{ retenueForm.get('montantBrut')?.value | currencyFormat }}</td>
+                  <td class="cert-b-td cert-b-num">{{ retenueForm.get('montantRetenu')?.value | currencyFormat }}</td>
+                  <td class="cert-b-td cert-b-num">{{ retenueForm.get('montantNet')?.value | currencyFormat }}</td>
+                </tr>
+                <tr>
+                  <td class="cert-b-row-lbl">Redevances</td>
+                  <td class="cert-b-td"></td><td class="cert-b-td"></td><td class="cert-b-td"></td>
+                </tr>
+                <tr>
+                  <td class="cert-b-row-lbl">Revenus des comptes spéciaux d'épargne ouverts auprès des banques</td>
+                  <td class="cert-b-td"></td><td class="cert-b-td"></td><td class="cert-b-td"></td>
+                </tr>
+                <tr>
+                  <td class="cert-b-row-lbl">Revenus des capitaux mobiliers</td>
+                  <td class="cert-b-td"></td><td class="cert-b-td"></td><td class="cert-b-td"></td>
+                </tr>
+                <tr>
+                  <td class="cert-b-row-lbl">Revenus des bons de caisse au porteur</td>
+                  <td class="cert-b-td"></td><td class="cert-b-td"></td><td class="cert-b-td"></td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td class="cert-b-total-lbl">Total général</td>
+                  <td class="cert-b-total-val">{{ retenueForm.get('montantBrut')?.value | currencyFormat }}</td>
+                  <td class="cert-b-total-val">{{ retenueForm.get('montantRetenu')?.value | currencyFormat }}</td>
+                  <td class="cert-b-total-val">{{ retenueForm.get('montantNet')?.value | currencyFormat }}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <!-- ══ SECTION C — BÉNÉFICIAIRE ══════════════════════════ -->
+            <table class="cert-tbl cert-tbl-last">
+              <tbody>
+                <tr>
+                  <td rowspan="3" class="cert-sec-lbl">C - BÉNÉFICIAIRE</td>
+                  <td colspan="14" class="cert-ident-hdr">IDENTIFIANT</td>
+                </tr>
+                <tr>
+                  <th colspan="9" class="cert-col-hdr">Matricule fiscal</th>
+                  <th class="cert-col-hdr">Code<br>T.V.A</th>
+                  <th class="cert-col-hdr">Code<br>catégorie <sup>(1)</sup></th>
+                  <th colspan="3" class="cert-col-hdr">N° Etab<br>secondaire</th>
+                </tr>
+                <tr>
+                  <ng-container *ngIf="fournisseurSelectionne; else noFournC">
+                    <td *ngFor="let c of fournisseurMatriculeCharsPadded" class="cert-dc">{{ c }}</td>
+                    <td class="cert-dc">{{ fournisseurSelectionne!.codeTVA || '' }}</td>
+                    <td class="cert-dc"></td>
+                    <td class="cert-dc"></td>
+                    <td class="cert-dc"></td>
+                    <td class="cert-dc"></td>
+                  </ng-container>
+                  <ng-template #noFournC>
+                    <td colspan="14" class="cert-dc cert-dc-placeholder">— Sélectionnez un fournisseur à l'étape 1 —</td>
+                  </ng-template>
+                </tr>
+                <tr>
+                  <td colspan="15" class="cert-full-row">
+                    <span class="cert-lbl">Raison sociale :</span>&nbsp;<span class="cert-val">{{ fournisseurSelectionne?.raisonSociale }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="15" class="cert-full-row">
+                    <span class="cert-lbl">Adresse professionnelle :</span>&nbsp;<span class="cert-val">{{ fournisseurSelectionne?.adresse }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="15" class="cert-full-row cert-full-row-last">
+                    <span class="cert-lbl">Adresse de résidence :</span>&nbsp;<span class="cert-val"></span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- ══ SIGNATURE ══════════════════════════════════════════ -->
+            <div class="cert-sig-block">
+              <div class="cert-sig-text">
+                Je soussigné, certifie exactes les renseignements figurant ci-dessus.
+              </div>
+              <div class="cert-sig-zone">
+                <div class="cert-sig-label">Cachet et signature du payeur</div>
+                <div class="cert-sig-space"></div>
+              </div>
+            </div>
+
+          </div><!-- /cert-doc -->
+
+          <!-- Bouton dédié retenue — indépendant de la facture -->
+          <div class="retenue-action-row">
+            <button mat-raised-button type="button" class="btn-save-retenue"
+                    (click)="onSubmitRetenueSeulement()"
+                    [disabled]="isSavingRetenue || retenueForm.invalid || !headerForm.get('fournisseurId')?.value">
+              <mat-spinner diameter="18" *ngIf="isSavingRetenue" class="btn-spinner"></mat-spinner>
+              <span class="material-icons btn-icon-sm" *ngIf="!isSavingRetenue">receipt_long</span>
+              {{ isSavingRetenue ? 'Enregistrement…' : 'Enregistrer la retenue à la source' }}
+            </button>
+          </div>
+
+          <!-- Message succès retenue -->
+          <div class="alert-retenue-success" *ngIf="successRetenueMessage">
+            <span class="material-icons">check_circle</span>
+            <span>{{ successRetenueMessage }}</span>
+          </div>
+
+        </div><!-- /cert-wrapper -->
+
+        <!-- Résumé fournisseur -->
+        <div class="fournisseur-chip" *ngIf="headerForm.get('fournisseurId')?.value">
+          <span class="material-icons">business</span>
+          {{ fournisseurLabel(headerForm.get('fournisseurId')!.value) }}
+        </div>
+
+        <div class="step-footer">
+          <button mat-stroked-button matStepperPrevious type="button">
+            <span class="material-icons btn-icon-sm">arrow_back</span> Précédent
+          </button>
+          <button mat-raised-button color="primary" type="button" (click)="onSubmit()"
+                  [disabled]="isSavingFacture || paiementForm.invalid"
+                  class="btn-submit">
+            <mat-spinner diameter="18" *ngIf="isSavingFacture" class="btn-spinner"></mat-spinner>
+            <span class="material-icons btn-icon-sm" *ngIf="!isSavingFacture">save</span>
+            {{ isSavingFacture ? 'Enregistrement…' : 'Enregistrer la facture' }}
+          </button>
+        </div>
+      </form>
+    </mat-step>
+
+  </mat-stepper>
+</div>

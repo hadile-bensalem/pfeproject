@@ -2,8 +2,10 @@ package com.poly.dindor.exception;
 
 import com.poly.dindor.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.validation.FieldError;
@@ -73,6 +75,25 @@ public class GlobalExceptionHandler {
             .body(ApiResponse.error(ex.getMessage()));
     }
     
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        log.warn("Requête illisible (JSON invalide) : {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+            .body(ApiResponse.error("Format de données invalide : " + ex.getMostSpecificCause().getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Violation de contrainte base de données : {}", ex.getMessage());
+        String msg = ex.getMostSpecificCause().getMessage();
+        if (msg != null && msg.contains("Duplicate entry")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("Un enregistrement avec ce numéro de document existe déjà."));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.error("Violation de contrainte base de données : " + msg));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
         log.error("Erreur inattendue", ex);

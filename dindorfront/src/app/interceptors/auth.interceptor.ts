@@ -20,8 +20,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
-      // Si erreur 401 (non autorisé), rediriger vers login
-      if (error.status === 401) {
+      // 401 = non authentifié, 403 = token expiré (Spring Security renvoie 403)
+      if (error.status === 401 || error.status === 403) {
         tokenService.clearTokens();
         router.navigate(['/login']);
       }
