@@ -5,47 +5,39 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  JAVA_VERSION: '17'
-  NODE_VERSION: '20'
-  AZURE_WEBAPP_NAME: dindor-backend-app
-  AZURE_AI_APP_NAME: dindor-ai-app
-
 jobs:
-  build-and-deploy-backend:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    name: Backend + Frontend
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js ${{ env.NODE_VERSION }}
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: dindorfront/package-lock.json
+          node-version: '20'
+
+      - name: Install Angular dependencies
+        working-directory: dindorfront
+        run: npm ci --legacy-peer-deps
 
       - name: Build Angular frontend
         working-directory: dindorfront
-        run: |
-          npm ci
-          npm run build -- --configuration=production
+        run: npm run build -- --configuration=production
 
       - name: Copy Angular build to Spring Boot static
         run: |
           mkdir -p src/main/resources/static
           cp -r dindorfront/dist/dindorfront/browser/* src/main/resources/static/
 
-      - name: Set up Java ${{ env.JAVA_VERSION }}
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: '17'
           distribution: 'temurin'
-          cache: maven
 
-      - name: Fix mvnw line endings and permissions
+      - name: Fix mvnw permissions
         run: |
           sed -i 's/\r$//' mvnw
           chmod +x mvnw
@@ -56,28 +48,6 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          app-name: dindor-backend-app
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: target/*.jar
-
-  deploy-ai:
-    runs-on: ubuntu-latest
-    name: AI Module (FastAPI)
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create AI deployment package
-        run: |
-          cd dindor-ai
-          zip -r ../dindor-ai-deploy.zip \
-            main.py predictor.py data_loader.py evaluation.py \
-            tunisian_calendar.py weather_client.py requirements.txt data/
-
-      - name: Deploy AI to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_AI_APP_NAME }}
-          publish-profile: ${{ secrets.AZURE_AI_PUBLISH_PROFILE }}
-          package: dindor-ai-deploy.zip
