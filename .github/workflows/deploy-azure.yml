@@ -45,6 +45,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Fix mvnw line endings and permissions
+        run: |
+          sed -i 's/\r$//' mvnw
+          chmod +x mvnw
+
       - name: Build Spring Boot JAR
         run: ./mvnw package -DskipTests -q
 
