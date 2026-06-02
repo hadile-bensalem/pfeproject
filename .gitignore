@@ -40,6 +40,12 @@ application-local.properties
 ### Generated Angular build (rebuilt by CI) ###
 src/main/resources/static/
 
+### Python virtual environment ###
+dindor-ai/.venv/
+dindor-ai/__pycache__/
+**/__pycache__/
+*.pyc
+
 ### Database backup (sensitive data) ###
 backup_dindor.sql
 backend-logs*
