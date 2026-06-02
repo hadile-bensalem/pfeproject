@@ -289,10 +289,12 @@ export class FournisseursComponent implements OnInit {
     });
   }
 
-  // Placeholder pour l'impression (à brancher plus tard sur un vrai export)
-  onImprimer(): void {
-    window.print();
+  get avecRsCount(): number { return this.fournisseurs.filter(f => f.avecRS).length; }
+  get avecContactCount(): number {
+    return this.fournisseurs.filter(f => !!f.email || !!f.responsableContact || !!f.telephone1 || !!f.telephone2).length;
   }
+
+  onImprimer(): void { window.print(); }
 
   // --- Ancien Facture Fournisseur (régularisation) ---
   openAncienFactureModal(): void {

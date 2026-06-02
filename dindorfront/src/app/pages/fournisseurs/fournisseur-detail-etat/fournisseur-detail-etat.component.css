@@ -147,6 +147,52 @@
   color: #c62828;
 }
 
+/* Barre de recherche */
+.search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1rem 1.5rem 0;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex: 1;
+  max-width: 400px;
+  transition: var(--transition);
+}
+.search-field:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(139, 26, 26, .15);
+}
+.search-input {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  flex: 1;
+}
+.clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.clear-btn:hover { color: var(--text-secondary); }
+.result-count {
+  font-size: 12px;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
 /* Liste des transactions */
 .card {
   background: #ffffff;
@@ -392,3 +438,148 @@
     font-size: 0.82rem;
   }
 }
+
+/* ── En-tête détail ─────────────────────────────────────────────── */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--primary-color);
+}
+
+.matricule-badge {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: #f0f0f0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* ── Barre totaux en haut ────────────────────────────────────────── */
+.totaux-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.totaux-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1.2rem;
+  border-right: 1px solid var(--border-color);
+}
+.totaux-cell:last-child { border-right: none; }
+
+.totaux-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.totaux-val {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+.debit-color  { color: #c0392b; }
+.credit-color { color: #1a7a3c; }
+
+.solde-cell.solde-ok      { background: #e8f5ec; }
+.solde-cell.solde-warning { background: #fff3cd; }
+.solde-cell.solde-alert   { background: #fdecea; }
+
+.solde-val { font-size: 1.05rem; }
+
+/* ── Tableau transactions ────────────────────────────────────────── */
+.transactions-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.transactions-table th {
+  background: #f5f5f5;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555;
+  border-bottom: 2px solid #ddd;
+  white-space: nowrap;
+}
+.transactions-table td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+.transactions-table tbody tr:hover { background: rgba(0,0,0,0.02); }
+
+/* Rows colorées selon le type */
+.row-achat  { background: #fff; }
+.row-traite { background: #fff8e1; }
+.row-credit { background: #f3e5f5; }
+.row-especes{ background: #e8f5ec; }
+
+.numeric { text-align: right; }
+.muted   { color: #888; }
+
+.val-debit  { color: #c0392b; font-weight: 600; }
+.val-credit { color: #1a7a3c; font-weight: 600; }
+.solde-running { font-weight: 700; color: #2c3e50; }
+
+.col-facture { font-family: monospace; font-size: 0.8rem; }
+
+/* Badges mode paiement */
+.mode-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-achat   { background: #e3f2fd; color: #1565c0; }
+.badge-traite  { background: #fff3e0; color: #e65100; }
+.badge-credit  { background: #f3e5f5; color: #6a1b9a; }
+.badge-especes { background: #e8f5e9; color: #2e7d32; }
+
+/* Footer totaux */
+.totaux-row { background: #f0f4f8; font-weight: 700; }
+.total-label { font-size: 0.75rem; text-transform: uppercase; color: #555; }
+
+/* Bouton petite taille */
+.chip.small { padding: 0.15rem 0.4rem; font-size: 0.72rem; }
+
+/* Confirm dialog */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.confirm-dialog {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem 2rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.confirm-dialog p { margin-bottom: 1rem; }
+.confirm-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }

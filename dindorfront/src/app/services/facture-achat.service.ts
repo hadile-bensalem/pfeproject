@@ -31,6 +31,21 @@ export class FactureAchatService {
       .pipe(map(r => r.data));
   }
 
+  saveDraft(request: FactureAchatRequest): Observable<FactureAchat> {
+    return this.http.post<any>(`${this.base}/factures/brouillon`, request)
+      .pipe(map(r => r.data));
+  }
+
+  update(id: number, request: FactureAchatRequest): Observable<FactureAchat> {
+    return this.http.put<any>(`${this.base}/factures/${id}`, request)
+      .pipe(map(r => r.data));
+  }
+
+  validateFacture(id: number): Observable<FactureAchat> {
+    return this.http.put<any>(`${this.base}/factures/${id}/valider`, {})
+      .pipe(map(r => r.data));
+  }
+
   getById(id: number): Observable<FactureAchat> {
     return this.http.get<any>(`${this.base}/factures/${id}`)
       .pipe(map(r => r.data));
@@ -62,6 +77,15 @@ export class FactureAchatService {
         a.download = `facture-achat-${numeroFacture}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
+      });
+  }
+
+  viewFacturePdf(factureId: number): void {
+    this.http.get(`${this.base}/factures/${factureId}/pdf`, { responseType: 'blob' })
+      .subscribe(blob => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       });
   }
 }

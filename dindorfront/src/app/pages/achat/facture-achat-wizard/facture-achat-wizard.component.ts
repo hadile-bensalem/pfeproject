@@ -1,483 +1,660 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {
-  ReactiveFormsModule, FormBuilder, FormGroup,
-  FormArray, Validators, AbstractControl
-} from '@angular/forms';
-import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
-// Angular Material
 import { MatStepperModule } from '@angular/material/stepper';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatRadioModule } from '@angular/material/radio';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatCardModule } from '@angular/material/card';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
 
-import { FactureAchatService } from '../../../services/facture-achat.service';
-import { FournisseurService } from '../../../services/fournisseur.service';
-import { ArticleService } from '../../../services/article.service';
-import { Fournisseur } from '../../../models/fournisseur.model';
 import { Article } from '../../../models/article.model';
-import { CurrencyFormatPipe } from '../../../pipes/currency-format.pipe';
-import { environment } from '../../../../environments/environment';
+import { Fournisseur } from '../../../models/fournisseur.model';
+import {
+  FactureAchat, FactureAchatRequest, LigneFactureAchatRequest,
+  PaiementAchatRequest, RetenueAchatRequest,
+} from '../../../models/facture-achat.model';
+import { ArticleService }      from '../../../services/article.service';
+import { FournisseurService }  from '../../../services/fournisseur.service';
+import { FactureAchatService } from '../../../services/facture-achat.service';
+import {
+  PredictionService, ArticleDashboardItem, PredictionResult,
+} from '../../../services/prediction.service';
+import { CurrencyFormatPipe }  from '../../../pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-facture-achat-wizard',
   standalone: true,
   imports: [
-    CommonModule,
-    ReactiveFormsModule,
+    CommonModule, ReactiveFormsModule,
+    MatStepperModule, MatButtonModule, MatFormFieldModule,
+    MatInputModule, MatSelectModule, MatRadioModule,
+    MatProgressSpinnerModule, MatTooltipModule, MatIconModule,
     CurrencyFormatPipe,
-    MatStepperModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatAutocompleteModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatRadioModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTableModule,
-    MatProgressSpinnerModule,
-    MatCardModule,
-    MatDividerModule,
-    MatTooltipModule,
-    MatChipsModule,
   ],
   templateUrl: './facture-achat-wizard.component.html',
-  styleUrl: './facture-achat-wizard.component.css'
+  styleUrl:    './facture-achat-wizard.component.css',
 })
-export class FactureAchatWizardComponent implements OnInit {
+export class FactureAchatWizardComponent implements OnInit, OnDestroy {
 
-  readonly TIMBRE_FISCAL = 1.000;
-  readonly TVA_OPTIONS = [0, 7, 13, 19];
+  // ── Router public pour le template ──────────────────────────────────────
+  router: Router;
 
-  isLoading = false;
-  isSavingFacture  = false;
-  isSavingRetenue  = false;
-  errorMessage          = '';
-  successMessage        = '';
-  successRetenueMessage = '';
+  // ── Mode édition ─────────────────────────────────────────────────────────
+  editMode = false;
+  editId?: number;
 
-  // ── Step 1 ────────────────────────────────────────────────────────────
-  headerForm!: FormGroup;
-  fournisseurs: Fournisseur[] = [];
-
-  // ── Step 2 ────────────────────────────────────────────────────────────
-  lignesForm!: FormGroup;
-  articles: Article[] = [];
-
-  // Autocomplete CODE
-  codeFilteredList: Article[][] = [];
-  showCodeDropdown: boolean[]   = [];
-
-  // Autocomplete DÉSIGNATION
-  designFilteredList: Article[][] = [];
-  showDesignDropdown: boolean[]   = [];
-
-  // ── Step 3 ────────────────────────────────────────────────────────────
+  // ── Forms ────────────────────────────────────────────────────────────────
+  headerForm!:   FormGroup;
+  lignesForm!:   FormGroup;
   paiementForm!: FormGroup;
-  retenueForm!: FormGroup;
-  savedRetenueId:  number | null = null;
-  savedFactureId:  number | null = null;
-  savedFactureNum: string = '';
+  retenueForm!:  FormGroup;
 
-  private fb      = inject(FormBuilder);
-  router  = inject(Router);
-  private factureAchatService  = inject(FactureAchatService);
-  private fournisseurService   = inject(FournisseurService);
-  private articleService       = inject(ArticleService);
+  // ── Constantes ───────────────────────────────────────────────────────────
+  readonly TIMBRE_FISCAL = 0.600;
+  readonly TVA_OPTIONS   = [0, 7, 13, 19];
 
-  ngOnInit(): void {
-    this.buildForms();
-    this.loadData();
+  // ── Données ──────────────────────────────────────────────────────────────
+  fournisseurs: Fournisseur[] = [];
+  articles:     Article[]     = [];
+
+  // ── État global ──────────────────────────────────────────────────────────
+  isLoading           = false;
+  isSavingFacture     = false;
+  isSavingBrouillon   = false;
+  isSavingRetenue     = false;
+  successMessage      = '';
+  brouillonSuccess    = '';
+  errorMessage        = '';
+  successRetenueMessage = '';
+  savedFactureId?: number;
+  savedRetenueId?: number;
+  savedBrouillonId?: number;
+
+  // ── Totaux calculés ──────────────────────────────────────────────────────
+  totalBrut   = 0;
+  totalRemise = 0;
+  totalHT     = 0;
+  totalTVA    = 0;
+  get netAPayer(): number {
+    return +(this.totalHT + this.totalTVA + this.TIMBRE_FISCAL).toFixed(3);
   }
 
-  // ── Form builders ─────────────────────────────────────────────────────
+  // ── Advisory rapide (par ligne) ──────────────────────────────────────────
+  advisories:     (ArticleDashboardItem | null)[] = [];
+  advisoryLoading: boolean[] = [];
+
+  // ── Prédiction IA complète (par ligne) ───────────────────────────────────
+  predictions:      (PredictionResult | null)[] = [];
+  predictionLoading: boolean[] = [];
+
+  // ── Autocomplete (par ligne) ─────────────────────────────────────────────
+  showCodeDropdown:   boolean[]    = [];
+  showDesignDropdown: boolean[]    = [];
+  codeFilteredList:   Article[][]  = [];
+  designFilteredList: Article[][]  = [];
+
+  // ── Info société pour le certificat de retenue ───────────────────────────
+  readonly company = {
+    matricule:    '1234567A/P/M/000',
+    codeTVA:      'A',
+    codeCategorie:'P',
+    denomination: "SOCIETE DIND'OR",
+    adresse:      'Avenue de la Liberté',
+    ville:        'Tunis',
+  };
+
+  get currentYearChars(): string[] {
+    return String(new Date().getFullYear()).split('');
+  }
+  get matriculeChars(): string[] {
+    return this.company.matricule.replace(/\//g, '').padEnd(9, ' ').slice(0, 9).split('');
+  }
+  get etablissementChars(): string[] { return ['0', '0', '0']; }
+
+  get fournisseurSelectionne(): Fournisseur | null {
+    const id = this.headerForm?.get('fournisseurId')?.value;
+    return this.fournisseurs.find(f => f.id === id) ?? null;
+  }
+  get fournisseurMatriculeCharsPadded(): string[] {
+    const m = (this.fournisseurSelectionne?.matricule ?? '').padEnd(9, ' ');
+    return m.slice(0, 9).split('');
+  }
+
+  // ── Getters paiement ─────────────────────────────────────────────────────
+  get modePaiement(): string { return this.paiementForm?.get('modePaiement')?.value ?? ''; }
+  get sousMode(): string     { return this.paiementForm?.get('sousMode')?.value     ?? ''; }
+
+  private readonly destroy$ = new Subject<void>();
+
+  constructor(
+    private fb:            FormBuilder,
+    private articleSvc:    ArticleService,
+    private fournisseurSvc:FournisseurService,
+    private factureSvc:    FactureAchatService,
+    private predictionSvc: PredictionService,
+    private route:         ActivatedRoute,
+    router: Router,
+  ) { this.router = router; }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  ngOnInit(): void {
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      this.editMode = true;
+      this.editId   = +idParam;
+    }
+    this.buildForms();
+    this.loadData();
+    if (this.editMode && this.editId) {
+      this.factureSvc.getById(this.editId).pipe(takeUntil(this.destroy$)).subscribe({
+        next:  f  => this.populateFromFacture(f),
+        error: () => { this.errorMessage = 'Impossible de charger la facture pour modification.'; },
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // ── Construction des formulaires ─────────────────────────────────────────
 
   private buildForms(): void {
+    const today = new Date().toISOString().split('T')[0];
+
     this.headerForm = this.fb.group({
-      numeroFacture: [{ value: '', disabled: true }],
-      dateFacture:   [new Date().toISOString().slice(0, 10), Validators.required],
-      fournisseurId: [null, Validators.required]
+      numeroFacture: [''],
+      dateFacture:   [today, Validators.required],
+      fournisseurId: [null, Validators.required],
     });
 
-    this.lignesForm = this.fb.group({ lignes: this.fb.array([]) });
+    this.lignesForm = this.fb.group({
+      lignes: this.fb.array([this.newLigneGroup()]),
+    });
 
     this.paiementForm = this.fb.group({
-      modePaiement:     ['ESPECES', Validators.required],
-      sousMode:         ['TOUT_ESPECES'],
-      montantPaye:      [0, [Validators.required, Validators.min(0)]],
-      montantReste:     [{ value: 0, disabled: true }],
-      dateEcheance:     [null],
-      numeroTraite:     [''],
-      dateLimiteCredit: [null]
+      modePaiement:    ['ESPECES', Validators.required],
+      sousMode:        [''],
+      montantPaye:     [0, [Validators.required, Validators.min(0)]],
+      montantReste:    [{ value: 0, disabled: true }],
+      dateEcheance:    [''],
+      numeroTraite:    [''],
+      dateLimiteCredit:[''],
     });
 
     this.retenueForm = this.fb.group({
-      dateRetenue:   [new Date().toISOString().slice(0, 10), Validators.required],
-      lieuRetenue:   [environment.company.ville, Validators.required],
-      tauxRetenue:   [1.5, [Validators.required, Validators.min(0.001)]],
-      montantBrut:   [{ value: 0, disabled: true }],
-      montantRetenu: [{ value: 0, disabled: true }],
-      montantNet:    [{ value: 0, disabled: true }]
+      tauxRetenue:  [1.5, [Validators.required, Validators.min(0.001)]],
+      montantBrut:  [{ value: 0, disabled: true }],
+      montantRetenu:[{ value: 0, disabled: true }],
+      montantNet:   [{ value: 0, disabled: true }],
+      dateRetenue:  [today, Validators.required],
+      lieuRetenue:  ['Tunis', Validators.required],
     });
 
-    this.addLigne();
+    this._initLigneArrays(1);
+    this.lignesForm.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.computeTotals());
   }
+
+  private newLigneGroup(): FormGroup {
+    const g = this.fb.group({
+      codeArticle:       [''],
+      designation:       ['', Validators.required],
+      quantite:          [1, [Validators.required, Validators.min(0.001)]],
+      prixUnitaireHT:    [0, [Validators.required, Validators.min(0)]],
+      remise:            [0, [Validators.min(0), Validators.max(100)]],
+      tva:               [19],
+      estArticleSource:  [false],
+      tauxTransformation:[null],
+      prixRemise:        [{ value: 0, disabled: true }],
+      totalHT:           [{ value: 0, disabled: true }],
+      montantTVA:        [{ value: 0, disabled: true }],
+      totalTTC:          [{ value: 0, disabled: true }],
+    });
+    g.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.recalcLigne(g));
+    return g;
+  }
+
+  // ── Accesseurs FormArray ─────────────────────────────────────────────────
+
+  get lignesArray(): FormArray { return this.lignesForm.get('lignes') as FormArray; }
+  ligneFg(i: number): FormGroup { return this.lignesArray.at(i) as FormGroup; }
+
+  // ── Chargement des données ───────────────────────────────────────────────
 
   private loadData(): void {
     this.isLoading = true;
-    this.factureAchatService.getNextNumero().subscribe({
-      next: n => this.headerForm.patchValue({ numeroFacture: n }),
-      error: () => this.headerForm.patchValue({ numeroFacture: this.localNumero() })
+
+    this.fournisseurSvc.getAll().pipe(takeUntil(this.destroy$)).subscribe({
+      next: f => { this.fournisseurs = f; },
+      error: () => {},
     });
-    this.fournisseurService.getAll().subscribe({
-      next: list => { this.fournisseurs = list ?? []; this.isLoading = false; },
-      error: () => { this.isLoading = false; }
+
+    this.articleSvc.getAll().pipe(takeUntil(this.destroy$)).subscribe({
+      next: a  => { this.articles = a; this.isLoading = false; },
+      error: () => { this.isLoading = false; },
     });
-    this.articleService.getAll().subscribe({ next: list => this.articles = list ?? [] });
+
+    if (!this.editMode) {
+      this.factureSvc.getNextNumero().pipe(takeUntil(this.destroy$)).subscribe({
+        next: n => this.headerForm.patchValue({ numeroFacture: n }),
+        error: () => {},
+      });
+    }
   }
 
-  private localNumero(): string {
-    return `${new Date().getFullYear()}000001`;
+  // ── Chargement de la facture existante (mode édition) ────────────────────
+
+  private populateFromFacture(f: FactureAchat): void {
+    this.headerForm.patchValue({
+      numeroFacture: f.numeroFacture,
+      dateFacture:   f.dateFacture,
+      fournisseurId: f.fournisseurId,
+    });
+
+    // Vider les lignes et réinitialiser les tableaux IA/autocomplete
+    while (this.lignesArray.length > 0) this.lignesArray.removeAt(0);
+    this.advisories        = [];
+    this.advisoryLoading   = [];
+    this.predictions       = [];
+    this.predictionLoading = [];
+    this.showCodeDropdown  = [];
+    this.showDesignDropdown= [];
+    this.codeFilteredList  = [];
+    this.designFilteredList= [];
+
+    (f.lignes ?? []).forEach(l => this.lignesArray.push(this.newLigneGroup()));
+    this._initLigneArrays(this.lignesArray.length);
+
+    (f.lignes ?? []).forEach((l, i) => {
+      const tauxPct = (l.tauxTransformation != null && l.tauxTransformation > 0)
+        ? +(l.tauxTransformation * 100).toFixed(2) : null;
+      this.ligneFg(i).patchValue({
+        codeArticle:        l.codeArticle ?? '',
+        designation:        l.designation,
+        quantite:           l.quantite,
+        prixUnitaireHT:     l.prixUnitaireHT,
+        remise:             l.remise,
+        tva:                l.tva,
+        estArticleSource:   tauxPct != null,
+        tauxTransformation: tauxPct,
+      });
+    });
+    this.computeTotals();
+
+    if (f.paiement) {
+      this.paiementForm.patchValue({
+        modePaiement:     f.paiement.modePaiement    ?? 'ESPECES',
+        sousMode:         f.paiement.sousMode         ?? '',
+        montantPaye:      f.paiement.montantPaye      ?? 0,
+        dateEcheance:     f.paiement.dateEcheance     ?? '',
+        numeroTraite:     f.paiement.numeroTraite     ?? '',
+        dateLimiteCredit: f.paiement.dateLimiteCredit ?? '',
+      });
+      this.onMontantPayeChange();
+    }
   }
 
-  // ── Lignes (FormArray) ────────────────────────────────────────────────
-
-  get lignesArray(): FormArray { return this.lignesForm.get('lignes') as FormArray; }
+  // ── Gestion des lignes ───────────────────────────────────────────────────
 
   addLigne(): void {
-    const g = this.fb.group({
-      codeArticle:    [''],
-      designation:    ['', Validators.required],
-      quantite:       [1,  [Validators.required, Validators.min(0.001)]],
-      prixUnitaireHT: [0,  [Validators.required, Validators.min(0)]],
-      remise:         [0,  [Validators.min(0), Validators.max(100)]],
-      prixRemise:     [{ value: 0, disabled: true }],
-      tva:            [0,  Validators.required],
-      totalHT:        [{ value: 0, disabled: true }],
-      montantTVA:     [{ value: 0, disabled: true }],
-      totalTTC:       [{ value: 0, disabled: true }]
-    });
-
-    ['quantite', 'prixUnitaireHT', 'remise', 'tva'].forEach(f =>
-      g.get(f)!.valueChanges.subscribe(() => this.recalcLigne(g))
-    );
-
-    this.lignesArray.push(g);
-    this.codeFilteredList.push([]);
-    this.showCodeDropdown.push(false);
-    this.designFilteredList.push([]);
-    this.showDesignDropdown.push(false);
+    this.lignesArray.push(this.newLigneGroup());
+    this._initLigneArrays(this.lignesArray.length);
   }
 
   removeLigne(i: number): void {
-    if (this.lignesArray.length > 1) {
-      this.lignesArray.removeAt(i);
-      this.codeFilteredList.splice(i, 1);
-      this.showCodeDropdown.splice(i, 1);
-      this.designFilteredList.splice(i, 1);
-      this.showDesignDropdown.splice(i, 1);
-    }
+    if (this.lignesArray.length === 1) return;
+    this.lignesArray.removeAt(i);
+    const arrs = [
+      this.advisories, this.advisoryLoading,
+      this.predictions, this.predictionLoading,
+      this.showCodeDropdown, this.showDesignDropdown,
+      this.codeFilteredList, this.designFilteredList,
+    ];
+    arrs.forEach(a => a.splice(i, 1));
+    this.computeTotals();
   }
 
-  private recalcLigne(g: AbstractControl): void {
-    const fg = g as FormGroup;
-    const pu   = +fg.get('prixUnitaireHT')!.value || 0;
-    const qte  = +fg.get('quantite')!.value       || 0;
-    const rem  = +fg.get('remise')!.value          || 0;
-    const tva  = +fg.get('tva')!.value             || 0;
-    const pr   = this.r3(pu * (1 - rem / 100));
-    const ht   = this.r3(pr * qte);
-    const mtva = this.r3(ht * tva / 100);
-    fg.patchValue({ prixRemise: pr, totalHT: ht, montantTVA: mtva,
-                    totalTTC: this.r3(ht + mtva) }, { emitEvent: false });
+  private _initLigneArrays(length: number): void {
+    const fill = (arr: any[], val: any) => { while (arr.length < length) arr.push(val()); };
+    fill(this.advisories,      () => null);
+    fill(this.advisoryLoading, () => false);
+    fill(this.predictions,     () => null);
+    fill(this.predictionLoading, () => false);
+    fill(this.showCodeDropdown,  () => false);
+    fill(this.showDesignDropdown,() => false);
+    fill(this.codeFilteredList,  () => []);
+    fill(this.designFilteredList,() => []);
   }
 
-  // ── Autocomplete CODE article ─────────────────────────────────────────
+  // ── Autocomplete ─────────────────────────────────────────────────────────
 
-  onCodeInput(i: number, val: string): void {
-    this.ligneFg(i).get('codeArticle')!.setValue(val, { emitEvent: false });
-    if (val.length >= 1) {
-      this.codeFilteredList[i] = this.articles
-        .filter(a => a.codeArticle.toLowerCase().includes(val.toLowerCase()))
-        .slice(0, 8);
-      this.showCodeDropdown[i] = this.codeFilteredList[i].length > 0;
-    } else {
-      this.showCodeDropdown[i] = false;
-    }
+  onCodeInput(i: number, value: string): void {
+    this.ligneFg(i).get('codeArticle')!.setValue(value, { emitEvent: false });
+    if (value.length < 1) { this.showCodeDropdown[i] = false; return; }
+    const v = value.toLowerCase();
+    this.codeFilteredList[i] = this.articles
+      .filter(a => (a.codeArticle ?? '').toLowerCase().includes(v))
+      .slice(0, 8);
+    this.showCodeDropdown[i] = this.codeFilteredList[i].length > 0;
   }
 
   hideCodeDropdown(i: number): void {
     setTimeout(() => { this.showCodeDropdown[i] = false; }, 200);
   }
 
-  // ── Autocomplete DÉSIGNATION article ─────────────────────────────────
-
-  onDesignInput(i: number, val: string): void {
-    this.ligneFg(i).get('designation')!.setValue(val, { emitEvent: false });
-    if (val.length >= 1) {
-      this.designFilteredList[i] = this.articles
-        .filter(a => a.designation.toLowerCase().includes(val.toLowerCase()))
-        .slice(0, 8);
-      this.showDesignDropdown[i] = this.designFilteredList[i].length > 0;
-    } else {
-      this.showDesignDropdown[i] = false;
-    }
+  onDesignInput(i: number, value: string): void {
+    this.ligneFg(i).get('designation')!.setValue(value, { emitEvent: false });
+    if (value.length < 2) { this.showDesignDropdown[i] = false; return; }
+    const v = value.toLowerCase();
+    this.designFilteredList[i] = this.articles
+      .filter(a => a.designation.toLowerCase().includes(v))
+      .slice(0, 8);
+    this.showDesignDropdown[i] = this.designFilteredList[i].length > 0;
   }
 
   hideDesignDropdown(i: number): void {
     setTimeout(() => { this.showDesignDropdown[i] = false; }, 200);
   }
 
-  // ── Sélection d'un article (depuis code OU désignation) ───────────────
+  // ── Sélection d'article — déclenche l'IA ─────────────────────────────────
 
-  selectArticle(i: number, a: Article): void {
-    const fg = this.ligneFg(i);
-    fg.patchValue({
-      codeArticle:    a.codeArticle,
-      designation:    a.designation,
-      prixUnitaireHT: a.prixAchatHT || 0,
-      tva:            a.tva         || 0
-    });
+  selectArticle(i: number, article: Article): void {
     this.showCodeDropdown[i]   = false;
     this.showDesignDropdown[i] = false;
-    this.recalcLigne(fg);
+
+    this.ligneFg(i).patchValue({
+      codeArticle:      article.codeArticle,
+      designation:      article.designation,
+      prixUnitaireHT:   article.prixAchatHT ?? 0,
+      tva:              article.tva ?? 19,
+      estArticleSource: !!article.produitSpecial,
+    });
+
+    // 1. Advisory rapide (stock + prix historique) — sans IA
+    this.advisoryLoading[i] = true;
+    this.advisories[i]      = null;
+    this.predictionService.getAdvisory(article.designation).subscribe({
+      next:  r => { this.advisories[i] = r.data; this.advisoryLoading[i] = false; },
+      error: () => { this.advisoryLoading[i] = false; },
+    });
+
+    // 2. Prédiction IA complète — J+7 / J+15 / J+30 + recommandation
+    this.predictionLoading[i] = true;
+    this.predictions[i]       = null;
+    this.predictionService.predict(article.designation).subscribe({
+      next:  r => { this.predictions[i] = r.data; this.predictionLoading[i] = false; },
+      error: () => { this.predictionLoading[i] = false; },
+    });
   }
 
-  // ── Totaux calculés ───────────────────────────────────────────────────
+  // Alias pour la méthode utilisée dans le template
+  private get predictionService() { return this.predictionSvc; }
 
-  get totalBrut(): number {
-    return this.r3(this.lignesArray.controls.reduce((s, g) => {
-      const fg = g as FormGroup;
-      return s + (+fg.get('prixUnitaireHT')!.value || 0) * (+fg.get('quantite')!.value || 0);
-    }, 0));
+  // ── Advisory helper ───────────────────────────────────────────────────────
+
+  getAdvisoryPriceNote(i: number): { text: string; css: string } | null {
+    const adv  = this.advisories[i];
+    const prix = this.ligneFg(i).get('prixUnitaireHT')?.value;
+    if (!adv || !prix || prix <= 0 || adv.prixMoyen <= 0) return null;
+    const diff = ((prix - adv.prixMoyen) / adv.prixMoyen) * 100;
+    if (Math.abs(diff) < 1) return null;
+    return diff > 5
+      ? { text: `Prix saisi ${diff.toFixed(1)}% au-dessus du prix moyen historique`, css: 'adv-price-note adv-price-note-warn' }
+      : { text: `Prix saisi ${Math.abs(diff).toFixed(1)}% en-dessous du prix moyen historique`, css: 'adv-price-note adv-price-note-good' };
   }
 
-  get totalHT(): number {
-    return this.r3(this.lignesArray.controls.reduce((s, g) => {
-      const fg  = g as FormGroup;
-      const pu  = +fg.get('prixUnitaireHT')!.value || 0;
-      const qte = +fg.get('quantite')!.value        || 0;
-      const rem = +fg.get('remise')!.value           || 0;
-      return s + pu * (1 - rem / 100) * qte;
-    }, 0));
+  // ── Calcul des totaux ────────────────────────────────────────────────────
+
+  private recalcLigne(g: FormGroup): void {
+    const qty  = +g.get('quantite')?.value       || 0;
+    const prix = +g.get('prixUnitaireHT')?.value || 0;
+    const rem  = +g.get('remise')?.value         || 0;
+    const tva  = +g.get('tva')?.value            || 0;
+
+    const prixRemise = +(prix * (1 - rem / 100)).toFixed(3);
+    const totalHT    = +(qty * prixRemise).toFixed(3);
+    const montantTVA = +(totalHT * tva / 100).toFixed(3);
+    const totalTTC   = +(totalHT + montantTVA).toFixed(3);
+    g.patchValue({ prixRemise, totalHT, montantTVA, totalTTC }, { emitEvent: false });
   }
 
-  get totalRemise(): number { return this.r3(this.totalBrut - this.totalHT); }
-
-  get totalTVA(): number {
-    return this.r3(this.lignesArray.controls.reduce((s, g) => {
-      const fg  = g as FormGroup;
-      const pu  = +fg.get('prixUnitaireHT')!.value || 0;
-      const qte = +fg.get('quantite')!.value        || 0;
-      const rem = +fg.get('remise')!.value           || 0;
-      const tva = +fg.get('tva')!.value              || 0;
-      return s + pu * (1 - rem / 100) * qte * (tva / 100);
-    }, 0));
+  private computeTotals(): void {
+    let brut = 0, remise = 0, ht = 0, tva = 0;
+    for (let i = 0; i < this.lignesArray.length; i++) {
+      const g  = this.ligneFg(i);
+      const qty  = +g.get('quantite')?.value       || 0;
+      const prix = +g.get('prixUnitaireHT')?.value || 0;
+      const rem  = +g.get('remise')?.value         || 0;
+      const tvap = +g.get('tva')?.value            || 0;
+      const lineHT = +(qty * prix * (1 - rem / 100)).toFixed(3);
+      brut   += qty * prix;
+      remise += qty * prix * rem / 100;
+      ht     += lineHT;
+      tva    += lineHT * tvap / 100;
+    }
+    this.totalBrut   = +brut.toFixed(3);
+    this.totalRemise = +remise.toFixed(3);
+    this.totalHT     = +ht.toFixed(3);
+    this.totalTVA    = +tva.toFixed(3);
   }
 
-  get netAPayer(): number { return this.r3(this.totalHT + this.totalTVA + this.TIMBRE_FISCAL); }
-
-  private r3(v: number): number { return Math.round(v * 1000) / 1000; }
-
-  // ── Paiement ──────────────────────────────────────────────────────────
-
-  get modePaiement(): string { return this.paiementForm.get('modePaiement')!.value; }
-  get sousMode():     string { return this.paiementForm.get('sousMode')!.value; }
-
-  onMontantPayeChange(): void {
-    const reste = this.r3(this.netAPayer - (+this.paiementForm.get('montantPaye')!.value || 0));
-    this.paiementForm.patchValue({ montantReste: Math.max(0, reste) });
-  }
-
-  // ── Retenue ───────────────────────────────────────────────────────────
-
-  recalcRetenue(): void {
-    const brut   = this.totalHT;
-    const taux   = +this.retenueForm.get('tauxRetenue')!.value || 0;
-    const retenu = this.r3(brut * taux / 100);
-    this.retenueForm.patchValue({ montantBrut: brut, montantRetenu: retenu,
-                                   montantNet: this.r3(brut - retenu) });
-  }
-
-  // ── Step 3 init ───────────────────────────────────────────────────────
+  // ── Étape 3 ──────────────────────────────────────────────────────────────
 
   onStep3Enter(): void {
     this.paiementForm.patchValue({ montantPaye: this.netAPayer });
     this.onMontantPayeChange();
-    this.recalcRetenue(); // pré-calculer les montants retenue dès l'arrivée au step 3
+    this.retenueForm.patchValue({ montantBrut: this.totalHT });
+    this.recalcRetenue();
   }
 
-  // ── Enregistrer la facture (indépendant de la retenue) ───────────────
+  onMontantPayeChange(): void {
+    const paye  = +this.paiementForm.get('montantPaye')?.value || 0;
+    const reste = +(this.netAPayer - paye).toFixed(3);
+    this.paiementForm.patchValue({ montantReste: reste }, { emitEvent: false });
+  }
+
+  recalcRetenue(): void {
+    const brut   = +this.retenueForm.get('montantBrut')?.value  || 0;
+    const taux   = +this.retenueForm.get('tauxRetenue')?.value  || 0;
+    const retenu = +(brut * taux / 100).toFixed(3);
+    const net    = +(brut - retenu).toFixed(3);
+    this.retenueForm.patchValue({ montantRetenu: retenu, montantNet: net }, { emitEvent: false });
+  }
+
+  // ── Construction de la requête ───────────────────────────────────────────
+
+  private buildRequest(): FactureAchatRequest {
+    const h = this.headerForm.value;
+    const lignes: LigneFactureAchatRequest[] = this.lignesArray.controls.map((ctrl, idx) => {
+      const g = ctrl as FormGroup;
+      return {
+        codeArticle:      g.get('codeArticle')?.value || undefined,
+        designation:      g.get('designation')?.value,
+        quantite:         +g.get('quantite')?.value,
+        prixUnitaireHT:   +g.get('prixUnitaireHT')?.value,
+        remise:           +g.get('remise')?.value || 0,
+        tva:              +g.get('tva')?.value || 0,
+        tauxTransformation: g.get('estArticleSource')?.value
+          ? +g.get('tauxTransformation')?.value || null
+          : null,
+        ordre: idx + 1,
+      };
+    });
+
+    const p = this.paiementForm.value;
+    const paiement: PaiementAchatRequest = {
+      modePaiement:    p.modePaiement,
+      sousMode:        p.sousMode || undefined,
+      montantPaye:     +p.montantPaye,
+      montantReste:    +(this.netAPayer - +p.montantPaye).toFixed(3),
+      dateEcheance:    p.dateEcheance    || undefined,
+      numeroTraite:    p.numeroTraite    || undefined,
+      dateLimiteCredit:p.dateLimiteCredit|| undefined,
+    };
+
+    return { numeroFacture: h.numeroFacture || undefined, dateFacture: h.dateFacture, fournisseurId: h.fournisseurId, lignes, paiement };
+  }
+
+  // ── Brouillon ────────────────────────────────────────────────────────────
+
+  onSaveBrouillon(): void {
+    this.isSavingBrouillon = true;
+    this.brouillonSuccess  = '';
+    this.errorMessage      = '';
+    const req = this.buildRequest();
+    const obs = (this.editMode && this.editId)
+      ? this.factureSvc.update(this.editId, req)
+      : this.factureSvc.saveDraft(req);
+    obs.subscribe({
+      next: f => {
+        this.savedBrouillonId  = f.id;
+        this.isSavingBrouillon = false;
+        this.brouillonSuccess  = this.editMode
+          ? `Brouillon ${f.numeroFacture} mis à jour.`
+          : `Brouillon ${f.numeroFacture} enregistré.`;
+      },
+      error: e => {
+        this.isSavingBrouillon = false;
+        this.errorMessage = e?.error?.message ?? 'Erreur lors de la sauvegarde.';
+      },
+    });
+  }
+
+  onValidateBrouillon(): void {
+    const id = this.savedBrouillonId ?? (this.editMode ? this.editId : undefined);
+    if (!id) return;
+    this.isSavingFacture = true;
+    this.factureSvc.validateFacture(id).subscribe({
+      next: f => {
+        this.isSavingFacture  = false;
+        this.brouillonSuccess = '';
+        this.savedFactureId   = f.id;
+        this.successMessage   = `Facture ${f.numeroFacture} validée avec succès.`;
+      },
+      error: e => {
+        this.isSavingFacture = false;
+        this.errorMessage = e?.error?.message ?? 'Erreur lors de la validation.';
+      },
+    });
+  }
+
+  // ── Validation finale ────────────────────────────────────────────────────
 
   onSubmit(): void {
-    if (this.paiementForm.invalid) { this.paiementForm.markAllAsTouched(); return; }
-    this.isSavingFacture = true; this.errorMessage = '';
-    const pv = this.paiementForm.value;
-    const request = {
-      numeroFacture: this.headerForm.get('numeroFacture')!.value,
-      dateFacture:   this.headerForm.get('dateFacture')!.value,
-      fournisseurId: this.headerForm.get('fournisseurId')!.value,
-      lignes: this.lignesArray.controls.map((g, i) => {
-        const fg = g as FormGroup;
-        return {
-          codeArticle:    fg.get('codeArticle')!.value || null,
-          designation:    fg.get('designation')!.value,
-          quantite:       +fg.get('quantite')!.value,
-          prixUnitaireHT: +fg.get('prixUnitaireHT')!.value,
-          remise:         +fg.get('remise')!.value || 0,
-          tva:            +fg.get('tva')!.value    || 0,
-          ordre: i + 1
-        };
-      }),
-      paiement: {
-        modePaiement:     pv.modePaiement,
-        sousMode:         pv.sousMode || null,
-        montantPaye:      +pv.montantPaye      || 0,
-        montantReste:     +pv.montantReste     || 0,
-        dateEcheance:     pv.dateEcheance      || null,
-        numeroTraite:     pv.numeroTraite      || null,
-        dateLimiteCredit: pv.dateLimiteCredit  || null
-      }
-    };
-    this.factureAchatService.create(request).subscribe({
-      next: facture => {
-        this.savedFactureId  = facture.id  ?? null;
-        this.savedFactureNum = facture.numeroFacture ?? '';
+    this.isSavingFacture = true;
+    this.errorMessage    = '';
+    const req = this.buildRequest();
+    const obs = (this.editMode && this.editId)
+      ? this.factureSvc.update(this.editId, req)
+      : this.factureSvc.create(req);
+    obs.subscribe({
+      next: f => {
         this.isSavingFacture = false;
-        this.router.navigate(['/achat'], { queryParams: { tab: 'factures' } });
+        this.savedFactureId  = f.id;
+        this.successMessage  = this.editMode
+          ? `Facture ${f.numeroFacture} modifiée et validée.`
+          : `Facture ${f.numeroFacture} créée et validée.`;
       },
-      error: err => {
+      error: e => {
         this.isSavingFacture = false;
-        const status = err?.status;
-        const detail = err?.error?.message || err?.error?.error || err?.message || 'Erreur inconnue';
-        if (status === 401)      this.errorMessage = '⚠️ Session expirée. Reconnectez-vous.';
-        else if (status === 403) this.errorMessage = '⚠️ Accès refusé (403).';
-        else if (status === 0)   this.errorMessage = '⚠️ Serveur inaccessible (port 8099).';
-        else                     this.errorMessage = `[HTTP ${status}] ${detail}`;
-      }
+        this.errorMessage = e?.error?.message ?? 'Erreur lors de la sauvegarde.';
+      },
     });
   }
 
-  // ── Enregistrer la retenue seulement (indépendant de la facture) ──────
+  // ── Retenue à la source ──────────────────────────────────────────────────
 
   onSubmitRetenueSeulement(): void {
-    if (this.retenueForm.invalid) { this.retenueForm.markAllAsTouched(); return; }
-    if (this.totalHT <= 0) {
-      this.errorMessage = '⚠️ Le montant brut est 0. Vérifiez que les lignes d\'articles ont des prix corrects.';
-      return;
-    }
-    const tauxVal = +this.retenueForm.get('tauxRetenue')!.value || 0;
-    if (tauxVal <= 0) {
-      this.errorMessage = '⚠️ Le taux de retenue doit être supérieur à 0.';
-      return;
-    }
-    this.isSavingRetenue = true; this.errorMessage = ''; this.successRetenueMessage = '';
-    const rv = this.retenueForm.value;
-    const req = {
-      dateRetenue:   rv.dateRetenue,
-      lieuRetenue:   rv.lieuRetenue,
-      fournisseurId: this.headerForm.get('fournisseurId')!.value,
+    if (this.retenueForm.invalid || !this.headerForm.get('fournisseurId')?.value) return;
+    this.isSavingRetenue      = true;
+    this.successRetenueMessage = '';
+
+    const r = this.retenueForm.value;
+    const req: RetenueAchatRequest = {
+      dateRetenue:   r.dateRetenue,
+      lieuRetenue:   r.lieuRetenue,
+      fournisseurId: this.headerForm.get('fournisseurId')?.value,
       lignes: [{
-        numeroFacture: this.headerForm.get('numeroFacture')!.value,
-        montantBrut:   this.totalHT,
-        tauxRetenue:   tauxVal,
-        ordre: 1
-      }]
+        numeroFacture: this.headerForm.get('numeroFacture')?.value || '',
+        montantBrut:   +this.retenueForm.get('montantBrut')?.value || this.totalHT,
+        tauxRetenue:   +r.tauxRetenue,
+        ordre: 1,
+      }],
     };
-    this.factureAchatService.createRetenue(req).subscribe({
-      next: retenue => {
-        this.savedRetenueId = retenue?.id ?? null;
-        this.isSavingRetenue = false;
-        this.successRetenueMessage = 'La retenue à la source a été enregistrée avec succès.';
+
+    this.factureSvc.createRetenue(req).subscribe({
+      next: res => {
+        this.isSavingRetenue       = false;
+        this.savedRetenueId        = res?.id;
+        this.successRetenueMessage = 'Retenue à la source enregistrée avec succès.';
       },
-      error: err => {
+      error: e => {
         this.isSavingRetenue = false;
-        const status = err?.status;
-        const body   = err?.error;
-        let detail: string;
-        if (body?.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
-          // GlobalExceptionHandler validation errors: { data: { field: "message", ... } }
-          detail = Object.entries(body.data as Record<string, string>)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(' | ');
-        } else {
-          detail = body?.message || body?.error || err?.message || 'Erreur inconnue';
-        }
-        if (status === 0) this.errorMessage = '⚠️ Serveur inaccessible (port 8099).';
-        else              this.errorMessage = `⚠️ Erreur retenue [HTTP ${status}] ${detail}`;
-      }
+        this.errorMessage    = e?.error?.message ?? "Erreur lors de l'enregistrement de la retenue.";
+      },
     });
   }
 
+  // ── Impression ───────────────────────────────────────────────────────────
+
   printFacture(): void {
-    if (this.savedFactureId)
-      this.factureAchatService.downloadFacturePdf(this.savedFactureId, this.savedFactureNum);
+    if (this.savedFactureId) {
+      const numero = this.headerForm.get('numeroFacture')?.value ?? String(this.savedFactureId);
+      this.factureSvc.downloadFacturePdf(this.savedFactureId, numero);
+    }
   }
 
   printRetenue(): void {
-    if (this.savedRetenueId) this.factureAchatService.downloadRetenuePdf(this.savedRetenueId);
+    if (this.savedRetenueId) {
+      this.factureSvc.downloadRetenuePdf(this.savedRetenueId);
+    }
   }
 
-  annuler(): void {
-    if (confirm('Annuler la saisie ? Les données seront perdues.'))
-      this.router.navigate(['/achat']);
-  }
+  // ── Helpers template ─────────────────────────────────────────────────────
 
-  // ── Helpers UI ────────────────────────────────────────────────────────
+  annuler(): void { this.router.navigate(['/achat']); }
 
   fournisseurLabel(id: number): string {
-    const f = this.fournisseurs.find(f => f.id === id);
-    return f ? `${f.raisonSociale} (${f.matricule})` : '';
+    const f = this.fournisseurs.find(x => x.id === id);
+    return f ? `${f.raisonSociale} · ${f.matricule}` : '';
   }
 
-  ligneFg(i: number): FormGroup { return this.lignesArray.at(i) as FormGroup; }
+  // ── Helpers IA (utilisés dans le template) ───────────────────────────────
 
-  trackByIndex(i: number): number { return i; }
-
-  // ── Certificate helpers ───────────────────────────────────────────────
-
-  readonly cniBoxes = new Array(8).fill(0);
-
-  get company() { return environment.company; }
-
-  get matriculeChars(): string[] {
-    return environment.company.matriculeFiscal.split('');
+  getRecoClass(reco: string): string {
+    return ({
+      'ACHETER_MAINTENANT'      : 'reco-buy-now',
+      'ACHETER_PROGRESSIVEMENT' : 'reco-buy-progressive',
+      'ATTENDRE'                : 'reco-wait',
+      'SURVEILLER'              : 'reco-watch',
+    } as Record<string, string>)[reco] ?? '';
   }
 
-  get etablissementChars(): string[] {
-    return environment.company.numeroEtab.split('');
+  getRecoIcon(reco: string): string {
+    return ({
+      'ACHETER_MAINTENANT'      : 'shopping_cart',
+      'ACHETER_PROGRESSIVEMENT' : 'trending_up',
+      'ATTENDRE'                : 'hourglass_empty',
+      'SURVEILLER'              : 'visibility',
+    } as Record<string, string>)[reco] ?? 'info';
   }
 
-  get fournisseurSelectionne(): Fournisseur | null {
-    const id = this.headerForm.get('fournisseurId')?.value;
-    return id ? (this.fournisseurs.find(f => f.id === id) ?? null) : null;
-  }
-
-  get fournisseurMatriculeChars(): string[] {
-    return (this.fournisseurSelectionne?.matricule ?? '').split('');
-  }
-
-  get fournisseurMatriculeCharsPadded(): string[] {
-    const m = (this.fournisseurSelectionne?.matricule ?? '').padEnd(9, ' ');
-    return m.slice(0, 9).split('');
-  }
-
-  get currentYearChars(): string[] {
-    return new Date().getFullYear().toString().split('');
+  getRecoLabel(reco: string): string {
+    return ({
+      'ACHETER_MAINTENANT'      : 'Acheter maintenant',
+      'ACHETER_PROGRESSIVEMENT' : 'Acheter progressivement',
+      'ATTENDRE'                : 'Attendre — prix en baisse',
+      'SURVEILLER'              : 'Surveiller le marché',
+    } as Record<string, string>)[reco] ?? reco;
   }
 }

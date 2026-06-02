@@ -9,21 +9,18 @@
   <div class="page-toolbar">
     <div class="toolbar-buttons">
       <button type="button" class="btn primary" (click)="openAddArticleModal()">
-        <span class="btn-icon">+</span>
-        Ajouter un article
+        <span class="btn-icon">+</span> Ajouter un article
+      </button>
+      <button type="button" class="btn outline" (click)="navigateToInventaire()">
+        Inventaire / Mouvements
       </button>
     </div>
     <div class="filters-actions">
-      <input
-        type="text"
-        class="search-input"
-        [(ngModel)]="searchTerm"
-        (ngModelChange)="onSearchChange()"
-        placeholder="Rechercher article, code, famille..."
-      >
+      <input type="text" class="search-input" [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchChange()" placeholder="Rechercher article, code, famille...">
       <span class="total-badge">Total : {{ totalValeur | currencyFormat }}</span>
       <button type="button" class="btn outline" (click)="quitter()">Quitter</button>
-      <button type="button" class="btn neutral" (click)="initialiser()">Initialiser</button>
+      <button type="button" class="btn neutral" (click)="initialiser()">Actualiser</button>
     </div>
   </div>
 
@@ -35,31 +32,38 @@
             <th class="col-num">#</th>
             <th (click)="sortBy('codeArticle')" class="sortable">Article</th>
             <th (click)="sortBy('designation')" class="sortable col-libelle">Libellé</th>
+            <th>Type</th>
             <th (click)="sortBy('famille')" class="sortable">Famille</th>
-            <th (click)="sortBy('stock1')" class="sortable numeric">Stock 1</th>
+            <th (click)="sortBy('stock1')" class="sortable numeric">Stock</th>
             <th (click)="sortBy('unite')" class="sortable">Unité</th>
-            <th (click)="sortBy('prixAchatHT')" class="sortable numeric">PAHT</th>
+            <th (click)="sortBy('prixAchatHT')" class="sortable numeric">PUA</th>
             <th (click)="sortBy('pump')" class="sortable numeric">PUMP</th>
+            <th class="numeric">Prix vente</th>
             <th class="numeric">Valeur</th>
-            <th (click)="sortBy('stock2')" class="sortable numeric">Stock 2</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngIf="filteredArticles.length === 0">
-            <td colspan="11" class="empty-state">Aucun article. Cliquez sur « Ajouter un article » pour en créer.</td>
+            <td colspan="12" class="empty-state">Aucun article. Cliquez sur « Ajouter un article » pour en créer.</td>
           </tr>
           <tr *ngFor="let a of filteredArticles; let i = index">
             <td class="col-num">{{ i + 1 }}</td>
             <td>{{ a.codeArticle }}</td>
             <td class="col-libelle link-cell" (click)="openEditArticle(a)">{{ a.designation }}</td>
+            <td>
+              <span class="type-badge" [ngClass]="{
+                'type-derived': libelleTypeArticle(a) === 'Transformé',
+                'type-special': libelleTypeArticle(a) === 'Spécial'
+              }">{{ libelleTypeArticle(a) }}</span>
+            </td>
             <td>{{ a.famille }}</td>
-            <td class="numeric">{{ a.stock1 | numberFormat }}</td>
+            <td class="numeric" [class.stock-zero]="(a.stock1 || 0) <= 0">{{ a.stock1 | numberFormat }}</td>
             <td>{{ a.unite }}</td>
-            <td class="numeric">{{ a.prixAchatHT | currencyFormat }}</td>
-            <td class="numeric">{{ a.pump | currencyFormat }}</td>
+            <td class="numeric text-muted-na">{{ aDejaPrixAchat(a) ? (effectivePrixAchat(a) | currencyFormat) : '—' }}</td>
+            <td class="numeric text-muted-na">{{ (a.pump && a.pump > 0) ? (a.pump | currencyFormat) : '—' }}</td>
+            <td class="numeric text-muted-na">{{ (a.prixVente && a.prixVente > 0) ? (a.prixVente | currencyFormat) : '—' }}</td>
             <td class="numeric">{{ valeurArticle(a) | currencyFormat }}</td>
-            <td class="numeric">{{ a.stock2 | numberFormat }}</td>
             <td class="actions-col">
               <button type="button" class="chip primary" (click)="openEditArticle(a)">Modifier</button>
               <button type="button" class="chip danger" (click)="deleteArticle(a, $event)">Supprimer</button>
@@ -75,23 +79,32 @@
   </section>
 </div>
 
-<!-- Modal Ajout / Modification article -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Modal Ajout / Modification article                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" *ngIf="isModalArticleOpen" (click)="closeArticleModal()">
-  <div class="modal-dialog modal-article" (click)="$event.stopPropagation()">
+  <div class="modal-dialog modal-article-large" (click)="$event.stopPropagation()">
+
     <div class="modal-header">
-      <h3>{{ isEditingArticle ? 'Modifier l\'article' : 'Ajouter un article' }}</h3>
+      <h3>{{ isEditingArticle ? 'Modifier l\'article' : 'Ajouter un article' }}
+        <span *ngIf="isEditingArticle" class="code-badge">{{ articleForm.get('codeArticle')?.value }}</span>
+      </h3>
       <button type="button" class="close-btn" (click)="closeArticleModal()">&times;</button>
     </div>
+
     <form [formGroup]="articleForm">
       <div class="modal-body">
+
+        <!-- ── IDENTIFICATION ───────────────────────────────────── -->
+        <div class="section-title">Identification</div>
         <div class="form-grid article-form">
           <div class="form-group">
-            <label>Code Article <span class="required">*</span></label>
-            <input type="text" formControlName="codeArticle" readonly class="input-readonly" placeholder="Généré automatiquement">
+            <label>Code article</label>
+            <input type="text" formControlName="codeArticle" readonly class="input-readonly">
           </div>
           <div class="form-group wide">
             <label>Désignation <span class="required">*</span></label>
-            <input type="text" formControlName="designation" placeholder="Nom / description de l'article">
+            <input type="text" formControlName="designation" placeholder="ex. CUISSE DINDE, CHAWARMA">
             <span class="field-error" *ngIf="articleForm.get('designation')?.invalid && articleForm.get('designation')?.touched">Désignation requise</span>
           </div>
           <div class="form-group">
@@ -115,41 +128,164 @@
               <option *ngFor="let o of origines" [ngValue]="o.code">{{ o.code }} — {{ o.designation }}</option>
             </select>
           </div>
-          <p *ngIf="articleDuplicateError" class="field-error msg-block">{{ articleDuplicateError }}</p>
-        </div>
-        <div class="articles-added-in-modal" *ngIf="!isEditingArticle && articlesAddedInModal.length > 0">
-          <h4>Articles ajoutés</h4>
-          <div class="articles-added-list">
-            <div class="article-added-row form-grid article-form" *ngFor="let a of articlesAddedInModal; let i = index">
-              <div class="form-group">
-                <label>Code Article</label>
-                <input type="text" [value]="a.codeArticle" readonly class="input-readonly">
-              </div>
-              <div class="form-group wide">
-                <label>Désignation</label>
-                <input type="text" [value]="a.designation" readonly class="input-readonly">
-              </div>
-              <div class="form-group">
-                <label>Unité</label>
-                <input type="text" [value]="a.unite" readonly class="input-readonly">
-              </div>
-              <div class="form-group">
-                <label>Famille</label>
-                <input type="text" [value]="a.famille" readonly class="input-readonly">
-              </div>
-              <div class="form-group">
-                <label>Origine</label>
-                <input type="text" [value]="a.origine" readonly class="input-readonly">
-              </div>
+
+          <!-- Nature -->
+          <div class="form-group full-width nature-block">
+            <label>Nature <span class="required">*</span></label>
+            <div class="nature-radios">
+              <label class="nature-opt">
+                <input type="radio" formControlName="typeArticle" value="standard">
+                <span><strong>Standard</strong> — article vendu directement.</span>
+              </label>
+              <label class="nature-opt">
+                <input type="radio" formControlName="typeArticle" value="special">
+                <span><strong>Spécial (détaillable)</strong> — matière première transformée en usine (ex. CUISSE DINDE → CHAWARMA). Le taux est saisi sur chaque facture d'achat.</span>
+              </label>
+              <label class="nature-opt">
+                <input type="radio" formControlName="typeArticle" value="derive">
+                <span><strong>Transformé</strong> — produit fini issu d'un article spécial.</span>
+              </label>
+            </div>
+            <div class="form-group derive-select" *ngIf="articleForm.get('typeArticle')?.value === 'derive'">
+              <label>Article d'origine <span class="required">*</span></label>
+              <select formControlName="codeArticleSource">
+                <option value="">— Choisir —</option>
+                <option *ngFor="let o of articlesOriginePossible" [value]="o.codeArticle">
+                  {{ o.codeArticle }} — {{ o.designation }}
+                </option>
+              </select>
+              <p class="field-hint warn" *ngIf="articlesOriginePossible.length === 0">Créez d'abord l'article Spécial (ex. CUISSE DINDE).</p>
             </div>
           </div>
         </div>
-      </div>
+
+        <!-- ── PRIX ACHAT ────────────────────────────────────────── -->
+        <div class="section-title prix-title">Prix achat</div>
+        <div class="form-grid prix-grid">
+          <div class="form-group">
+            <label>P.U.A. (Prix Unitaire Achat)</label>
+            <input type="number" formControlName="prixAchatHT" min="0" step="0.001" placeholder="0.000">
+          </div>
+          <div class="form-group">
+            <label>Taux conversion %</label>
+            <input type="number" formControlName="tauxConversion" min="0" max="100" step="0.01" placeholder="0.00">
+            <span class="field-hint">0 = pas de conversion</span>
+          </div>
+          <div class="form-group">
+            <label>TVA achat %</label>
+            <input type="number" formControlName="tva" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>PU.REV. (Prix de Revient)</label>
+            <input type="number" [value]="prixRevient" readonly class="input-readonly input-calculated"
+              placeholder="Calculé auto">
+            <span class="field-hint">= PUA / (Taux / 100)</span>
+          </div>
+        </div>
+
+        <!-- ── PRIX VENTE ─────────────────────────────────────────── -->
+        <div class="section-title prix-title">Prix vente</div>
+        <div class="form-grid prix-grid">
+          <div class="form-group">
+            <label>Marge B. %</label>
+            <input type="number" formControlName="margeB" step="0.01" placeholder="0.00">
+            <span class="field-hint">Se recalcule si vous changez le prix vente</span>
+          </div>
+          <div class="form-group">
+            <label>Prix vente</label>
+            <input type="number" formControlName="prixVente" min="0" step="0.001" placeholder="0.000">
+            <span class="field-hint">= PU.REV × (1 + Marge%/100)</span>
+          </div>
+          <div class="form-group">
+            <label>P.V.P. (Prix Public)</label>
+            <input type="number" formControlName="prixPublic" min="0" step="0.001" placeholder="0.000">
+          </div>
+          <div class="form-group" *ngIf="isEditingArticle">
+            <label>PUMP (Coût moyen pondéré)</label>
+            <input type="number" [value]="articleCourant?.pump ?? 0" readonly class="input-readonly input-calculated">
+            <span class="field-hint">Calculé par les achats</span>
+          </div>
+        </div>
+
+        <!-- ── STOCK ──────────────────────────────────────────────── -->
+        <div class="section-title stock-title" *ngIf="isEditingArticle">Stock</div>
+        <div class="stock-init-layout" *ngIf="isEditingArticle">
+
+          <!-- Gauche : saisie -->
+          <div class="stock-init-left">
+            <div class="stock-init-row">
+              <div class="form-group stock-group">
+                <label class="label-magasin">QUANTITÉ INITIALE MAGASIN</label>
+                <div class="stock-init-fields">
+                  <div class="form-group">
+                    <label>Qté Initiale</label>
+                    <input type="number" formControlName="qteInitiale" min="0" step="0.001"
+                           placeholder="0.000" class="input-qte-init">
+                  </div>
+                  <div class="form-group">
+                    <label class="label-quantite-stock">QUANTITÉ EN STOCK</label>
+                    <input type="number" [value]="articleCourant?.stock1 ?? 0" readonly
+                           class="input-readonly input-stock-val">
+                  </div>
+                  <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="button" class="btn init-stock-btn"
+                      [disabled]="isSavingInit || showInitPreview"
+                      (click)="preparerInitialisation()">
+                      {{ isSavingInit ? 'En cours...' : 'INITIALISER STOCK >>' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="init-success" *ngIf="initSuccessMsg">{{ initSuccessMsg }}</div>
+          </div>
+
+          <!-- Droite : panneau NOUVELLE STOCK -->
+          <div class="nouvelle-stock-panel" *ngIf="showInitPreview">
+            <div class="nouvelle-stock-title">NOUVELLE STOCK</div>
+            <div class="nouvelle-stock-val">{{ nouvelleStockPreview | numberFormat }}</div>
+            <button type="button" class="btn success valider-btn"
+              [disabled]="isSavingInit"
+              (click)="validerInitialisation()">
+              VALIDER
+            </button>
+            <button type="button" class="btn outline small" (click)="annulerInitialisation()">
+              Annuler
+            </button>
+          </div>
+
+        </div>
+        <div class="voir-mvt-row" *ngIf="isEditingArticle">
+          <button type="button" class="btn outline small" (click)="voirMouvements()">
+            Voir mouvements / inventaire →
+          </button>
+        </div>
+
+        <p *ngIf="articleDuplicateError" class="field-error msg-block">{{ articleDuplicateError }}</p>
+
+        <!-- Articles ajoutés dans la session -->
+        <div class="articles-added-in-modal" *ngIf="!isEditingArticle && articlesAddedInModal.length > 0">
+          <h4>Articles ajoutés</h4>
+          <div class="articles-added-list">
+            <div class="article-added-row" *ngFor="let a of articlesAddedInModal">
+              <span class="code-chip">{{ a.codeArticle }}</span>
+              <span>{{ a.designation }}</span>
+              <span class="muted">{{ a.unite }} — {{ a.famille }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /modal-body -->
+
       <div class="modal-footer modal-footer-four">
-        <button type="button" class="btn success" (click)="onAjouterArticle()">{{ isEditingArticle ? 'Enregistrer' : 'Ajouter' }}</button>
+        <button type="button" class="btn success" (click)="onAjouterArticle()">
+          {{ isEditingArticle ? 'Enregistrer' : 'Ajouter' }}
+        </button>
         <button type="button" class="btn neutral" (click)="onViderArticle()">Vider</button>
         <button type="button" class="btn outline" (click)="closeArticleModal()">Fermer</button>
       </div>
     </form>
+
   </div>
 </div>

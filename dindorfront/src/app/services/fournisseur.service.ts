@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map, catchError, of } from 'rxjs';
+import { Observable, map, catchError, of, throwError } from 'rxjs';
 import { ApiResponse, Fournisseur } from '../models/fournisseur.model';
-import { FournisseurEtat, TransactionFournisseur } from '../models/fournisseur-etat.model';
+import { FournisseurEtat, TransactionFournisseur, PaiementFournisseurRequest } from '../models/fournisseur-etat.model';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -49,15 +49,7 @@ export class FournisseurService {
       .get<ApiResponse<FournisseurEtat[]>>(`${this.baseUrl}/etat`)
       .pipe(
         map(res => res.data ?? []),
-        catchError(() => this.getAll().pipe(
-          map(list => list.map(f => ({
-            fournisseurId: f.id,
-            nom: f.raisonSociale,
-            matricule: f.matricule,
-            solde: 0,
-            traitementEnCours: 0
-          })))
-        ))
+        catchError(err => throwError(() => err))
       );
   }
 
@@ -71,14 +63,18 @@ export class FournisseurService {
       );
   }
 
-  /** Suppression d'une transaction */
-  deleteTransaction(transactionId: number): Observable<void> {
+  /** Enregistrer un règlement pour un fournisseur */
+  addPaiement(fournisseurId: number, payload: PaiementFournisseurRequest): Observable<void> {
     return this.http
-      .delete<ApiResponse<null>>(`${environment.apiUrl}/fournisseurs/transactions/${transactionId}`)
-      .pipe(
-        map(() => void 0),
-        catchError(() => of(void 0))
-      );
+      .post<ApiResponse<null>>(`${this.baseUrl}/${fournisseurId}/paiements`, payload)
+      .pipe(map(() => void 0));
+  }
+
+  /** Supprimer un règlement fournisseur */
+  deletePaiement(paiementId: number): Observable<void> {
+    return this.http
+      .delete<ApiResponse<null>>(`${this.baseUrl}/paiements/${paiementId}`)
+      .pipe(map(() => void 0));
   }
 }
 

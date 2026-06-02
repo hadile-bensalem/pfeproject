@@ -5,9 +5,12 @@
     <div class="wiz-topbar-left">
       <span class="wiz-logo-icon material-icons">receipt_long</span>
       <div class="wiz-topbar-text">
-        <span class="wiz-topbar-title">Nouvelle Facture d'Achat</span>
+        <span class="wiz-topbar-title">
+          {{ editMode ? 'Modifier la Facture d\'Achat' : 'Nouvelle Facture d\'Achat' }}
+        </span>
         <span class="wiz-topbar-sub" *ngIf="headerForm.get('numeroFacture')?.value">
           N° {{ headerForm.get('numeroFacture')?.value }}
+          <span *ngIf="editMode" class="edit-badge">Modification</span>
         </span>
       </div>
     </div>
@@ -43,6 +46,23 @@
       </button>
     </div>
   </div>
+  <!-- Brouillon enregistré -->
+  <div class="alert alert-brouillon" *ngIf="brouillonSuccess && !successMessage">
+    <span class="material-icons">save_as</span>
+    <span class="alert-msg">{{ brouillonSuccess }}</span>
+    <div class="alert-actions">
+      <button mat-raised-button type="button" class="btn-valider-brouillon"
+              (click)="onValidateBrouillon()" [disabled]="isSavingFacture">
+        <mat-spinner diameter="18" *ngIf="isSavingFacture" class="btn-spinner"></mat-spinner>
+        <span class="material-icons btn-icon-sm" *ngIf="!isSavingFacture">check_circle</span>
+        {{ isSavingFacture ? 'Validation…' : 'Valider maintenant' }}
+      </button>
+      <button mat-stroked-button type="button" (click)="router.navigate(['/achat'])">
+        <span class="material-icons btn-icon-sm">arrow_back</span> Retour
+      </button>
+    </div>
+  </div>
+
   <div class="alert alert-error" *ngIf="errorMessage">
     <span class="material-icons">error_outline</span>
     <span>{{ errorMessage }}</span>
@@ -177,6 +197,88 @@
 
             </div>
 
+            <!-- ── Conseil IA ── -->
+            <div class="ligne-advisory-loading" *ngIf="advisoryLoading[i]">
+              <mat-spinner diameter="14"></mat-spinner>
+              <span>Analyse IA en cours…</span>
+            </div>
+
+            <div class="ligne-advisory" *ngIf="advisories[i] && !advisoryLoading[i]">
+              <div class="adv-row">
+                <!-- Stock -->
+                <div class="adv-chip"
+                     [class.adv-chip-critique]="advisories[i]!.stockCritique"
+                     [class.adv-chip-alerte]="advisories[i]!.stockBas && !advisories[i]!.stockCritique"
+                     [class.adv-chip-ok]="!advisories[i]!.stockCritique && !advisories[i]!.stockBas">
+                  <span class="material-icons adv-chip-icon">inventory_2</span>
+                  <span *ngIf="advisories[i]!.stockCritique">Stock critique ({{ advisories[i]!.stockActuel.toFixed(0) }} / min {{ advisories[i]!.stockMinimum.toFixed(0) }})</span>
+                  <span *ngIf="advisories[i]!.stockBas && !advisories[i]!.stockCritique">Stock bas ({{ advisories[i]!.stockActuel.toFixed(0) }} / min {{ advisories[i]!.stockMinimum.toFixed(0) }})</span>
+                  <span *ngIf="!advisories[i]!.stockCritique && !advisories[i]!.stockBas">Stock OK — {{ advisories[i]!.stockActuel.toFixed(0) }} unités</span>
+                </div>
+
+                <!-- Prix historique -->
+                <div class="adv-price-info">
+                  <span class="adv-price-label">Prix moy. historique :</span>
+                  <strong class="adv-price-val">{{ advisories[i]!.prixMoyen.toFixed(3) }} DT</strong>
+                  <span class="adv-price-last">(dernier : {{ advisories[i]!.prixDernier.toFixed(3) }} DT)</span>
+                  <span class="adv-trend"
+                        [class.adv-trend-up]="advisories[i]!.tendance === 'hausse'"
+                        [class.adv-trend-down]="advisories[i]!.tendance === 'baisse'"
+                        [class.adv-trend-flat]="advisories[i]!.tendance === 'stable'">
+                    {{ advisories[i]!.tendance === 'hausse' ? '↗ Hausse' : advisories[i]!.tendance === 'baisse' ? '↘ Baisse' : '→ Stable' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Comparaison prix saisi -->
+              <div class="adv-price-note" *ngIf="getAdvisoryPriceNote(i) as note"
+                   [class]="note.css">
+                <span class="material-icons adv-note-icon">info</span>
+                {{ note.text }}
+              </div>
+            </div>
+
+            <!-- ── Prédiction IA complète ──────────────────────────────── -->
+            <div class="ligne-prediction-loading" *ngIf="predictionLoading[i]">
+              <mat-spinner diameter="14"></mat-spinner>
+              <span>Prédiction IA en cours…</span>
+            </div>
+
+            <div class="ligne-prediction" *ngIf="predictions[i] && !predictionLoading[i]">
+
+              <!-- Bandeau recommandation -->
+              <div class="pred-reco-banner" [ngClass]="getRecoClass(predictions[i]!.recommendation)">
+                <span class="material-icons pred-reco-icon">{{ getRecoIcon(predictions[i]!.recommendation) }}</span>
+                <div class="pred-reco-body">
+                  <span class="pred-reco-label">{{ getRecoLabel(predictions[i]!.recommendation) }}</span>
+                  <span class="pred-reco-msg">{{ predictions[i]!.message }}</span>
+                </div>
+                <div class="pred-reco-conf">
+                  <span class="pred-conf-val">{{ (predictions[i]!.confiance * 100).toFixed(0) }}%</span>
+                  <span class="pred-conf-lbl">confiance</span>
+                </div>
+              </div>
+
+              <!-- Cartes J+7 / J+15 / J+30 -->
+              <div class="pred-horizons">
+                <div class="pred-h-card" *ngFor="let pt of predictions[i]!.predictions">
+                  <span class="pred-h-label">J+{{ pt.horizon }}</span>
+                  <span class="pred-h-prix">{{ pt.prixPredit.toFixed(3) }} DT</span>
+                  <span class="pred-h-range">{{ pt.prixMin.toFixed(3) }} – {{ pt.prixMax.toFixed(3) }}</span>
+                  <span class="pred-h-date">{{ pt.date }}</span>
+                </div>
+              </div>
+
+              <!-- Période et modèle -->
+              <div class="pred-meta">
+                <span class="material-icons pred-meta-icon">calendar_today</span>
+                <span>{{ predictions[i]!.periodeCourante }}</span>
+                <span class="pred-meta-sep">·</span>
+                <span class="pred-meta-model">{{ predictions[i]!.modele }}</span>
+              </div>
+            </div>
+            <!-- ── Fin prédiction IA ───────────────────────────────────── -->
+
             <!-- Quantité / Prix / Remise / TVA -->
             <div class="grid-4 ligne-card-body">
               <mat-form-field appearance="outline" class="mff">
@@ -188,7 +290,19 @@
               <mat-form-field appearance="outline" class="mff">
                 <mat-label>Prix unitaire HT (DT) *</mat-label>
                 <input matInput type="number" formControlName="prixUnitaireHT" min="0" step="0.001">
+                <mat-hint>Prix négocié sur <strong>cette</strong> facture (fiche article = catalogue, sans PA)</mat-hint>
                 <mat-error>≥ 0</mat-error>
+              </mat-form-field>
+
+              <!-- Taux : variable à chaque facture — produit spécial ou origine d’au moins un produit fini -->
+              <mat-form-field appearance="outline" class="mff"
+                              *ngIf="ligneFg(i).get('estArticleSource')?.value">
+                <mat-label>Taux de transformation (%)</mat-label>
+                <input matInput type="number" formControlName="tauxTransformation"
+                       min="0.1" max="100" step="0.01"
+                       [value]="(ligneFg(i).get('tauxTransformation')?.value || 0) * 100"
+                       (input)="ligneFg(i).get('tauxTransformation')!.setValue(+$any($event.target).value / 100)">
+                <mat-hint>Différent à chaque achat (ex. 73, 75…). S’applique à toute ligne « produit spécial » / matière source d’un produit fini, pas seulement un article.</mat-hint>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="mff">
@@ -255,6 +369,13 @@
         <div class="step-footer">
           <button mat-stroked-button matStepperPrevious type="button">
             <span class="material-icons btn-icon-sm">arrow_back</span> Précédent
+          </button>
+          <button mat-stroked-button type="button" (click)="onSaveBrouillon()"
+                  [disabled]="isSavingBrouillon || headerForm.invalid || lignesForm.invalid"
+                  class="btn-brouillon">
+            <mat-spinner diameter="18" *ngIf="isSavingBrouillon" class="btn-spinner"></mat-spinner>
+            <span class="material-icons btn-icon-sm" *ngIf="!isSavingBrouillon">save_as</span>
+            {{ isSavingBrouillon ? 'Enregistrement…' : 'Sauvegarder brouillon' }}
           </button>
           <button mat-raised-button color="primary" matStepperNext type="button"
                   [disabled]="lignesArray.length === 0 || lignesForm.invalid">
@@ -551,12 +672,19 @@
           <button mat-stroked-button matStepperPrevious type="button">
             <span class="material-icons btn-icon-sm">arrow_back</span> Précédent
           </button>
+          <button mat-stroked-button type="button" (click)="onSaveBrouillon()"
+                  [disabled]="isSavingBrouillon || isSavingFacture || headerForm.invalid || lignesForm.invalid"
+                  class="btn-brouillon">
+            <mat-spinner diameter="18" *ngIf="isSavingBrouillon" class="btn-spinner"></mat-spinner>
+            <span class="material-icons btn-icon-sm" *ngIf="!isSavingBrouillon">save_as</span>
+            {{ isSavingBrouillon ? 'Enregistrement…' : (savedBrouillonId ? 'Brouillon enregistré ✓' : 'Sauvegarder brouillon') }}
+          </button>
           <button mat-raised-button color="primary" type="button" (click)="onSubmit()"
-                  [disabled]="isSavingFacture || paiementForm.invalid"
+                  [disabled]="isSavingFacture || isSavingBrouillon || paiementForm.invalid"
                   class="btn-submit">
             <mat-spinner diameter="18" *ngIf="isSavingFacture" class="btn-spinner"></mat-spinner>
-            <span class="material-icons btn-icon-sm" *ngIf="!isSavingFacture">save</span>
-            {{ isSavingFacture ? 'Enregistrement…' : 'Enregistrer la facture' }}
+            <span class="material-icons btn-icon-sm" *ngIf="!isSavingFacture">check_circle</span>
+            {{ isSavingFacture ? 'Validation…' : 'Valider définitivement' }}
           </button>
         </div>
       </form>

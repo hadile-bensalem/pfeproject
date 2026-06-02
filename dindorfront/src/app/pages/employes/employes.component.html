@@ -1,0 +1,716 @@
+<div class="emp-page">
+
+  <!-- ══ HEADER ══ -->
+  <header class="emp-header">
+    <div class="emp-hdr-deco d1"></div>
+    <div class="emp-hdr-deco d2"></div>
+    <div class="emp-hdr-inner">
+      <div class="emp-hdr-left">
+        <div class="emp-hdr-icon">
+          <span class="material-symbols-outlined">badge</span>
+        </div>
+        <div>
+          <h1>Gestion des Employés</h1>
+          <p class="emp-hdr-sub">Ressources Humaines · Fiches de Paie · CNSS</p>
+        </div>
+      </div>
+      <div class="emp-hdr-kpis">
+        <div class="emp-kpi">
+          <span class="emp-kpi-val">{{ activeCount }}</span>
+          <span class="emp-kpi-lbl">Actifs</span>
+        </div>
+        <div class="emp-kpi-sep"></div>
+        <div class="emp-kpi">
+          <span class="emp-kpi-val">{{ employes.length }}</span>
+          <span class="emp-kpi-lbl">Total</span>
+        </div>
+        <div class="emp-kpi-sep"></div>
+        <div class="emp-kpi">
+          <span class="emp-kpi-val gold">{{ formatNum(totalMasse) }}</span>
+          <span class="emp-kpi-lbl">Masse salariale (DT)</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══ CORPS ══ -->
+  <div class="emp-body">
+
+    <!-- ── PANNEAU GAUCHE : liste ──────────────────────────────────────── -->
+    <aside class="emp-sidebar">
+      <div class="sidebar-toolbar">
+        <button class="btn-add-emp" (click)="openCreate()">
+          <span class="material-symbols-outlined">person_add</span>
+          Nouvel Employé
+        </button>
+        <div class="sidebar-search">
+          <span class="material-symbols-outlined search-ico">search</span>
+          <input type="text" placeholder="Nom, matricule, poste…"
+                 [(ngModel)]="searchTerm" (input)="applyFilter()">
+        </div>
+        <div class="sidebar-row2">
+          <select [(ngModel)]="filterStatut" (change)="applyFilter()" class="filter-sel">
+            <option value="">Tous statuts</option>
+            <option *ngFor="let s of STATUTS_EMP" [value]="s">{{ statutEmpLabel(s) }}</option>
+          </select>
+          <button class="icon-btn" (click)="load()" title="Actualiser">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-loading" *ngIf="isLoading">
+        <div class="mini-spinner"></div>
+      </div>
+
+      <div class="emp-list" *ngIf="!isLoading">
+        <div class="emp-item"
+             *ngFor="let e of filtered"
+             [class.emp-active]="selectedEmp?.id === e.id"
+             [class.emp-inactif]="!e.actif"
+             (click)="selectEmp(e)">
+          <div class="emp-avatar" [class.avatar-inactif]="!e.actif">
+            {{ initials(e.nom, e.prenom) }}
+          </div>
+          <div class="emp-item-info">
+            <span class="emp-item-nom">{{ e.prenom }} {{ e.nom }}</span>
+            <span class="emp-item-meta">{{ e.matricule }} · {{ e.poste }}</span>
+          </div>
+          <div class="emp-item-right">
+            <span class="statut-dot" [class.dot-actif]="e.statut==='ACTIF'"
+                  [class.dot-suspendu]="e.statut==='SUSPENDU'"
+                  [class.dot-quitte]="e.statut==='QUITTE'"
+                  title="{{ statutEmpLabel(e.statut) }}"></span>
+          </div>
+        </div>
+        <div class="sidebar-empty" *ngIf="!filtered.length">Aucun employé.</div>
+      </div>
+    </aside>
+
+    <!-- ── PANNEAU DROIT ─────────────────────────────────────────────── -->
+    <main class="emp-main">
+
+      <!-- État vide -->
+      <div class="emp-empty-state" *ngIf="!selectedEmp">
+        <span class="material-symbols-outlined empty-ico">badge</span>
+        <h3>Sélectionnez un employé</h3>
+        <p>Cliquez sur un nom pour afficher sa fiche et son historique de paie.</p>
+      </div>
+
+      <!-- Détail employé -->
+      <ng-container *ngIf="selectedEmp">
+
+        <!-- En-tête employé -->
+        <div class="emp-detail-header">
+          <div class="emp-detail-avatar">{{ initials(selectedEmp.nom, selectedEmp.prenom) }}</div>
+          <div class="emp-detail-info">
+            <h2>{{ selectedEmp.prenom }} {{ selectedEmp.nom }}</h2>
+            <div class="detail-meta-row">
+              <span class="meta-chip">{{ selectedEmp.matricule }}</span>
+              <span class="meta-chip">{{ selectedEmp.poste }}</span>
+              <span class="meta-chip" *ngIf="selectedEmp.departement">{{ selectedEmp.departement }}</span>
+              <span class="statut-chip" [class.chip-actif]="selectedEmp.statut==='ACTIF'"
+                    [class.chip-suspendu]="selectedEmp.statut==='SUSPENDU'"
+                    [class.chip-quitte]="selectedEmp.statut==='QUITTE'">
+                {{ statutEmpLabel(selectedEmp.statut) }}
+              </span>
+            </div>
+          </div>
+          <div class="emp-detail-actions">
+            <button class="btn-edit" (click)="openEdit(selectedEmp)">
+              <span class="material-symbols-outlined">edit</span> Modifier
+            </button>
+            <button class="btn-danger-sm" (click)="deleteEmp(selectedEmp)">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Onglets -->
+        <div class="detail-tabs">
+          <button class="tab-btn" [class.tab-active]="activeTab==='infos'" (click)="activeTab='infos'">
+            <span class="material-symbols-outlined">person</span> Informations
+          </button>
+          <button class="tab-btn" [class.tab-active]="activeTab==='paie'" (click)="activeTab='paie'">
+            <span class="material-symbols-outlined">receipt_long</span>
+            Fiches de paie
+            <span class="badge-count" *ngIf="fiches.length">{{ fiches.length }}</span>
+          </button>
+        </div>
+
+        <!-- ── Onglet Informations ── -->
+        <div class="tab-content" *ngIf="activeTab==='infos'">
+
+          <div class="info-grid">
+
+            <div class="info-section">
+              <h3 class="section-title">
+                <span class="material-symbols-outlined">person_outline</span>
+                Informations personnelles
+              </h3>
+              <div class="info-rows">
+                <div class="info-row"><span>CIN</span><strong>{{ selectedEmp.cin || '—' }}</strong></div>
+                <div class="info-row"><span>Date naissance</span><strong>{{ formatDate(selectedEmp.dateNaissance) }}</strong></div>
+                <div class="info-row"><span>Situation familiale</span><strong>{{ selectedEmp.situationFamiliale }}</strong></div>
+                <div class="info-row"><span>Enfants à charge</span><strong>{{ selectedEmp.nombreEnfants }}</strong></div>
+                <div class="info-row"><span>Téléphone</span><strong>{{ selectedEmp.telephone || '—' }}</strong></div>
+                <div class="info-row"><span>Email</span><strong>{{ selectedEmp.email || '—' }}</strong></div>
+                <div class="info-row"><span>Adresse</span><strong>{{ selectedEmp.adresse || '—' }}</strong></div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3 class="section-title">
+                <span class="material-symbols-outlined">work</span>
+                Informations professionnelles
+              </h3>
+              <div class="info-rows">
+                <div class="info-row"><span>Type de contrat</span><strong>{{ contratLabel(selectedEmp.typeContrat) }}</strong></div>
+                <div class="info-row"><span>Date de recrutement</span><strong>{{ formatDate(selectedEmp.dateRecrutement) }}</strong></div>
+                <div class="info-row"><span>Département</span><strong>{{ selectedEmp.departement || '—' }}</strong></div>
+                <div class="info-row"><span>Accès portal</span>
+                  <strong [class.txt-green]="!!selectedEmp.email" [class.txt-muted]="!selectedEmp.email">
+                    {{ selectedEmp.email ? 'Activé' : 'Non configuré' }}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3 class="section-title">
+                <span class="material-symbols-outlined">account_balance_wallet</span>
+                Rémunération
+              </h3>
+              <div class="info-rows salary-rows">
+                <div class="info-row"><span>Salaire de base</span><strong class="amt-val">{{ formatNum(selectedEmp.salaireBase) }} DT</strong></div>
+                <div class="info-row" *ngIf="+selectedEmp.primesFixes > 0"><span>Primes fixes</span><strong class="amt-val">{{ formatNum(selectedEmp.primesFixes) }} DT</strong></div>
+                <div class="info-row" *ngIf="+selectedEmp.primeRendement > 0"><span>Prime rendement</span><strong class="amt-val">{{ formatNum(selectedEmp.primeRendement) }} DT</strong></div>
+                <div class="info-row" *ngIf="+selectedEmp.tarifHoraire > 0"><span>Tarif horaire</span><strong>{{ formatNum(selectedEmp.tarifHoraire) }} DT/h</strong></div>
+                <div class="info-row"><span>Heures normales/mois</span><strong>{{ selectedEmp.heuresNormalesMois }} h</strong></div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3 class="section-title">
+                <span class="material-symbols-outlined">security</span>
+                CNSS &amp; Bancaire
+              </h3>
+              <div class="info-rows">
+                <div class="info-row"><span>Affilié CNSS</span>
+                  <strong [class.txt-green]="selectedEmp.affilieCNSS" [class.txt-red]="!selectedEmp.affilieCNSS">
+                    {{ selectedEmp.affilieCNSS ? 'Oui' : 'Non' }}
+                  </strong>
+                </div>
+                <div class="info-row" *ngIf="selectedEmp.affilieCNSS"><span>N° CNSS</span><strong>{{ selectedEmp.numeroCNSS || '—' }}</strong></div>
+                <div class="info-row"><span>RIB</span><strong>{{ selectedEmp.rib || '—' }}</strong></div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="notes-box" *ngIf="selectedEmp.notes">
+            <span class="material-symbols-outlined">notes</span>
+            {{ selectedEmp.notes }}
+          </div>
+        </div>
+
+        <!-- ── Onglet Fiches de paie ── -->
+        <div class="tab-content" *ngIf="activeTab==='paie'">
+
+          <div class="paie-toolbar">
+            <button class="btn-gen-fiche" (click)="openFicheModal()">
+              <span class="material-symbols-outlined">add_circle</span>
+              Générer fiche de paie
+            </button>
+            <span class="paie-hint">CNSS employé : 9,18% · CNSS employeur : 16,57%</span>
+          </div>
+
+          <div class="fiches-loading" *ngIf="isLoadingFiches">
+            <div class="mini-spinner"></div>
+          </div>
+
+          <div class="fiches-empty" *ngIf="!isLoadingFiches && !fiches.length">
+            <span class="material-symbols-outlined">receipt_long</span>
+            <p>Aucune fiche de paie générée.</p>
+          </div>
+
+          <div class="fiches-grid" *ngIf="!isLoadingFiches && fiches.length">
+            <div class="fiche-card" *ngFor="let f of fiches"
+                 [class.fiche-valide]="f.statut==='VALIDE'"
+                 [class.fiche-paye]="f.statut==='PAYE'"
+                 (click)="ouvrirBulletin(f)">
+              <div class="fiche-card-header">
+                <div class="fiche-periode">{{ moisLabel(f.mois) }} {{ f.annee }}</div>
+                <span class="fiche-statut" [class.s-brouillon]="f.statut==='BROUILLON'"
+                      [class.s-valide]="f.statut==='VALIDE'" [class.s-paye]="f.statut==='PAYE'">
+                  {{ statutLabel(f.statut) }}
+                </span>
+              </div>
+              <div class="fiche-num">{{ f.numeroBulletin }}</div>
+              <div class="fiche-amounts">
+                <div class="fiche-amt-row"><span>Brut</span><strong>{{ formatNum(f.salaireBrut) }} DT</strong></div>
+                <div class="fiche-amt-row net"><span>Net à payer</span><strong>{{ formatNum(f.salaireNet) }} DT</strong></div>
+              </div>
+              <div class="fiche-card-footer">
+                <button class="btn-icon-sm" (click)="$event.stopPropagation(); updateStatut(f.id, f.statut==='VALIDE' ? 'PAYE' : 'VALIDE')"
+                        [title]="f.statut==='PAYE' ? 'Marquer Validé' : 'Marquer Payé'">
+                  <span class="material-symbols-outlined">{{ f.statut==='PAYE' ? 'undo' : 'check_circle' }}</span>
+                </button>
+                <button class="btn-icon-sm danger" (click)="$event.stopPropagation(); deleteFiche(f.id)" title="Supprimer">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </ng-container>
+    </main>
+  </div>
+</div>
+
+<!-- ══ MODAL EMPLOYÉ ═══════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModalOnOverlay($event)">
+  <div class="modal-emp" [formGroup]="empForm">
+    <div class="modal-header">
+      <h3>{{ isEditing ? 'Modifier l\'employé' : 'Nouvel employé' }}</h3>
+      <button class="close-btn" (click)="closeModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-section-title">Identité</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Prénom <span class="req">*</span></label>
+          <input type="text" formControlName="prenom" placeholder="Prénom">
+          <span class="field-err" *ngIf="empForm.get('prenom')?.invalid && empForm.get('prenom')?.touched">Obligatoire</span>
+        </div>
+        <div class="form-field">
+          <label>Nom <span class="req">*</span></label>
+          <input type="text" formControlName="nom" placeholder="Nom">
+          <span class="field-err" *ngIf="empForm.get('nom')?.invalid && empForm.get('nom')?.touched">Obligatoire</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>CIN</label>
+          <input type="text" formControlName="cin" placeholder="Carte d'identité">
+        </div>
+        <div class="form-field">
+          <label>Date naissance</label>
+          <input type="date" formControlName="dateNaissance">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Situation familiale</label>
+          <select formControlName="situationFamiliale">
+            <option *ngFor="let s of SITUATIONS" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Enfants à charge</label>
+          <input type="number" min="0" formControlName="nombreEnfants">
+        </div>
+      </div>
+
+      <div class="form-section-title">Contact</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Téléphone</label>
+          <input type="tel" formControlName="telephone">
+        </div>
+        <div class="form-field">
+          <label>Email (accès portail)</label>
+          <input type="email" formControlName="email" placeholder="email@exemple.com">
+          <span class="field-err" *ngIf="empForm.get('email')?.invalid && empForm.get('email')?.touched">Email invalide</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field form-full">
+          <label>Mot de passe portail {{ isEditing ? '(laisser vide = inchangé)' : '' }}</label>
+          <input type="password" formControlName="motDePasse" placeholder="••••••••">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field form-full">
+          <label>Adresse</label>
+          <input type="text" formControlName="adresse">
+        </div>
+      </div>
+
+      <div class="form-section-title">Emploi</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Poste <span class="req">*</span></label>
+          <input type="text" formControlName="poste" placeholder="Ex: Responsable vente">
+          <span class="field-err" *ngIf="empForm.get('poste')?.invalid && empForm.get('poste')?.touched">Obligatoire</span>
+        </div>
+        <div class="form-field">
+          <label>Département</label>
+          <select formControlName="departement">
+            <option value="">— Aucun —</option>
+            <option *ngFor="let d of DEPARTEMENTS" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Type de contrat</label>
+          <select formControlName="typeContrat">
+            <option *ngFor="let t of TYPES_CONTRAT" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Date de recrutement</label>
+          <input type="date" formControlName="dateRecrutement">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Statut</label>
+          <select formControlName="statut">
+            <option *ngFor="let s of STATUTS_EMP" [value]="s">{{ statutEmpLabel(s) }}</option>
+          </select>
+        </div>
+        <div class="form-field toggle-field">
+          <label>Actif</label>
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="actif">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section-title">Rémunération</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Salaire de base (DT) <span class="req">*</span></label>
+          <input type="number" step="0.001" min="0" formControlName="salaireBase">
+        </div>
+        <div class="form-field">
+          <label>Primes fixes (DT)</label>
+          <input type="number" step="0.001" min="0" formControlName="primesFixes">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Tarif horaire (DT/h)</label>
+          <input type="number" step="0.001" min="0" formControlName="tarifHoraire">
+        </div>
+        <div class="form-field">
+          <label>Heures normales / mois</label>
+          <input type="number" min="1" formControlName="heuresNormalesMois">
+        </div>
+      </div>
+
+      <div class="form-section-title">CNSS &amp; Bancaire</div>
+      <div class="form-row">
+        <div class="form-field toggle-field">
+          <label>Affilié CNSS</label>
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="affilieCNSS">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="form-field">
+          <label>N° CNSS</label>
+          <input type="text" formControlName="numeroCNSS">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field form-full">
+          <label>RIB bancaire</label>
+          <input type="text" formControlName="rib" placeholder="XX XXXX XXXX XXXX XXXX">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field form-full">
+          <label>Notes</label>
+          <textarea formControlName="notes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="msg-error" *ngIf="formError">{{ formError }}</div>
+    <div class="modal-footer">
+      <button class="btn-save" [disabled]="isSaving" (click)="submitEmp()">
+        <span class="material-symbols-outlined">save</span>
+        {{ isSaving ? 'Enregistrement…' : 'Enregistrer' }}
+      </button>
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL FICHE DE PAIE ═════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showFicheModal" (click)="closeFicheModalOnOverlay($event)">
+  <div class="modal-fiche" [formGroup]="ficheForm">
+    <div class="modal-header">
+      <h3>Générer une fiche de paie</h3>
+      <p class="modal-sub" *ngIf="selectedEmp">{{ selectedEmp.prenom }} {{ selectedEmp.nom }} · {{ selectedEmp.matricule }}</p>
+      <button class="close-btn" (click)="closeFicheModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>Mois <span class="req">*</span></label>
+          <select formControlName="mois">
+            <option *ngFor="let m of MOIS" [value]="m.val">{{ m.label }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Année <span class="req">*</span></label>
+          <select formControlName="annee">
+            <option *ngFor="let a of ANNEES" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section-title">Éléments de salaire</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Salaire de base (DT) <span class="req">*</span></label>
+          <input type="number" step="0.001" min="0" formControlName="salaireBase">
+        </div>
+        <div class="form-field">
+          <label>Primes fixes (DT)</label>
+          <input type="number" step="0.001" min="0" formControlName="primesFixes">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Prime de rendement (DT)</label>
+          <input type="number" step="0.001" min="0" formControlName="primeRendement">
+        </div>
+        <div class="form-field">
+          <label>Indemnités (transport, repas…)</label>
+          <input type="number" step="0.001" min="0" formControlName="indemnites">
+        </div>
+      </div>
+
+      <div class="form-section-title">Heures supplémentaires</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Nombre d'heures HS</label>
+          <input type="number" min="0" formControlName="heuresSupplementaires">
+        </div>
+        <div class="form-field">
+          <label>Taux horaire HS (DT/h)</label>
+          <input type="number" step="0.001" min="0" formControlName="tauxHoraireHS">
+        </div>
+      </div>
+      <div class="hs-montant" *ngIf="montantHS > 0">
+        Montant HS = <strong>{{ formatNum(montantHS) }} DT</strong>
+      </div>
+
+      <div class="form-section-title">Retenues</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Avance sur salaire (DT)</label>
+          <input type="number" step="0.001" min="0" formControlName="avanceSalaire">
+        </div>
+        <div class="form-field">
+          <label>Autres retenues (DT)</label>
+          <input type="number" step="0.001" min="0" formControlName="autresRetenues">
+        </div>
+      </div>
+
+      <div class="form-section-title">Statut</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Statut du bulletin</label>
+          <select formControlName="statut">
+            <option value="BROUILLON">Brouillon</option>
+            <option value="VALIDE">Validé</option>
+            <option value="PAYE">Payé</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Date de paiement</label>
+          <input type="date" formControlName="datePaiement">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field form-full">
+          <label>Notes</label>
+          <input type="text" formControlName="notes">
+        </div>
+      </div>
+
+      <!-- Récapitulatif calculé -->
+      <div class="recap-paie">
+        <div class="recap-title">Récapitulatif calculé</div>
+        <div class="recap-row"><span>Salaire brut</span><strong>{{ formatNum(brutPreview) }} DT</strong></div>
+        <div class="recap-row cnss-row"><span>CNSS salarié (9,18%)</span><span>- {{ formatNum(cnssEmployePreview) }} DT</span></div>
+        <div class="recap-row net-row"><span>Net à payer</span><strong class="net-val">{{ formatNum(netPreview) }} DT</strong></div>
+      </div>
+    </div>
+
+    <div class="msg-error" *ngIf="ficheError">{{ ficheError }}</div>
+    <div class="modal-footer">
+      <button class="btn-save" [disabled]="isSavingFiche" (click)="submitFiche()">
+        <span class="material-symbols-outlined">receipt_long</span>
+        {{ isSavingFiche ? 'Génération…' : 'Générer le bulletin' }}
+      </button>
+      <button class="btn-cancel" (click)="closeFicheModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL BULLETIN DE PAIE ══════════════════════════════════════════ -->
+<div class="modal-overlay bulletin-overlay" *ngIf="showBulletin && ficheSelectionnee" (click)="closeBulletinOnOverlay($event)">
+  <div class="bulletin-container">
+
+    <div class="bulletin-actions no-print">
+      <button class="btn-print-bulletin" (click)="imprimerBulletin()">
+        <span class="material-symbols-outlined">print</span> Imprimer
+      </button>
+      <button class="close-btn" (click)="fermerBulletin()">×</button>
+    </div>
+
+    <div class="bulletin-paie" id="bulletin-print">
+
+      <!-- En-tête bulletin -->
+      <div class="bulletin-header">
+        <div class="bulletin-company">
+          <div class="bulletin-logo-text">STE DINDOR</div>
+          <div class="bulletin-company-info">
+            MF : 1790869BM · CNSS Patronale : 16.57%
+          </div>
+        </div>
+        <div class="bulletin-title-block">
+          <h2>BULLETIN DE PAIE</h2>
+          <div class="bulletin-ref">N° {{ ficheSelectionnee.numeroBulletin }}</div>
+          <div class="bulletin-periode">Période : {{ ficheSelectionnee.periodeLabel }}</div>
+        </div>
+      </div>
+
+      <!-- Infos employé -->
+      <div class="bulletin-emp-section">
+        <div class="bulletin-emp-row">
+          <div><label>Matricule</label><span>{{ ficheSelectionnee.employeMatricule }}</span></div>
+          <div><label>Nom & Prénom</label><span>{{ ficheSelectionnee.employePrenom }} {{ ficheSelectionnee.employeNom }}</span></div>
+          <div><label>CIN</label><span>{{ ficheSelectionnee.employeCIN || '—' }}</span></div>
+        </div>
+        <div class="bulletin-emp-row">
+          <div><label>Poste</label><span>{{ ficheSelectionnee.employePoste }}</span></div>
+          <div><label>Département</label><span>{{ ficheSelectionnee.employeDepartement || '—' }}</span></div>
+          <div><label>Type contrat</label><span>{{ ficheSelectionnee.employeTypeContrat }}</span></div>
+        </div>
+        <div class="bulletin-emp-row">
+          <div><label>N° CNSS</label><span>{{ ficheSelectionnee.employeNumeroCNSS || '—' }}</span></div>
+          <div><label>RIB</label><span>{{ ficheSelectionnee.employeRib || '—' }}</span></div>
+          <div><label>Date paiement</label><span>{{ formatDate(ficheSelectionnee.datePaiement) }}</span></div>
+        </div>
+      </div>
+
+      <!-- Corps bulletin : deux colonnes gains / retenues -->
+      <table class="bulletin-table">
+        <thead>
+          <tr>
+            <th class="col-lib">ÉLÉMENTS DE RÉMUNÉRATION</th>
+            <th class="col-base">BASE</th>
+            <th class="col-taux">TAUX</th>
+            <th class="col-gain">GAINS</th>
+            <th class="col-ret">RETENUES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Salaire de base</td>
+            <td>{{ ficheSelectionnee.employeTypeContrat === 'HORAIRE' ? ficheSelectionnee.tauxHoraireHS : '—' }}</td>
+            <td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.salaireBase) }}</td>
+            <td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.primesFixes > 0">
+            <td>Primes fixes</td>
+            <td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.primesFixes) }}</td>
+            <td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.primeRendement > 0">
+            <td>Prime de rendement</td>
+            <td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.primeRendement) }}</td>
+            <td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.indemnites > 0">
+            <td>Indemnités</td>
+            <td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.indemnites) }}</td>
+            <td></td>
+          </tr>
+          <tr *ngIf="ficheSelectionnee.heuresSupplementaires! > 0">
+            <td>Heures supplémentaires (× {{ ficheSelectionnee.heuresSupplementaires }}h)</td>
+            <td>{{ formatNum(ficheSelectionnee.tauxHoraireHS) }}</td>
+            <td>1.25</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.montantHS) }}</td>
+            <td></td>
+          </tr>
+          <tr class="sep-row">
+            <td colspan="5"></td>
+          </tr>
+          <tr class="brut-row">
+            <td colspan="3"><strong>SALAIRE BRUT</strong></td>
+            <td class="gain total"><strong>{{ formatNum(ficheSelectionnee.salaireBrut) }}</strong></td>
+            <td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.cotisationCNSSEmploye > 0">
+            <td>CNSS salarié (9,18%)</td>
+            <td>{{ formatNum(ficheSelectionnee.salaireBrut) }}</td>
+            <td>9.18%</td>
+            <td></td>
+            <td class="ret">{{ formatNum(ficheSelectionnee.cotisationCNSSEmploye) }}</td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.avanceSalaire > 0">
+            <td>Avance sur salaire</td>
+            <td>—</td><td>—</td>
+            <td></td>
+            <td class="ret">{{ formatNum(ficheSelectionnee.avanceSalaire) }}</td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.autresRetenues > 0">
+            <td>Autres retenues</td>
+            <td>—</td><td>—</td>
+            <td></td>
+            <td class="ret">{{ formatNum(ficheSelectionnee.autresRetenues) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3"><strong>NET À PAYER</strong></td>
+            <td class="gain net-total"><strong>{{ formatNum(ficheSelectionnee.salaireNet) }} DT</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Bloc CNSS employeur (info entreprise) -->
+      <div class="bulletin-cnss-employeur" *ngIf="+ficheSelectionnee.cotisationCNSSEmployeur > 0">
+        <span>Charge patronale CNSS (16,57%) : <strong>{{ formatNum(ficheSelectionnee.cotisationCNSSEmployeur) }} DT</strong></span>
+        <span>Coût total employeur : <strong>{{ formatNum((+ficheSelectionnee.salaireBrut || 0) + (+ficheSelectionnee.cotisationCNSSEmployeur || 0)) }} DT</strong></span>
+      </div>
+
+      <!-- Signatures -->
+      <div class="bulletin-signatures">
+        <div class="sig-block">
+          <div class="sig-line"></div>
+          <p>Signature de l'employeur</p>
+        </div>
+        <div class="sig-block">
+          <div class="sig-line"></div>
+          <p>Signature de l'employé</p>
+          <small>Lu et approuvé</small>
+        </div>
+      </div>
+
+      <div class="bulletin-footer">
+        Bulletin de salaire — {{ ficheSelectionnee.periodeLabel }} — STE DINDOR · MF 1790869BM
+      </div>
+    </div>
+  </div>
+</div>

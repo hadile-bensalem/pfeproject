@@ -1,0 +1,131 @@
+<div class="inventaire-page">
+
+  <header class="page-header">
+    <div>
+      <h2>Inventaire par article</h2>
+      <p class="subtitle">État des stocks — cliquez sur un article pour voir ses mouvements</p>
+    </div>
+    <button type="button" class="btn outline" (click)="retourArticles()">← Retour articles</button>
+  </header>
+
+  <!-- Barre de filtre -->
+  <div class="toolbar">
+    <input type="text" class="search-input" [(ngModel)]="searchTerm"
+      (ngModelChange)="applyFilter()" placeholder="Rechercher un article...">
+    <div class="filter-btns">
+      <button [class.active]="filterType==='tous'"    (click)="filterType='tous';    applyFilter()">Tous</button>
+      <button [class.active]="filterType==='source'"  (click)="filterType='source';  applyFilter()">Sources</button>
+      <button [class.active]="filterType==='derive'"  (click)="filterType='derive';  applyFilter()">Transformés</button>
+    </div>
+    <button type="button" class="btn neutral" (click)="loadArticles()">Actualiser</button>
+  </div>
+
+  <div class="inventaire-layout">
+
+    <!-- ── TABLE ARTICLES ─────────────────────────────── -->
+    <section class="articles-panel card">
+      <div *ngIf="isLoadingArticles" class="loading-state">Chargement...</div>
+      <table class="data-table" *ngIf="!isLoadingArticles">
+        <thead>
+          <tr>
+            <th class="col-libelle">LIBELLÉ</th>
+            <th class="numeric">MAGASIN 1</th>
+            <th class="numeric">RÉSERVÉ</th>
+            <th class="numeric">QTE TOTALE</th>
+            <th>Unité</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredArticles.length === 0">
+            <td colspan="5" class="empty-state">Aucun article trouvé.</td>
+          </tr>
+          <tr *ngFor="let a of filteredArticles"
+              [class.row-selected]="selectedArticle?.id === a.id"
+              [class.row-derive]="a.estDerive"
+              (click)="selectArticle(a)">
+            <td class="col-libelle">
+              <span class="art-code">{{ a.codeArticle }}</span>
+              {{ a.designation }}
+              <span class="badge-derive" *ngIf="a.estDerive">Transformé</span>
+            </td>
+            <td class="numeric" [class.stock-zero]="a.stock <= 0">{{ a.stock | numberFormat }}</td>
+            <td class="numeric muted">{{ a.stock2 | numberFormat }}</td>
+            <td class="numeric" [class.stock-zero]="a.stockTotal <= 0">
+              <strong>{{ a.stockTotal | numberFormat }}</strong>
+            </td>
+            <td class="muted">{{ a.unite }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── MOUVEMENTS ─────────────────────────────────── -->
+    <section class="mouvements-panel card" *ngIf="selectedArticle">
+      <div class="mvt-header">
+        <div>
+          <h3>ÉTAT DES ENTRÉES / SORTIES</h3>
+          <p class="mvt-article-title">
+            Article : <strong>{{ selectedArticle.codeArticle }} — {{ selectedArticle.designation }}</strong>
+          </p>
+        </div>
+        <button class="close-btn" (click)="selectedArticle = null; mouvements = []">&times;</button>
+      </div>
+
+      <div *ngIf="isLoadingMvt" class="loading-state">Chargement des mouvements...</div>
+
+      <table class="data-table mvt-table" *ngIf="!isLoadingMvt">
+        <thead>
+          <tr>
+            <th>DATE</th>
+            <th>NUM. DOC</th>
+            <th class="numeric entree-col">ENTRÉES</th>
+            <th class="numeric sortie-col">SORTIES</th>
+            <th class="numeric">STOCK</th>
+            <th class="center">MVT</th>
+            <th>NOTES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="mouvements.length === 0">
+            <td colspan="7" class="empty-state">Aucun mouvement enregistré pour cet article.</td>
+          </tr>
+          <tr *ngFor="let m of mouvements">
+            <td class="col-date">{{ formatDate(m.dateOperation) }}</td>
+            <td class="col-ref">{{ m.referenceDocument }}</td>
+            <td class="numeric entree-col">
+              <span *ngIf="estEntree(m)" class="val-entree">{{ m.quantite | numberFormat }}</span>
+              <span *ngIf="!estEntree(m)" class="muted">0.000</span>
+            </td>
+            <td class="numeric sortie-col">
+              <span *ngIf="!estEntree(m)" class="val-sortie">{{ (m.quantite * -1) | numberFormat }}</span>
+              <span *ngIf="estEntree(m)" class="muted">0.000</span>
+            </td>
+            <td class="numeric stock-col">
+              <strong>{{ m.stockApres | numberFormat }}</strong>
+            </td>
+            <td class="center">
+              <span class="mvt-badge" [ngClass]="classMvt(m.typeMouvement)">
+                {{ libelleMvt(m.typeMouvement) }}
+              </span>
+            </td>
+            <td class="col-notes muted">{{ m.notes }}</td>
+          </tr>
+        </tbody>
+        <tfoot *ngIf="mouvements.length > 0">
+          <tr>
+            <td colspan="2" class="total-label">TOTAUX</td>
+            <td class="numeric entree-col total-val">{{ totalEntrees | numberFormat }}</td>
+            <td class="numeric sortie-col total-val">{{ totalSorties | numberFormat }}</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- Message si aucun article sélectionné -->
+    <section class="mouvements-panel card hint-panel" *ngIf="!selectedArticle">
+      <p>← Cliquez sur un article pour voir l'état des entrées / sorties.</p>
+    </section>
+
+  </div>
+</div>

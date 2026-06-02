@@ -26,4 +26,5 @@ public class FactureAchatResponse {
     private BigDecimal netAPayer;
     private String statut;
     private LocalDateTime dateCreation;
+    private PaiementAchatResponse paiement;
 }

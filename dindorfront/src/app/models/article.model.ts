@@ -8,9 +8,14 @@ export interface Article {
   unite: string;
   famille: string;
   origine: string;
-  tauxConversion: number;
+  tauxConversion?: number;
+  codeArticleSource?: string | null;
+  /** Produit spécial : base de transfo. Le taux % est saisi sur chaque facture (variable), pas ici. */
+  produitSpecial?: boolean;
   prixAchatHT: number;
   prixVente: number;
+  prixPublic?: number;
+  margeB?: number;
   tva: number;
   stock1: number;
   stock2: number;
@@ -18,6 +23,7 @@ export interface Article {
   qteNbre: boolean;
   autreIndir: boolean;
   stockezBlock: boolean;
+  imageUrl?: string;
   dateCreation?: string;
   dateModification?: string;
 }

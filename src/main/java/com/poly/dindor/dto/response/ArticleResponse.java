@@ -20,9 +20,12 @@ public class ArticleResponse {
     private String unite;
     private String famille;
     private String origine;
+    private String codeArticleSource;
+    private Boolean produitSpecial;
     private BigDecimal tauxConversion;
     private BigDecimal prixAchatHT;
     private BigDecimal prixVente;
+    private BigDecimal prixPublic;
     private BigDecimal tva;
     private BigDecimal stock1;
     private BigDecimal stock2;
@@ -30,6 +33,7 @@ public class ArticleResponse {
     private Boolean qteNbre;
     private Boolean autreIndir;
     private Boolean stockezBlock;
+    private String imageUrl;
     private LocalDateTime dateCreation;
     private LocalDateTime dateModification;
 }

@@ -1,0 +1,437 @@
+<div class="dp-page">
+
+  <!-- ══ HERO ══ -->
+  <section class="page-hero">
+    <div class="hero-left">
+      <nav class="hero-breadcrumb">
+        <span>Dind'Or</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <span class="bc-active">Découpe Poulet</span>
+      </nav>
+      <h1 class="hero-title">Découpe Poulet</h1>
+      <p class="hero-subtitle">Calculez automatiquement le coût de revient de chaque sous-produit.</p>
+    </div>
+    <div class="hero-right">
+      <button type="button" class="btn-secondary-hm" (click)="loadAll()">
+        <span class="material-symbols-outlined">refresh</span>
+        Actualiser
+      </button>
+      <button type="button" class="btn-primary-hm" (click)="openSaisie()">
+        <span class="material-symbols-outlined">add_circle</span>
+        Nouvelle Découpe
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ KPI CARDS ══ -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-primary">
+          <span class="material-symbols-outlined">cut</span>
+        </div>
+      </div>
+      <p class="kpi-label">Découpes (période)</p>
+      <h3 class="kpi-value">{{ kpiTotal }}</h3>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-secondary">
+          <span class="material-symbols-outlined">scale</span>
+        </div>
+      </div>
+      <p class="kpi-label">Kg achetés</p>
+      <h3 class="kpi-value">{{ formatNum(kpiTotalKg) }} <small>kg</small></h3>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-primary">
+          <span class="material-symbols-outlined">payments</span>
+        </div>
+      </div>
+      <p class="kpi-label">Total investi</p>
+      <h3 class="kpi-value">{{ formatNum(kpiTotalInvesti) }} <small>DT</small></h3>
+    </div>
+  </div>
+
+  <!-- ══ PANEL SAISIE ══ -->
+  <div id="decoupe-panel" class="saisie-panel" *ngIf="showSaisie">
+
+    <div class="saisie-panel-hdr">
+      <div class="saisie-panel-title">
+        <div class="saisie-title-icon">
+          <span class="material-symbols-outlined">{{ isEditMode ? 'edit' : 'cut' }}</span>
+        </div>
+        <div>
+          <h3>{{ isEditMode ? 'Modifier la Découpe #' + editId : 'Nouvelle Découpe Poulet' }}</h3>
+          <span class="saisie-sub">{{ isEditMode ? 'Modification des données et recalcul du coût' : 'Saisie des sous-produits et calcul du coût' }}</span>
+        </div>
+      </div>
+      <button type="button" class="close-btn" (click)="closeSaisie()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Alertes -->
+    <div class="alert-error"   *ngIf="saisieError">   <span class="material-symbols-outlined">error</span>   {{ saisieError }}   </div>
+    <div class="alert-success" *ngIf="saisieSuccess"> <span class="material-symbols-outlined">check_circle</span> {{ saisieSuccess }} </div>
+    <div class="alert-warning" *ngIf="isDepassement">
+      <span class="material-symbols-outlined">warning</span>
+      Dépassement ! La somme des produits ({{ formatNum(sommeManuelle) }} DT) dépasse le total achat ({{ formatNum(totalAchat) }} DT).
+    </div>
+
+    <!-- Ligne 1 : Date + Lot -->
+    <div class="saisie-fields-bar">
+      <div class="saisie-field">
+        <label>Date de la découpe <span class="req">*</span></label>
+        <input type="date" class="saisie-inp" [(ngModel)]="saisieDate" (keydown.enter)="onInputEnter($event)">
+      </div>
+      <div class="saisie-field">
+        <label>N° Lot / Référence</label>
+        <input type="text" class="saisie-inp" [(ngModel)]="saisieLot" placeholder="" (keydown.enter)="onInputEnter($event)">
+      </div>
+    </div>
+
+    <!-- Ligne 2 : Achat Poulet Entier -->
+    <div class="achat-bar">
+      <div class="achat-bar-label">
+        <span class="material-symbols-outlined">shopping_cart</span>
+        Poulet entier acheté
+      </div>
+      <div class="achat-bar-fields">
+        <div class="achat-field">
+          <label>Quantité achetée <span class="req">*</span></label>
+          <div class="inp-unit-wrap">
+            <input type="number" class="saisie-inp" [(ngModel)]="saisieQte" min="0.001" step="0.001" placeholder="0.000" (keydown.enter)="onInputEnter($event)">
+            <span class="inp-unit">kg</span>
+          </div>
+        </div>
+        <div class="achat-field">
+          <label>Prix unitaire <span class="req">*</span></label>
+          <div class="inp-unit-wrap">
+            <input type="number" class="saisie-inp" [(ngModel)]="saisiePrix" min="0.001" step="0.001" placeholder="0.000" (keydown.enter)="onInputEnter($event)">
+            <span class="inp-unit">DT/kg</span>
+          </div>
+        </div>
+        <div class="achat-total-box">
+          <span class="achat-total-label">Total achat</span>
+          <span class="achat-total-value">{{ formatNum(totalAchat) }} DT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Produit calculé -->
+    <div class="produit-calcule-bar">
+      <span class="material-symbols-outlined">calculate</span>
+      <label>Produit dont le coût est calculé </label>
+      <select class="dp-select" [(ngModel)]="produitCalculeKey" (ngModelChange)="onProduitCalculeChange()">
+        <option *ngFor="let p of produitsMeta" [value]="p.code">{{ p.label }}</option>
+      </select>
+      <span class="calcule-hint">Son P.U. = (Total achat − somme des autres) ÷ sa quantité.</span>
+    </div>
+
+    <!-- Légende toggle -->
+    <div class="toggle-legend">
+      <span class="material-symbols-outlined">info</span>
+      Activez uniquement les sous-produits <strong>présents dans cette découpe</strong>.
+      Le produit calculé est toujours actif.
+    </div>
+
+    <!-- Table des produits -->
+    <div class="produits-tbl-wrap">
+      <table class="produits-tbl">
+        <thead>
+          <tr>
+            <th class="th-toggle">Inclus</th>
+            <th>Produit</th>
+            <th>Unité</th>
+            <th>Quantité</th>
+            <th>P.U. (DT)</th>
+            <th class="col-right">Total (DT)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ligne of lignes"
+              [class.ligne-inactive]="!ligne.actif"
+              [class.ligne-calcule]="ligne.actif && isCalcule(ligne.meta.code)"
+              [class.ligne-depassement]="ligne.actif && isCalcule(ligne.meta.code) && isDepassement">
+
+            <!-- Toggle actif -->
+            <td class="td-toggle">
+              <label class="toggle-switch" [title]="isCalcule(ligne.meta.code) ? 'Le produit calculé est toujours actif' : ''">
+                <input type="checkbox"
+                       [(ngModel)]="ligne.actif"
+                       (ngModelChange)="onToggleActif(ligne)"
+                       [disabled]="isCalcule(ligne.meta.code)">
+                <span class="toggle-slider"
+                      [class.slider-calcule]="isCalcule(ligne.meta.code)"></span>
+              </label>
+            </td>
+
+            <!-- Nom produit -->
+            <td class="produit-cell">
+              <span class="produit-dot"
+                    [class.dot-inactive]="!ligne.actif"
+                    [class.dot-calcule]="ligne.actif && isCalcule(ligne.meta.code)"></span>
+              <span class="produit-name" [class.name-inactive]="!ligne.actif">{{ ligne.meta.label }}</span>
+              <span class="badge-auto"     *ngIf="ligne.actif && isCalcule(ligne.meta.code)">AUTO</span>
+              <span class="badge-inactive" *ngIf="!ligne.actif">OFF</span>
+            </td>
+
+            <td class="unite-cell">{{ ligne.meta.unite }}</td>
+
+            <!-- Quantité -->
+            <td>
+              <input *ngIf="ligne.actif" type="number"
+                     class="cell-inp"
+                     [(ngModel)]="ligne.quantite"
+                     (ngModelChange)="onLigneChange(ligne)"
+                     (keydown.enter)="onInputEnter($event)"
+                     min="0" step="0.001" placeholder="0.000">
+              <span *ngIf="!ligne.actif" class="cell-disabled">—</span>
+            </td>
+
+            <!-- Prix unitaire -->
+            <td>
+              <ng-container *ngIf="ligne.actif">
+                <input *ngIf="!isCalcule(ligne.meta.code)" type="number"
+                       class="cell-inp"
+                       [(ngModel)]="ligne.prixUnitaire"
+                       (ngModelChange)="onLigneChange(ligne)"
+                       (keydown.enter)="onInputEnter($event)"
+                       min="0" step="0.001" placeholder="0.000">
+                <span *ngIf="isCalcule(ligne.meta.code)"
+                      class="auto-val" [class.auto-neg]="isDepassement">
+                  {{ formatNum(prixUnitaireCalcule) }}
+                </span>
+              </ng-container>
+              <span *ngIf="!ligne.actif" class="cell-disabled">—</span>
+            </td>
+
+            <!-- Total valeur -->
+            <td class="col-right">
+              <ng-container *ngIf="ligne.actif">
+                <span class="auto-val"
+                      [class.auto-neg]="isCalcule(ligne.meta.code) && isDepassement">
+                  {{ isCalcule(ligne.meta.code) ? formatNum(valeurCalculee) : formatNum(ligne.totalValeur) }}
+                </span>
+              </ng-container>
+              <span *ngIf="!ligne.actif" class="cell-disabled">—</span>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="tfoot-row">
+            <td colspan="5" class="tfoot-label">
+              Σ Total ({{ lignesActives.length }} produit{{ lignesActives.length > 1 ? 's' : '' }} actif{{ lignesActives.length > 1 ? 's' : '' }})
+            </td>
+            <td class="col-right tfoot-total"
+                [class.tfoot-ok]="!isDepassement && totalAchat > 0"
+                [class.tfoot-err]="isDepassement">
+              {{ formatNum(sommeManuelle + (valeurCalculee > 0 ? valeurCalculee : 0)) }} DT
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Balance visuelle -->
+    <div class="balance-bar" *ngIf="totalAchat > 0">
+      <div class="balance-track">
+        <div class="balance-fill"
+             [style.width.%]="Math.min(100, sommeManuelle / totalAchat * 100)"
+             [class.fill-warning]="isDepassement">
+        </div>
+      </div>
+      <span class="balance-text">
+        {{ formatNum(sommeManuelle) }} / {{ formatNum(totalAchat) }} DT alloués
+        (reste : <strong [class.reste-neg]="isDepassement">{{ formatNum(valeurCalculee) }} DT</strong>)
+      </span>
+    </div>
+
+    <!-- Actions -->
+    <div class="saisie-actions">
+      <button type="button" class="btn-ghost" (click)="resetSaisie()" *ngIf="!isEditMode">
+        <span class="material-symbols-outlined">refresh</span>
+        Réinitialiser
+      </button>
+      <button type="button" class="btn-ghost" (click)="closeSaisie()">Annuler</button>
+      <button type="button" class="btn-success-hm" (click)="onSubmit()" [disabled]="isSaving || isDepassement">
+        <span class="material-symbols-outlined" *ngIf="!isSaving">{{ isEditMode ? 'save' : 'check' }}</span>
+        <span *ngIf="!isSaving">{{ isEditMode ? 'Enregistrer les modifications' : 'Enregistrer la découpe' }}</span>
+        <span *ngIf="isSaving">{{ isEditMode ? 'Modification…' : 'Enregistrement…' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ LAYOUT PRINCIPAL ══ -->
+  <div class="main-layout">
+
+    <!-- ─── SIDEBAR Filtres + Détail ─── -->
+    <aside class="secondary-sidebar">
+
+      <!-- Filtres -->
+      <div class="sidebar-section">
+        <p class="sidebar-section-label">Filtres</p>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Du</label>
+          <input type="date" class="sf-inp" [(ngModel)]="dateDebut">
+        </div>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Au</label>
+          <input type="date" class="sf-inp" [(ngModel)]="dateFin">
+        </div>
+        <button type="button" class="sidebar-tool-btn" (click)="loadAll()">
+          <span class="material-symbols-outlined">search</span>
+          Appliquer
+        </button>
+        <button type="button" class="sidebar-tool-btn" (click)="resetFiltres()">
+          <span class="material-symbols-outlined">filter_alt_off</span>
+          Aujourd'hui
+        </button>
+      </div>
+
+      <!-- Détail découpe sélectionnée -->
+      <div class="sidebar-detail-card" *ngIf="selectedDecoupe">
+        <div class="detail-card-hdr">
+          <span class="detail-card-num">Découpe #{{ selectedDecoupe.id }}</span>
+          <button class="btn-del-ligne" (click)="selectedDecoupe = null">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="detail-meta">
+          <div class="dm-row"><span>Date</span><span>{{ formatDate(selectedDecoupe.dateDecoupe) }}</span></div>
+          <div class="dm-row" *ngIf="selectedDecoupe.numeroLot">
+            <span>Lot</span><span>{{ selectedDecoupe.numeroLot }}</span>
+          </div>
+          <div class="dm-row"><span>Achat kg</span><span>{{ formatNum(+selectedDecoupe.qteAchetee) }} kg</span></div>
+          <div class="dm-row"><span>P.U. achat</span><span>{{ formatNum(+selectedDecoupe.prixUnitaireAchat) }} DT/kg</span></div>
+          <div class="dm-row dm-total"><span>Total achat</span><span>{{ formatNum(+selectedDecoupe.totalAchat) }} DT</span></div>
+        </div>
+        <div class="detail-produit-calcule">
+          <span class="material-symbols-outlined">calculate</span>
+          Produit calculé : <strong>{{ labelProduit(selectedDecoupe.produitCalcule) }}</strong>
+        </div>
+        <div class="detail-lignes-wrap">
+          <table class="detail-tbl">
+            <thead>
+              <tr><th>Produit</th><th>Qté</th><th class="col-right">P.U.</th><th class="col-right">Total</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let l of selectedDecoupe.lignes"
+                  [class.ligne-calcule-detail]="l.calcule">
+                <td>
+                  {{ labelProduit(l.produit) }}
+                  <span class="badge-auto-sm" *ngIf="l.calcule">AUTO</span>
+                </td>
+                <td>{{ formatNum(+l.quantite) }}</td>
+                <td class="col-right">{{ formatNum(+l.prixUnitaire) }}</td>
+                <td class="col-right">{{ formatNum(+l.totalValeur) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ─── TABLE HISTORIQUE ─── -->
+    <section class="table-section">
+      <div class="table-section-header">
+        <h3 class="table-section-title">
+          Historique des Découpes
+          <span class="seg-count" *ngIf="decoupes.length > 0">{{ decoupes.length }}</span>
+        </h3>
+        <button type="button" class="icon-action-btn" (click)="loadAll()" title="Actualiser">
+          <span class="material-symbols-outlined">refresh</span>
+        </button>
+      </div>
+
+      <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+
+      <div class="hm-table-wrap" *ngIf="!isLoading; else loadingTpl">
+        <table class="hm-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Lot</th>
+              <th class="col-right">Qté (kg)</th>
+              <th class="col-right">Total achat</th>
+              <th class="col-right">Escalope</th>
+              <th class="col-right">Carcasse</th>
+              <th class="col-right">Cuisse</th>
+              <th class="col-right">Ailes</th>
+              <th class="col-right">Abat</th>
+              <th>Calculé</th>
+              <th class="col-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="decoupes.length === 0">
+              <td colspan="12" class="empty-cell">
+                <div class="empty-state">
+                  <div class="empty-icon">
+                    <span class="material-symbols-outlined">cut</span>
+                  </div>
+                  <p>Aucune découpe pour cette période.</p>
+                  <span>Cliquez sur « Nouvelle Découpe » pour commencer.</span>
+                </div>
+              </td>
+            </tr>
+            <tr *ngFor="let d of decoupes; let i = index"
+                class="hm-row"
+                [class.row-selected]="selectedDecoupe?.id === d.id"
+                (click)="selectDecoupe(d)">
+              <td class="col-idx">{{ i + 1 }}</td>
+              <td>{{ formatDate(d.dateDecoupe) }}</td>
+              <td class="col-mono">{{ d.numeroLot || '—' }}</td>
+              <td class="col-right">{{ formatNum(+d.qteAchetee) }}</td>
+              <td class="col-right col-net">{{ formatNum(+d.totalAchat) }}</td>
+
+              <!-- Colonnes par produit (P.U. × Qté) -->
+              <td class="col-right col-sub"
+                  *ngFor="let code of ['ESCALOPE','CARCASSE','CUISSE','AILES','ABAT']"
+                  [class.col-calcule]="d.produitCalcule === code">
+                <ng-container *ngIf="getLigneFromDecoupe(d, $any(code)) as l; else emptyCell">
+                  <span class="cell-qty">{{ formatNum(+l.quantite, 3) }}</span>
+                  <span class="cell-pu">{{ formatNum(+l.prixUnitaire) }} DT</span>
+                </ng-container>
+                <ng-template #emptyCell>—</ng-template>
+              </td>
+
+              <td>
+                <span class="chip-calcule">{{ labelProduit(d.produitCalcule) }}</span>
+              </td>
+
+              <td class="col-right" (click)="$event.stopPropagation()">
+                <div class="row-actions">
+                  <button type="button" class="action-icon-btn action-edit"
+                          (click)="openEdit(d)" title="Modifier">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button type="button" class="action-icon-btn action-danger"
+                          (click)="deleteDecoupe(d)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #loadingTpl>
+        <div class="loading-state">
+          <span class="material-symbols-outlined spin">hourglass_empty</span>
+          Chargement des découpes…
+        </div>
+      </ng-template>
+
+      <div class="table-section-footer" *ngIf="!isLoading && decoupes.length > 0">
+        <span>{{ decoupes.length }} découpe(s) · Total investi</span>
+        <span style="font-weight:700; color:var(--primary)">{{ formatNum(kpiTotalInvesti) }} DT</span>
+      </div>
+    </section>
+
+  </div>
+</div>

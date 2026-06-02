@@ -1,9 +1,944 @@
-<div class="page-placeholder">
-  <div class="page-header">
-    <h2>{{ title }}</h2>
-    <p class="subtitle">{{ subtitle }}</p>
+<div class="achat-page">
+
+  <!-- ══ HERO ══ -->
+  <section class="page-hero">
+    <div class="hero-left">
+      <nav class="hero-breadcrumb">
+        <span>Dind'Or</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <span class="bc-active">Bons de Livraison</span>
+      </nav>
+      <h1 class="hero-title">Bons de Livraison</h1>
+    </div>
+    <div class="hero-right">
+      <button type="button" class="btn-secondary-hm" (click)="loadAll()">
+        <span class="material-symbols-outlined">refresh</span>
+        Actualiser
+      </button>
+      <button type="button" class="btn-primary-hm" (click)="openSaisie()">
+        <span class="material-symbols-outlined">add_circle</span>
+        Nouveau BL
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ KPI CARDS ══ -->
+  <div class="kpi-row">
+    <div class="kpi-card kpi-primary-accent">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-primary">
+          <span class="material-symbols-outlined">trending_up</span>
+        </div>
+        <span class="kpi-pill kpi-pill-green">{{ stats?.nombreBons ?? 0 }} bons</span>
+      </div>
+      <p class="kpi-label">Chiffre d'Affaires</p>
+      <h3 class="kpi-value">{{ formatNum(stats?.chiffreAffaire ?? 0) }} <small>DT</small></h3>
+    </div>
+
+    <div class="kpi-card kpi-secondary-accent">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-secondary">
+          <span class="material-symbols-outlined">payments</span>
+        </div>
+      </div>
+      <p class="kpi-label">Règlements Espèces</p>
+      <h3 class="kpi-value">{{ formatNum(stats?.montantEspeces ?? 0) }} <small>DT</small></h3>
+    </div>
+
+    <div class="kpi-card kpi-primary-accent">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-primary">
+          <span class="material-symbols-outlined">receipt</span>
+        </div>
+      </div>
+      <p class="kpi-label">Total Crédit</p>
+      <h3 class="kpi-value">{{ formatNum(stats?.montantCredit ?? 0) }} <small>DT</small></h3>
+    </div>
+
+    <div class="kpi-card kpi-benefice-accent">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap kpi-icon-benefice">
+          <span class="material-symbols-outlined">insights</span>
+        </div>
+      </div>
+      <p class="kpi-label">Bénéfice de la période</p>
+      <h3 class="kpi-value kpi-benefice-val">{{ formatNum(stats?.benefice ?? 0) }} <small>DT</small></h3>
+    </div>
   </div>
-  <div class="page-content">
-    <p>Contenu de la page Facture à venir.</p>
+
+  <!-- ══ SAISIE PANEL ══ -->
+  <div id="saisie-bl-panel" class="saisie-panel" *ngIf="showSaisiePanel" [formGroup]="saisieHeaderForm">
+
+    <div class="saisie-panel-hdr">
+      <div class="saisie-panel-title">
+        <div class="saisie-title-icon">
+          <span class="material-symbols-outlined">local_shipping</span>
+        </div>
+        <div>
+          <h3>Nouveau Bon de Livraison</h3>
+          <span class="saisie-num-preview">N° <strong>{{ nextNumeroBon || '…' }}</strong></span>
+        </div>
+      </div>
+      <button type="button" class="close-btn" (click)="closeSaisie()" title="Fermer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Ligne 1 : Client + Date -->
+    <div class="saisie-fields-bar">
+      <div class="saisie-field saisie-fournisseur-field">
+        <label>Client</label>
+        <select id="bl-client" class="saisie-select"
+                [(ngModel)]="selectedClientId"
+                [ngModelOptions]="{standalone: true}"
+                (change)="onClientSelectChange()"
+                (keydown.enter)="onClientEnter()">
+          <option [ngValue]="null">— Sélectionner un client —</option>
+          <option *ngFor="let c of clients" [ngValue]="c.id">
+            {{ c.codeClient }} · {{ c.nom }}
+          </option>
+        </select>
+        <span class="saisie-rs-badge" *ngIf="selectedClient && selectedClient.soldeTotalDu > 0">
+          Solde dû : {{ formatNum(selectedClient.soldeTotalDu) }} DT
+        </span>
+      </div>
+      <div class="saisie-field">
+        <label>Date BL <span class="req">*</span></label>
+        <input id="bl-date" type="date" class="saisie-date-inp" formControlName="dateFacture"
+               (keydown.enter)="onDateEnter()">
+      </div>
+    </div>
+
+    <!-- ── Lignes articles ── -->
+    <div class="saisie-tbl-wrap" formArrayName="lignes">
+      <table class="saisie-tbl">
+        <thead>
+          <tr>
+            <th class="col-idx">#</th>
+            <th class="sc-art">Article</th>
+            <th class="sc-num">Qté</th>
+            <th class="sc-pu">P.U. HT</th>
+            <th class="sc-pct">Rem%</th>
+            <th class="sc-pct">TVA%</th>
+            <th class="sc-total">Total HT</th>
+            <th class="sc-del"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ligne of saisieLignes.controls; let i = index"
+              [formGroupName]="i" class="saisie-row"
+              [class.row-has-art]="saisieLignes.at(i).get('codeArticle')?.value || saisieLignes.at(i).get('designation')?.value">
+
+            <td class="col-idx">{{ i + 1 }}</td>
+
+            <!-- ─ ARTICLE ─ -->
+            <td class="sc-art">
+              <div class="art-empty-zone"
+                   *ngIf="!saisieLignes.at(i).get('codeArticle')?.value && !saisieLignes.at(i).get('designation')?.value">
+                <button class="art-pick-btn" (click)="openArticlePicker(i)" type="button">
+                  <span class="material-symbols-outlined">add_circle_outline</span>
+                  Sélectionner un article du catalogue
+                </button>
+                <div class="art-or-row">
+                  <span class="art-or-line"></span>
+                  <span class="art-or-txt">ou saisir le code directement</span>
+                  <span class="art-or-line"></span>
+                </div>
+                <input [id]="'bl-'+i+'-code'" class="saisie-inp art-quick-inp"
+                       formControlName="codeArticle"
+                       (keydown.enter)="onCodeEnter(i)"
+                       placeholder="Ex : ART001  puis  Entrée ↵">
+              </div>
+
+              <div class="art-card"
+                   *ngIf="saisieLignes.at(i).get('codeArticle')?.value || saisieLignes.at(i).get('designation')?.value">
+                <div class="art-card-row1">
+                  <span class="art-code-chip" *ngIf="saisieLignes.at(i).get('codeArticle')?.value">
+                    {{ saisieLignes.at(i).get('codeArticle')?.value }}
+                  </span>
+                  <input class="art-desig-edit" [id]="'bl-'+i+'-desig'"
+                         formControlName="designation" placeholder="Désignation">
+                </div>
+                <div class="art-card-row2">
+                  <span class="art-unite-chip" *ngIf="saisieLignes.at(i).get('unite')?.value">
+                    {{ saisieLignes.at(i).get('unite')?.value }}
+                  </span>
+                  <span class="art-stock-chip ast-ok"
+                        *ngIf="ligneInfos[i] && ligneInfos[i].stockDispo > 10">
+                    ✓ {{ formatNum(ligneInfos[i].stockDispo) }} en stock
+                  </span>
+                  <span class="art-stock-chip ast-low"
+                        *ngIf="ligneInfos[i] && ligneInfos[i].stockDispo > 0 && ligneInfos[i].stockDispo <= 10">
+                    ⚠ {{ formatNum(ligneInfos[i].stockDispo) }} restant
+                  </span>
+                  <span class="art-stock-chip ast-out"
+                        *ngIf="ligneInfos[i] && ligneInfos[i].stockDispo <= 0 && ligneInfos[i].found">
+                    ✗ Rupture
+                  </span>
+                  <span class="art-pa-chip" *ngIf="(ligneInfos[i]?.prixAchat ?? 0) > 0">
+                    PA : {{ formatNum(ligneInfos[i].prixAchat) }} DT
+                  </span>
+                  <div class="art-card-actions">
+                    <button class="art-action-btn" (click)="openArticlePicker(i)"
+                            type="button" title="Changer l'article">
+                      <span class="material-symbols-outlined">sync</span>
+                    </button>
+                    <button class="art-action-btn art-action-clear" (click)="clearLigne(i)"
+                            type="button" title="Retirer l'article">
+                      <span class="material-symbols-outlined">close</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- ─ QTÉ ─ -->
+            <td class="sc-num">
+              <input [id]="'bl-'+i+'-qte'" type="number" class="saisie-inp saisie-inp-r"
+                     formControlName="quantite" step="0.001" min="0.001"
+                     (keydown.enter)="focusCell(i,'pu')">
+            </td>
+
+            <!-- ─ P.U. HT ─ -->
+            <td class="sc-pu">
+              <input [id]="'bl-'+i+'-pu'" type="number" class="saisie-inp saisie-inp-r"
+                     formControlName="prixUnitaireHT" step="0.001"
+                     (keydown.enter)="focusCell(i,'rem')">
+              <div class="pu-ref-pa" *ngIf="(ligneInfos[i]?.prixAchat ?? 0) > 0">
+                PA : {{ formatNum(ligneInfos[i].prixAchat) }}
+              </div>
+            </td>
+
+            <!-- ─ REM% ─ -->
+            <td class="sc-pct">
+              <input [id]="'bl-'+i+'-rem'" type="number" class="saisie-inp saisie-inp-r"
+                     formControlName="remise" step="0.01" min="0" max="100"
+                     (keydown.enter)="focusCell(i,'tva')">
+            </td>
+
+            <!-- ─ TVA% ─ -->
+            <td class="sc-pct">
+              <input [id]="'bl-'+i+'-tva'" type="number" class="saisie-inp saisie-inp-r"
+                     formControlName="tva" step="0.01" min="0" max="100"
+                     (keydown.enter)="onLastCellEnter(i)">
+            </td>
+
+            <!-- ─ TOTAL HT ─ -->
+            <td class="sc-total">{{ formatNum(getLineMontantHT(i)) }}</td>
+
+            <!-- ─ SUPPRIMER ─ -->
+            <td class="sc-del">
+              <button type="button" class="btn-del-ligne" (click)="removeLigne(i)"
+                      *ngIf="saisieLignes.length > 1" title="Supprimer la ligne">
+                <span class="material-symbols-outlined">delete_outline</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="saisie-tbl-footer">
+        <button type="button" class="btn-add-ligne" (click)="addLigne()">
+          <span class="material-symbols-outlined">add</span> Ajouter une ligne
+        </button>
+      </div>
+    </div>
+
+    <!-- Totaux -->
+    <div class="saisie-totals-bar">
+      <div class="tot-block">
+        <span class="tot-lbl">Total Brut</span>
+        <span class="tot-val">{{ formatNum(saisieStats.totalBrut) }}</span>
+      </div>
+      <span class="tot-op">−</span>
+      <div class="tot-block">
+        <span class="tot-lbl">Remise</span>
+        <span class="tot-val tot-remise">{{ formatNum(saisieStats.totalRemise) }}</span>
+      </div>
+      <span class="tot-op">=</span>
+      <div class="tot-block">
+        <span class="tot-lbl">Total HT</span>
+        <span class="tot-val">{{ formatNum(saisieStats.totalHT) }}</span>
+      </div>
+      <span class="tot-op">+</span>
+      <div class="tot-block">
+        <span class="tot-lbl">TVA</span>
+        <span class="tot-val">{{ formatNum(saisieStats.totalTVA) }}</span>
+      </div>
+      <span class="tot-op">=</span>
+      <div class="tot-block tot-net-block">
+        <span class="tot-lbl">Net à Payer</span>
+        <span class="tot-val tot-net-val">{{ formatNum(saisieStats.netAPayer) }}</span>
+      </div>
+    </div>
+
+    <!-- Mode de paiement -->
+    <div class="saisie-section" [formGroup]="saisiePaiementForm">
+      <div class="saisie-section-title">
+        <span class="saisie-section-icon">
+          <span class="material-symbols-outlined">credit_card</span>
+        </span>
+        Mode de Paiement
+      </div>
+      <div class="saisie-section-body">
+        <div class="pay-modes">
+          <label class="pay-mode-btn"
+                 [class.active]="saisiePaiementForm.get('modePaiement')?.value === 'ESPECES'">
+            <input type="radio" formControlName="modePaiement" value="ESPECES">
+            <span class="pay-mode-icon"><span class="material-symbols-outlined">payments</span></span>
+            <span class="pay-mode-lbl">Espèces<br><small>Règlement intégral</small></span>
+          </label>
+          <label class="pay-mode-btn"
+                 [class.active]="saisiePaiementForm.get('modePaiement')?.value === 'CREDIT'">
+            <input type="radio" formControlName="modePaiement" value="CREDIT">
+            <span class="pay-mode-icon"><span class="material-symbols-outlined">receipt</span></span>
+            <span class="pay-mode-lbl">Crédit<br><small>Dette client</small></span>
+          </label>
+        </div>
+        <div class="saisie-pay-grid" style="padding: 0 1.75rem 1rem;" *ngIf="isModeCREDIT">
+          <div class="saisie-pay-field">
+            <label>Date limite crédit</label>
+            <input type="date" formControlName="dateLimiteCredit" class="saisie-date-inp">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="saisie-msgs" *ngIf="saisieError || saisieSuccess">
+      <div class="saisie-error-msg" *ngIf="saisieError">
+        <span class="material-symbols-outlined">warning</span> {{ saisieError }}
+      </div>
+      <div class="saisie-success-msg" *ngIf="saisieSuccess">
+        <span class="material-symbols-outlined">check_circle</span> {{ saisieSuccess }}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="saisie-footer">
+      <span class="saisie-kbd-hint">Appuyez sur <kbd>Entrée</kbd> pour naviguer · Code article → auto-complétion</span>
+      <div class="saisie-footer-btns">
+        <button type="button" class="btn-ghost" (click)="closeSaisie()">Annuler</button>
+        <button type="button" class="btn-success-hm saisie-save-btn"
+                (click)="onSaisieSubmit()" [disabled]="saisieIsSaving">
+          <span class="material-symbols-outlined" *ngIf="!saisieIsSaving">check</span>
+          <span *ngIf="!saisieIsSaving">Enregistrer le BL</span>
+          <span *ngIf="saisieIsSaving">Enregistrement…</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ BÉNÉFICE JOURNALIER ══ -->
+  <div class="benefice-section">
+    <div class="benefice-header">
+      <div class="benefice-title-wrap">
+        <span class="material-symbols-outlined benefice-icon">insights</span>
+        <h2 class="benefice-title">Bénéfice Journalier</h2>
+      </div>
+      <div class="benefice-filters">
+        <div class="benefice-filter-group">
+          <label class="bfg-label">Du</label>
+          <input type="date" class="bfg-inp" [(ngModel)]="beneficeDateDebut">
+        </div>
+        <div class="benefice-filter-group">
+          <label class="bfg-label">Au</label>
+          <input type="date" class="bfg-inp" [(ngModel)]="beneficeDateFin">
+        </div>
+        <button type="button" class="btn-primary-hm" (click)="loadBenefice()">
+          <span class="material-symbols-outlined">search</span>
+          Consulter
+        </button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="beneficeBons.length > 0 || beneficeLoading">
+      <div class="benefice-loading" *ngIf="beneficeLoading">
+        <span class="material-symbols-outlined spin">hourglass_empty</span> Chargement…
+      </div>
+
+      <ng-container *ngIf="!beneficeLoading">
+        <div class="benefice-body">
+          <div class="benefice-table-wrap">
+            <table class="benefice-table">
+              <thead>
+                <tr>
+                  <th>N° BL</th>
+                  <th>Date</th>
+                  <th>Client</th>
+                  <th class="col-right">Total TTC</th>
+                  <th class="col-right benefice-col">Bénéfice</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let bon of beneficeBons" class="benefice-row">
+                  <td class="col-mono">{{ bon.numeroFacture }}</td>
+                  <td>{{ formatDate(bon.dateFacture) }}</td>
+                  <td>{{ bon.clientNom || '—' }}</td>
+                  <td class="col-right">{{ formatNum(bon.netAPayer) }}</td>
+                  <td class="col-right benefice-col"
+                      [class.benefice-pos]="bon.benefice > 0"
+                      [class.benefice-neg]="bon.benefice < 0">
+                    {{ formatNum(bon.benefice) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="benefice-summary">
+            <div class="benefice-summary-card">
+              <span class="bsc-label">CA de la période</span>
+              <span class="bsc-value">{{ formatNum(totalCaBenefice) }} <small>DT</small></span>
+            </div>
+            <div class="benefice-summary-card benefice-total-card">
+              <span class="bsc-label">Bénéfices</span>
+              <span class="bsc-total">{{ formatNum(totalBenefice) }} <small>DT</small></span>
+            </div>
+            <div class="benefice-summary-card" *ngIf="totalCaBenefice > 0">
+              <span class="bsc-label">Taux de marge</span>
+              <span class="bsc-value bsc-pct">
+                {{ formatNum(totalBenefice / totalCaBenefice * 100, 1) }} <small>%</small>
+              </span>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <div class="benefice-empty" *ngIf="!beneficeLoading && beneficeBons.length === 0">
+      <span class="material-symbols-outlined">bar_chart</span>
+      <p>Sélectionnez une période et cliquez sur <strong>Consulter</strong> pour voir les bénéfices.</p>
+    </div>
+  </div>
+
+  <!-- ══ RAPPORT BLS PAR PÉRIODE ══ -->
+  <div class="rapport-section">
+    <div class="rapport-header" (click)="showRapport = !showRapport">
+      <div class="rapport-title-wrap">
+        <span class="material-symbols-outlined rapport-icon">table_chart</span>
+        <h2 class="rapport-title">Rapport Bons de Livraison par Période</h2>
+      </div>
+      <span class="material-symbols-outlined rapport-chevron" [class.rapport-chevron-open]="showRapport">
+        expand_more
+      </span>
+    </div>
+
+    <div class="rapport-body" *ngIf="showRapport">
+      <div class="rapport-filters-row">
+        <div class="rapport-filter-group">
+          <label class="rfg-label">Client</label>
+          <select class="rfg-select" [(ngModel)]="rapportClientId"
+                  (keydown.enter)="generateRapport()">
+            <option [ngValue]="null">— Sélectionner un client —</option>
+            <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.codeClient }} — {{ c.nom }}</option>
+          </select>
+        </div>
+        <div class="rapport-filter-group">
+          <label class="rfg-label">Du</label>
+          <input type="date" class="rfg-inp" [(ngModel)]="rapportDateDebut"
+                 (keydown.enter)="rapportDateFinEl.focus()">
+        </div>
+        <div class="rapport-filter-group">
+          <label class="rfg-label">Au</label>
+          <input #rapportDateFinEl type="date" class="rfg-inp" [(ngModel)]="rapportDateFin"
+                 (keydown.enter)="generateRapport()">
+        </div>
+        <button type="button" class="rapport-gen-btn" (click)="generateRapport()" [disabled]="rapportLoading">
+          <span class="material-symbols-outlined">search</span>
+          {{ rapportLoading ? 'Chargement…' : 'Générer' }}
+        </button>
+        <button type="button" class="rapport-print-btn" *ngIf="rapportGenerated" (click)="printRapport()">
+          <span class="material-symbols-outlined">print</span>
+          Imprimer
+        </button>
+      </div>
+
+      <p class="rapport-error" *ngIf="rapportError">{{ rapportError }}</p>
+
+      <div class="rapport-pivot-wrap" *ngIf="rapportGenerated && !rapportLoading">
+        <div *ngIf="rapportDates.length === 0" class="rapport-empty">
+          <span class="material-symbols-outlined">info</span>
+          Aucun bon pour ce client sur cette période.
+        </div>
+
+        <div class="pivot-scroll-wrap" *ngIf="rapportDates.length > 0">
+          <table class="pivot-table">
+            <thead>
+              <tr class="pivot-hdr-top">
+                <th class="pivot-th-date" rowspan="2">Date</th>
+                <ng-container *ngFor="let d of rapportDesignations">
+                  <th class="pivot-th-desig" colspan="2">{{ d }}</th>
+                </ng-container>
+                <th class="pivot-th-total" rowspan="2">TOTAL</th>
+              </tr>
+              <tr class="pivot-hdr-sub">
+                <ng-container *ngFor="let d of rapportDesignations">
+                  <th class="pivot-sub-qtepu">Qté × PU</th>
+                  <th class="pivot-sub-mt">Montant</th>
+                </ng-container>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let date of rapportDates" class="pivot-row">
+                <td class="pivot-td-date">{{ formatDate(date) }}</td>
+                <ng-container *ngFor="let d of rapportDesignations">
+                  <ng-container *ngIf="rapportCell(date, d) as cell; else emptyCell">
+                    <td class="pivot-td-qtepu">{{ formatNum(cell.qte) }} × {{ formatNum(+cell.total / +cell.qte) }}</td>
+                    <td class="pivot-td-mt">{{ formatNum(cell.total) }}</td>
+                  </ng-container>
+                  <ng-template #emptyCell>
+                    <td class="pivot-td-qtepu pivot-td-empty"></td>
+                    <td class="pivot-td-mt pivot-td-empty"></td>
+                  </ng-template>
+                </ng-container>
+                <td class="pivot-td-rowtotal">{{ formatNum(rapportRowTotal(date)) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="pivot-footer-row">
+                <td class="pivot-tf-label">TOTAL</td>
+                <ng-container *ngFor="let d of rapportDesignations">
+                  <td class="pivot-tf-qte">{{ formatNum(rapportColQteTotal(d)) }}</td>
+                  <td class="pivot-tf-mt">{{ formatNum(rapportColTotal(d)) }}</td>
+                </ng-container>
+                <td class="pivot-tf-grand">{{ formatNum(rapportGrandTotal) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="rapport-grand-total-box" *ngIf="rapportDates.length > 0">
+          <span class="rgt-label">TOTAL GÉNÉRAL</span>
+          <span class="rgt-value">{{ formatNum(rapportGrandTotal) }} <small>DT</small></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LAYOUT PRINCIPAL ══ -->
+  <div class="main-layout">
+
+    <!-- ─── SIDEBAR ─── -->
+    <aside class="secondary-sidebar">
+
+      <div class="sidebar-section">
+        <p class="sidebar-section-label">Filtres</p>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Du</label>
+          <input type="date" class="sf-inp" [(ngModel)]="dateDebut">
+        </div>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Au</label>
+          <input type="date" class="sf-inp" [(ngModel)]="dateFin">
+        </div>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Recherche</label>
+          <input type="text" class="sf-inp" placeholder="Client, N° BL…"
+                 [(ngModel)]="searchTerm" (input)="applySearch()">
+        </div>
+        <div class="sidebar-filter-field">
+          <label class="sf-label">Mode</label>
+          <div class="sf-radios">
+            <label class="sf-radio" [class.active]="filterMode === ''">
+              <input type="radio" [(ngModel)]="filterMode" value=""> Tout
+            </label>
+            <label class="sf-radio" [class.active]="filterMode === 'ESPECES'">
+              <input type="radio" [(ngModel)]="filterMode" value="ESPECES"> Espèces
+            </label>
+            <label class="sf-radio" [class.active]="filterMode === 'CREDIT'">
+              <input type="radio" [(ngModel)]="filterMode" value="CREDIT"> Crédit
+            </label>
+          </div>
+        </div>
+        <button type="button" class="sidebar-tool-btn" (click)="loadAll()">
+          <span class="material-symbols-outlined">search</span>
+          Appliquer les filtres
+        </button>
+        <button type="button" class="sidebar-tool-btn" (click)="resetFiltres()">
+          <span class="material-symbols-outlined">filter_alt_off</span>
+          Réinitialiser
+        </button>
+      </div>
+
+      <!-- Détail BL sélectionné -->
+      <div class="sidebar-detail-card" *ngIf="selectedBon">
+        <div class="detail-card-hdr">
+          <span class="detail-card-num">{{ selectedBon.numeroFacture }}</span>
+          <button class="btn-del-ligne" (click)="selectedBon = null">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="detail-client-info">
+          <span class="dc-code">{{ selectedBon.clientCode }}</span>
+          <span class="dc-nom">{{ selectedBon.clientNom }}</span>
+          <span class="dc-date">{{ formatDate(selectedBon.dateFacture) }}</span>
+        </div>
+        <div *ngIf="selectedBon.clientAdresse" class="dc-adresse">{{ selectedBon.clientAdresse }}</div>
+        <div *ngIf="selectedBon.clientMF" class="dc-mf">M.F.: {{ selectedBon.clientMF }}</div>
+        <table class="detail-tbl">
+          <thead>
+            <tr><th>Libellé</th><th class="col-right">Qté</th><th class="col-right">HT</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let l of selectedBon.lignes">
+              <td class="dl-desig">{{ l.designation }}</td>
+              <td class="col-right">{{ formatNum(l.quantite) }}</td>
+              <td class="col-right">{{ formatNum(l.totalHT) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="detail-totaux">
+          <div class="dt-row"><span>Total HT</span><span>{{ formatNum(selectedBon.totalHT) }} DT</span></div>
+          <div class="dt-row"><span>TVA</span><span>{{ formatNum(selectedBon.totalTVA) }} DT</span></div>
+          <div class="dt-row dt-net"><span>TTC</span><span>{{ formatNum(selectedBon.netAPayer) }} DT</span></div>
+          <div class="dt-row dt-solde" *ngIf="selectedBon.soldeSurFacture > 0">
+            <span>Solde client</span><span>{{ formatNum(selectedBon.soldeSurFacture) }} DT</span>
+          </div>
+        </div>
+        <div class="detail-mode-row">
+          <span class="chip-mode" [class.chip-especes]="selectedBon.modePaiement === 'ESPECES'"
+                                  [class.chip-credit]="selectedBon.modePaiement === 'CREDIT'">
+            {{ modeLabel(selectedBon.modePaiement) }}
+          </span>
+          <span class="status-pill" [ngClass]="etatClass(selectedBon.etatPaiement)">
+            {{ etatLabel(selectedBon.etatPaiement) }}
+          </span>
+        </div>
+        <button type="button" class="btn-primary-hm" style="width:100%;justify-content:center;margin-top:.75rem"
+                (click)="openPrint(selectedBon)">
+          <span class="material-symbols-outlined">print</span> Imprimer ce BL
+        </button>
+      </div>
+
+      <!-- Agrégat par article -->
+      <div class="sidebar-section" *ngIf="!selectedBon && detailArticles.length > 0">
+        <p class="sidebar-section-label">Articles / BL</p>
+        <div class="detail-tbl-wrap">
+          <table class="detail-tbl">
+            <thead><tr><th>Libellé</th><th class="col-right">Qté sortie</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let d of detailArticles">
+                <td class="dl-desig">{{ d.libelle }}</td>
+                <td class="col-right">{{ formatNum(d.qteSortie) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ─── TABLE BONS DE LIVRAISON ─── -->
+    <section class="table-section">
+      <div class="table-section-header">
+        <h3 class="table-section-title">Bons de Livraison
+          <span class="seg-count" *ngIf="filteredBons.length > 0">{{ filteredBons.length }}</span>
+        </h3>
+        <div class="table-header-actions">
+          <button type="button" class="icon-action-btn" (click)="loadAll()" title="Actualiser">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
+
+      <div class="hm-table-wrap" *ngIf="!isLoading; else loadingTpl">
+        <table class="hm-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>N° BL</th>
+              <th>Date</th>
+              <th>Client</th>
+              <th class="col-right">Montant TTC</th>
+              <th>Mode</th>
+              <th>État</th>
+              <th class="col-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredBons.length === 0">
+              <td colspan="8" class="empty-cell">
+                <div class="empty-state">
+                  <div class="empty-icon">
+                    <span class="material-symbols-outlined">local_shipping</span>
+                  </div>
+                  <p>Aucun bon de livraison pour cette période.</p>
+                  <span>Cliquez sur « Nouveau BL » pour créer.</span>
+                </div>
+              </td>
+            </tr>
+            <tr *ngFor="let bon of filteredBons; let i = index"
+                class="hm-row"
+                [class.row-selected]="selectedBon?.id === bon.id"
+                [class.row-credit]="bon.modePaiement === 'CREDIT'"
+                (click)="selectBon(bon)">
+              <td class="col-idx">{{ i + 1 }}</td>
+              <td class="col-mono">{{ bon.numeroFacture }}</td>
+              <td>{{ formatDate(bon.dateFacture) }}</td>
+              <td>
+                <div class="supplier-cell">
+                  <span class="supplier-cell-name">{{ bon.clientNom }}</span>
+                  <span style="font-size:.7rem; color:var(--outline)">{{ bon.clientCode }}</span>
+                </div>
+              </td>
+              <td class="col-right col-net">{{ formatNum(bon.netAPayer) }}</td>
+              <td>
+                <span class="chip-mode"
+                      [class.chip-especes]="bon.modePaiement === 'ESPECES'"
+                      [class.chip-credit]="bon.modePaiement === 'CREDIT'">
+                  {{ modeLabel(bon.modePaiement) }}
+                </span>
+              </td>
+              <td (click)="$event.stopPropagation()">
+                <ng-container *ngIf="editingEtatId !== bon.id">
+                  <span class="status-pill" [ngClass]="etatClass(bon.etatPaiement)">
+                    {{ etatLabel(bon.etatPaiement) }}
+                  </span>
+                  <button class="icon-action-btn" (click)="editingEtatId = bon.id"
+                          *ngIf="bon.modePaiement === 'CREDIT'" title="Modifier l'état" style="display:inline-flex">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                </ng-container>
+                <ng-container *ngIf="editingEtatId === bon.id">
+                  <select class="etat-select" (change)="setEtatPaiement(bon, $any($event.target).value)">
+                    <option value="EN_ATTENTE">En attente</option>
+                    <option value="PARTIEL">Partiel</option>
+                    <option value="PAYE">Payé</option>
+                  </select>
+                  <button class="icon-action-btn action-danger" (click)="editingEtatId = null">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </ng-container>
+              </td>
+              <td class="col-right" (click)="$event.stopPropagation()">
+                <div class="row-actions">
+                  <button type="button" class="action-icon-btn" (click)="openPrint(bon)" title="Imprimer BL">
+                    <span class="material-symbols-outlined">print</span>
+                  </button>
+                  <button type="button" class="action-icon-btn action-danger" (click)="deleteBon(bon)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #loadingTpl>
+        <div class="loading-state">
+          <span class="material-symbols-outlined spin">hourglass_empty</span>
+          Chargement des bons de livraison...
+        </div>
+      </ng-template>
+
+      <div class="table-section-footer" *ngIf="!isLoading && filteredBons.length > 0">
+        <span>{{ filteredBons.length }} bon(s) · CA total</span>
+        <span style="font-weight:700; color:var(--primary)">{{ formatNum(totalCA) }} DT</span>
+      </div>
+
+    </section>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════
+     MODAL — Catalogue Articles
+════════════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="isArticlePickerOpen" (click)="closeArticlePicker()">
+  <div class="picker-dialog" (click)="$event.stopPropagation()">
+
+    <div class="picker-hdr">
+      <div class="picker-hdr-left">
+        <div class="picker-hdr-icon">
+          <span class="material-symbols-outlined">inventory_2</span>
+        </div>
+        <div>
+          <h3>Catalogue articles</h3>
+          <p>{{ filteredArticlesPicker.length }} article(s) disponible(s)</p>
+        </div>
+      </div>
+      <button type="button" class="picker-close-btn" (click)="closeArticlePicker()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="picker-search-zone">
+      <span class="material-symbols-outlined picker-search-ico">search</span>
+      <input id="bl-picker-search" type="text" class="picker-search-inp"
+             [(ngModel)]="articlePickerSearch"
+             placeholder="Rechercher par code ou désignation…"
+             autocomplete="off">
+      <button class="picker-search-clear" type="button"
+              *ngIf="articlePickerSearch" (click)="articlePickerSearch = ''">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="picker-frequents" *ngIf="topArticlesForPicker.length > 0">
+      <div class="picker-freq-label">
+        <span class="material-symbols-outlined">star</span>
+        Articles habituels de <strong>{{ selectedClient?.nom }}</strong>
+      </div>
+      <div class="picker-freq-chips">
+        <button type="button" class="freq-chip"
+                *ngFor="let a of topArticlesForPicker"
+                (click)="selectArticleFromPicker(a)"
+                [title]="'Moy. ' + formatNum(a.prixVente) + ' DT · ' + formatNum(a.stock1 + a.stock2) + ' en stock'">
+          <span class="freq-chip-desig">{{ a.designation }}</span>
+          <span class="freq-chip-meta">
+            <span class="freq-chip-stock"
+                  [class.fcs-ok]="a.stock1 + a.stock2 > 0"
+                  [class.fcs-out]="a.stock1 + a.stock2 <= 0">
+              {{ formatNum(a.stock1 + a.stock2) }}
+            </span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="picker-body">
+      <table class="picker-tbl">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Désignation</th>
+            <th>Unité</th>
+            <th class="col-right">Stock disponible</th>
+            <th class="col-right">Prix Vente HT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="filteredArticlesPicker.length === 0">
+            <td colspan="5" class="picker-empty">
+              <span class="material-symbols-outlined">search_off</span>
+              <p>Aucun article trouvé pour « {{ articlePickerSearch }} »</p>
+            </td>
+          </tr>
+          <tr *ngFor="let a of filteredArticlesPicker"
+              class="picker-row"
+              [class.picker-row-frequent]="topArticlesForPicker.includes(a) && !articlePickerSearch"
+              (click)="selectArticleFromPicker(a)">
+            <td class="picker-code">{{ a.codeArticle }}</td>
+            <td class="picker-desig">
+              {{ a.designation }}
+              <span class="picker-freq-badge" *ngIf="topArticlesForPicker.includes(a) && !articlePickerSearch">★</span>
+            </td>
+            <td><span class="picker-unite-badge">{{ a.unite }}</span></td>
+            <td class="col-right">
+              <span class="picker-stock-pill"
+                    [class.psp-ok]="a.stock1 > 10"
+                    [class.psp-low]="a.stock1 > 0 && a.stock1 <= 10"
+                    [class.psp-out]="a.stock1 <= 0">
+                {{ formatNum(a.stock1) }}
+              </span>
+            </td>
+            <td class="col-right picker-prix">{{ formatNum(a.prixVente) }} DT</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="picker-ftr">
+      <span class="picker-ftr-hint">
+        <span class="material-symbols-outlined" style="font-size:.9rem;vertical-align:middle">info</span>
+        Cliquer sur une ligne pour ajouter l'article au bon de livraison
+      </span>
+      <button type="button" class="btn-ghost" (click)="closeArticlePicker()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ZONE IMPRESSION ═══ -->
+<div class="print-zone" *ngIf="printBon">
+  <div class="bl-doc">
+
+    <div class="bl-wm"><img src="assets/images/logo.png" alt=""></div>
+
+    <header class="bl-hdr">
+      <div class="bl-hdr-left">
+        <img src="assets/images/logo.png" class="bl-hdr-logo" alt="Dind'Or">
+        <div class="bl-hdr-info">
+          <p>Adresse : 5031 KSIBET EL MEDIOUNI</p>
+          <p>CITE ENNADHOUR</p>
+          <p>Tél : 29 281 061 / 53 134 657</p>
+          <p>M.F. : 1790868/B/M/A/000</p>
+        </div>
+      </div>
+      <div class="bl-hdr-right">
+        <h1 class="bl-co-fr">Sté Dind'Or</h1>
+        <h1 class="bl-co-ar">داندور</h1>
+        <div class="bl-hdr-sep"></div>
+      </div>
+    </header>
+
+    <div class="bl-title-row">
+      <div class="bl-title-left">
+        <h2 class="bl-main-title">BON DE LIVRAISON</h2>
+        <div class="bl-meta">
+          <p>N° {{ printBon.numeroFacture }}</p>
+          <p>Date : {{ formatDate(printBon.dateFacture) }}</p>
+        </div>
+      </div>
+      <div class="bl-cli-box">
+        <span class="bl-cli-lbl">CLIENT</span>
+        <p class="bl-cli-nom">{{ printBon.clientNom || '—' }}</p>
+        <p class="bl-cli-adr" *ngIf="printBon.clientAdresse">ADRESSE {{ printBon.clientAdresse }}</p>
+        <div class="bl-cli-mf" *ngIf="printBon.clientMF">
+          <span>M.F. :</span><span>{{ printBon.clientMF }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bl-tbl-wrap">
+      <table class="bl-tbl">
+        <thead>
+          <tr>
+            <th class="p-n">N°</th>
+            <th class="p-qte">QTE</th>
+            <th class="p-desig">DÉSIGNATION</th>
+            <th class="p-pu">P.U.</th>
+            <th class="p-tva">TVA%</th>
+            <th class="p-total">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of printBon.lignes">
+            <td class="p-n">{{ l.ordre }}</td>
+            <td class="p-qte">{{ l.quantite }} {{ l.unite }}</td>
+            <td class="p-desig">{{ l.designation }}</td>
+            <td class="p-pu">{{ formatNum(l.prixUnitaireHT) }}</td>
+            <td class="p-tva">{{ l.tva }}</td>
+            <td class="p-total">{{ formatNum(l.totalHT) }}</td>
+          </tr>
+          <tr class="bl-filler"><td colspan="6"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bl-footer">
+      <div class="bl-footer-left">
+        <p class="bl-arr-label">Arrêtée la présente à la somme de :</p>
+        <div class="bl-arr-row">
+          <span class="bl-arr-words">{{ printBon.montantEnLettres }}</span>
+        </div>
+        <div class="bl-solde-row" *ngIf="printBon.soldeSurFacture != null && printBon.soldeSurFacture > 0">
+          <span>SOLDE :</span><span>{{ formatNum(printBon.soldeSurFacture) }} DT</span>
+        </div>
+      </div>
+      <div class="bl-totals-box">
+        <div class="bl-tot-row"><span>TOTAL :</span><span>{{ formatNum(printBon.totalHT) }}</span></div>
+        <div class="bl-tot-row"><span>TVA :</span><span>{{ formatNum(printBon.totalTVA) }}</span></div>
+        <div class="bl-tot-row bl-tot-ttc"><span>Total TTC :</span><span>{{ formatNum(printBon.netAPayer) }}</span></div>
+      </div>
+    </div>
+
+    <div class="bl-sig-row">
+      <p class="bl-sig-lbl">Signature Client</p>
+    </div>
+
+    <footer class="bl-page-num">Page 1/1</footer>
   </div>
 </div>

@@ -1,0 +1,87 @@
+=====================================================================
+  DOSSIER DATA — Fichiers Excel pour la Prédiction IA
+  Dind'Or — Système de Prédiction des Prix de Volaille
+=====================================================================
+
+DEPOSEZ VOS FICHIERS ICI :
+----------------------------
+  data/Achats_2025.xlsx   ← Historique des achats 2025
+  data/Ventes_2025.xlsx   ← Historique des ventes 2025 (optionnel)
+
+Le service IA les détectera AUTOMATIQUEMENT au démarrage.
+Pas besoin de redémarrer si vous ajoutez un fichier : rechargez
+la page Angular et relancez une prédiction.
+
+=====================================================================
+FORMAT OBLIGATOIRE DES COLONNES (noms acceptés)
+=====================================================================
+
+COLONNE DATE — l'une des variantes suivantes :
+  Date | date | DATE | Date_Facture | date_facture | DateFacture
+
+COLONNE ARTICLE — l'une des variantes suivantes :
+  Article | article | Designation | designation | Produit | produit
+  | Description | Libelle | libelle
+
+COLONNE QUANTITE — l'une des variantes suivantes :
+  Quantite | quantite | Qte | qte | QTE | Quantité | Qty
+
+COLONNE PRIX — l'une des variantes suivantes :
+  Prix | prix | Prix_Unitaire | prix_unitaire | PrixUnitaire
+  | Prix_Achat | prix_achat | PU | pu | Prix_HT | prix_ht
+  | Prix_Unitaire_HT | prix_unitaire_ht
+
+=====================================================================
+FORMATS DE DATE ACCEPTES
+=====================================================================
+  2025-01-15        ← format ISO (recommandé)
+  15/01/2025        ← format français
+  01/15/2025        ← format américain
+  15-01-2025        ← tirets
+  15 Jan 2025       ← littéral
+
+=====================================================================
+EXEMPLE DE FICHIER Achats_2025.xlsx
+=====================================================================
+
+  | Date       | Article        | Quantite | Prix_Unitaire |
+  |------------|----------------|----------|---------------|
+  | 2025-01-05 | Poulet entier  | 500      | 5.200         |
+  | 2025-01-12 | Poulet entier  | 300      | 5.350         |
+  | 2025-01-20 | Poulet entier  | 450      | 5.400         |
+  | 2025-02-03 | Poulet entier  | 600      | 5.500         |
+  | 2025-02-15 | Poulet entier  | 400      | 5.600         |
+  | 2025-03-01 | Poulet entier  | 800      | 6.200         |  ← Ramadan
+  ...
+
+  Les prix sont en Dinars Tunisiens (DT), HT.
+  La quantité est en kg (ou en unités selon votre usage).
+
+=====================================================================
+EXEMPLE DE FICHIER Ventes_2025.xlsx
+=====================================================================
+
+  | Date       | Article        | Quantite | Prix_Unitaire |
+  |------------|----------------|----------|---------------|
+  | 2025-01-05 | Poulet entier  | 120      | 6.800         |
+  | 2025-01-12 | Poulet entier  |  80      | 6.900         |
+  ...
+
+  Les ventes permettent à l'IA de calculer votre marge réelle
+  et d'affiner les recommandations Buy/Hold.
+
+=====================================================================
+NOTES IMPORTANTES
+=====================================================================
+- Les noms d'articles doivent correspondre (même partiellement) à
+  ceux dans votre base MySQL pour que la fusion des données fonctionne.
+  Exemple : "Poulet" dans Excel matche "Poulet entier" en base.
+
+- Vous pouvez avoir PLUSIEURS feuilles dans un même classeur.
+  Le chargeur lira toutes les feuilles et fusionnera les données.
+
+- Les lignes avec prix = 0 ou vides sont automatiquement ignorées.
+
+- Les doublons (même date + même article) sont dédupliqués
+  en gardant la valeur la plus récente.
+=====================================================================

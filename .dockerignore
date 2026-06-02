@@ -1,0 +1,10 @@
+dindorfront/
+dindor-ai/
+target/
+logs/
+uploads/
+*.md
+*.txt
+docs/
+.git/
+.gitignore

@@ -1,199 +1,518 @@
-<div class="tresorerie-container">
-  <header class="page-header">
-    <div>
-      <h2>{{ title }}</h2>
-      <p class="subtitle">{{ subtitle }}</p>
+<div class="treso-page">
+
+  <!-- ══ HEADER ══ -->
+  <header class="treso-header">
+    <div class="treso-hdr-deco d1"></div>
+    <div class="treso-hdr-deco d2"></div>
+    <div class="treso-hdr-inner">
+      <div class="treso-hdr-left">
+        <div class="treso-hdr-icon">
+          <span class="material-symbols-outlined">account_balance_wallet</span>
+        </div>
+        <div>
+          <h1>Trésorerie</h1>
+          <p class="treso-hdr-sub">Caisse · Bilan financier · Flux de la période</p>
+        </div>
+      </div>
+      <div class="periode-bar">
+        <div class="periode-shortcuts">
+          <button [class.active]="isToday()" (click)="setPeriode('today')">Aujourd'hui</button>
+          <button (click)="setPeriode('week')">7 jours</button>
+          <button (click)="setPeriode('month')">Ce mois</button>
+        </div>
+        <div class="periode-inputs">
+          <input type="date" [(ngModel)]="dateDebut">
+          <span class="periode-sep">→</span>
+          <input type="date" [(ngModel)]="dateFin">
+          <button class="btn-maj" (click)="chargerTout()" title="Actualiser">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- Section 1 : Récapitulatif -->
-  <section class="section-recap card">
-    <h3>Récapitulatif</h3>
-    <div class="ca-banner">
-      <span class="ca-label">CHIFFRE D'AFFAIRES</span>
-      <span class="ca-value">{{ chiffreAffaires | number:'1.2-3':'fr' }}</span>
-    </div>
+  <!-- Spinner -->
+  <div class="treso-loading" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <span>Chargement des données…</span>
+  </div>
 
-    <div class="filters-recap">
-      <div class="filter-item">
-        <label>Du</label>
-        <input type="date" [(ngModel)]="dateDebutRecap">
-      </div>
-      <div class="filter-item">
-        <label>Au</label>
-        <input type="date" [(ngModel)]="dateFinRecap">
-      </div>
-      <div class="filter-item">
-        <label>Fournisseur</label>
-        <select [(ngModel)]="filterFournisseurRecap">
-          <option value="">Tous</option>
-          <option *ngFor="let f of fournisseurs" [value]="f.raisonSociale">{{ f.raisonSociale }}</option>
-        </select>
-      </div>
-      <button class="btn primary" (click)="majRecap()">MAJ</button>
-    </div>
+  <div class="treso-body" *ngIf="!isLoading">
 
-    <div class="recap-table-wrap">
-      <h4>Récap financier</h4>
-      <table class="data-table recap-table">
-        <thead>
-          <tr>
-            <th>Libellé</th>
-            <th class="montant-col">Montant (DT)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let l of recapLignes" [class.debiteur]="l.isDebiteur" [class.negatif]="l.isNegatif">
-            <td>{{ l.libelle }}</td>
-            <td class="montant-col" [class.txt-jaune]="l.isDebiteur" [class.txt-rouge]="l.isNegatif">
-              {{ l.montant | number:'1.2-3':'fr' }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- ══ ONGLETS ══ -->
+    <nav class="tab-nav">
+      <button [class.tab-active]="activeTab === 'resume'" (click)="activeTab = 'resume'">
+        <span class="material-symbols-outlined">dashboard</span>
+        Résumé
+      </button>
+      <button [class.tab-active]="activeTab === 'clients'" (click)="activeTab = 'clients'">
+        <span class="material-symbols-outlined">groups</span>
+        Par client
+        <span class="tab-badge" *ngIf="clientsRentabilite.length > 0">{{ clientsRentabilite.length }}</span>
+      </button>
+      <button [class.tab-active]="activeTab === 'jours'" (click)="activeTab = 'jours'">
+        <span class="material-symbols-outlined">calendar_month</span>
+        Journalier
+        <span class="tab-badge" *ngIf="joursBilan.length > 0">{{ joursBilan.length }}</span>
+      </button>
+      <button [class.tab-active]="activeTab === 'depenses'" (click)="activeTab = 'depenses'">
+        <span class="material-symbols-outlined">receipt_long</span>
+        Dépenses
+        <span class="tab-badge" *ngIf="depenses.length > 0">{{ depenses.length }}</span>
+      </button>
+    </nav>
 
-    <div class="vente-qte-block">
-      <div class="total-qte-vendue">
-        <span class="label">Total Quantité Vendue</span>
-        <span class="value">{{ totalQteVendue | number:'1.0-0':'fr' }}</span>
-      </div>
-      <h4>Détail Vente Qté / Article</h4>
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Article</th>
-              <th class="qte-col">QTE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngIf="ventesArticles.length === 0">
-              <td colspan="2" class="empty-state">Aucune vente pour la période.</td>
-            </tr>
-            <tr *ngFor="let v of ventesArticles">
-              <td>{{ v.article }}</td>
-              <td class="qte-col">{{ v.qte }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+    <!-- ══════════════════════════════════════════════════
+         ONGLET RÉSUMÉ
+    ══════════════════════════════════════════════════ -->
+    <ng-container *ngIf="activeTab === 'resume'">
 
-  <!-- Section 2 : Dépenses -->
-  <section class="section-depenses card">
-    <div class="section-header">
-      <h3>Dépenses</h3>
-      <button class="btn primary" (click)="openAddDepenseModal()">Ajouter une Dépense</button>
-    </div>
-
-    <div class="filters-depenses">
-      <div class="filter-item">
-        <label>Du</label>
-        <input type="date" [(ngModel)]="dateDebutDep" (ngModelChange)="onFilterDepensesChange()">
-      </div>
-      <div class="filter-item">
-        <label>Au</label>
-        <input type="date" [(ngModel)]="dateFinDep" (ngModelChange)="onFilterDepensesChange()">
-      </div>
-      <div class="filter-item">
-        <label>Catégorie</label>
-        <select [(ngModel)]="filterCategorieDep" (ngModelChange)="onFilterDepensesChange()">
-          <option value="">Toutes</option>
-          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-        </select>
-      </div>
-      <button class="btn outline" (click)="exportDepensesExcel()">Exporter en Excel</button>
-    </div>
-
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Libellé</th>
-            <th>Catégorie</th>
-            <th class="montant-col">Montant</th>
-            <th>Mode Paiement</th>
-            <th>Remarque</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngIf="filteredDepenses.length === 0">
-            <td colspan="7" class="empty-state">Aucune dépense. Cliquez sur "Ajouter une Dépense".</td>
-          </tr>
-          <tr *ngFor="let d of filteredDepenses">
-            <td>{{ formatDate(d.date) }}</td>
-            <td>{{ d.libelle }}</td>
-            <td>{{ d.categorie }}</td>
-            <td class="montant-col">{{ d.montant | number:'1.2-2':'fr' }} DT</td>
-            <td>{{ d.modePaiement }}</td>
-            <td>{{ d.remarque }}</td>
-            <td class="actions-col">
-              <button class="chip primary" (click)="editDepense(d)">Modifier</button>
-              <button class="chip danger" (click)="deleteDepense(d)">Supprimer</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="total-depenses">
-      <span class="label">Total des dépenses</span>
-      <span class="value">{{ totalDepenses | number:'1.2-2':'fr' }} DT</span>
-    </div>
-  </section>
-</div>
-
-<!-- Modal Dépense -->
-<div class="modal-backdrop" *ngIf="isModalDepenseOpen" (click)="closeDepenseModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div>
-        <h3>{{ isEditingDepense ? 'Modifier la dépense' : 'Ajouter une Dépense' }}</h3>
-        <p class="modal-subtitle">Renseignez les informations de la dépense.</p>
-      </div>
-      <button class="close-btn" type="button" (click)="closeDepenseModal()">&times;</button>
-    </div>
-    <form [formGroup]="depenseForm" (ngSubmit)="onSubmitDepense()">
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Date <span class="required">*</span></label>
-            <input type="date" formControlName="date">
+      <!-- Caisse card -->
+      <div class="caisse-card">
+        <div class="caisse-left">
+          <div class="caisse-icon">
+            <span class="material-symbols-outlined">payments</span>
           </div>
-          <div class="form-group wide">
-            <label>Libellé / Description <span class="required">*</span></label>
-            <input type="text" formControlName="libelle" placeholder="Ex: loyer, carburant, salaire...">
+          <div class="caisse-info">
+            <span class="caisse-label">Caisse en main (solde initial)</span>
+            <div class="caisse-body" *ngIf="!editingCaisse">
+              <span class="caisse-value">{{ fmtNum(caisseInitiale) }} DT</span>
+              <button class="caisse-edit-btn" (click)="startEditCaisse()" title="Saisir le montant en caisse">
+                <span class="material-symbols-outlined">edit</span> Modifier
+              </button>
+            </div>
+            <div class="caisse-edit-row" *ngIf="editingCaisse">
+              <input type="number" [(ngModel)]="caisseInput" min="0" step="0.001"
+                     class="caisse-input" placeholder="0.000" (keyup.enter)="saveCaisse()">
+              <button class="caisse-save-btn" (click)="saveCaisse()">
+                <span class="material-symbols-outlined">check</span>
+              </button>
+              <button class="caisse-cancel-btn" (click)="cancelEditCaisse()">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <span class="caisse-hint">Valeur sauvegardée localement · persiste entre sessions</span>
           </div>
-          <div class="form-group">
-            <label>Catégorie <span class="required">*</span></label>
-            <select formControlName="categorie">
-              <option value="">— Choisir —</option>
-              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Montant (DT) <span class="required">*</span></label>
-            <input type="number" formControlName="montant" step="0.01" min="0" placeholder="0.00">
-          </div>
-          <div class="form-group">
-            <label>Mode de paiement <span class="required">*</span></label>
-            <select formControlName="modePaiement">
-              <option *ngFor="let m of modesPaiement" [value]="m">{{ m }}</option>
-            </select>
-          </div>
-          <div class="form-group wide">
-            <label>Remarque</label>
-            <input type="text" formControlName="remarque" placeholder="Optionnel">
+        </div>
+        <div class="caisse-divider"></div>
+        <div class="caisse-right">
+          <div class="caisse-estimee">
+            <span class="ce-label">
+              <span class="material-symbols-outlined">account_balance</span>
+              Caisse estimée fin de période
+            </span>
+            <span class="ce-value" [class.ce-pos]="caisseEstimee >= 0" [class.ce-neg]="caisseEstimee < 0">
+              {{ fmtNum(caisseEstimee) }} DT
+            </span>
+            <span class="ce-formula">= {{ fmtNum(caisseInitiale) }} (initial) + {{ fmtNum(especes) }} (espèces) − dépenses espèces</span>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn neutral" type="button" (click)="closeDepenseModal()">Annuler</button>
-        <button class="btn success" type="submit">Enregistrer</button>
+
+      <!-- KPI row -->
+      <section class="kpi-row">
+        <div class="kpi-card kpi-ca">
+          <div class="kpi-icon"><span class="material-symbols-outlined">trending_up</span></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Chiffre d'affaires</span>
+            <span class="kpi-value">{{ fmtNum(ca) }} DT</span>
+            <span class="kpi-sub">{{ nbrBons }} bon{{ nbrBons > 1 ? 's' : '' }} de livraison</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-especes">
+          <div class="kpi-icon"><span class="material-symbols-outlined">local_atm</span></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Encaissé espèces</span>
+            <span class="kpi-value">{{ fmtNum(especes) }} DT</span>
+            <span class="kpi-sub">Ventes au comptant</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-credit">
+          <div class="kpi-icon"><span class="material-symbols-outlined">credit_score</span></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Ventes à crédit</span>
+            <span class="kpi-value">{{ fmtNum(credit) }} DT</span>
+            <span class="kpi-sub">Non encore encaissé</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-marge">
+          <div class="kpi-icon"><span class="material-symbols-outlined">show_chart</span></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Marge brute</span>
+            <span class="kpi-value">{{ fmtNum(margeBrute) }} DT</span>
+            <span class="kpi-sub">Taux : {{ tauxMarge | number:'1.0-1':'fr' }} %</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-depenses">
+          <div class="kpi-icon"><span class="material-symbols-outlined">receipt_long</span></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Dépenses période</span>
+            <span class="kpi-value">{{ fmtNum(totalDepensesPeriode) }} DT</span>
+            <span class="kpi-sub">Toutes catégories</span>
+          </div>
+        </div>
+
+        <div class="kpi-card" [class.kpi-benefice-pos]="beneficeNet >= 0" [class.kpi-benefice-neg]="beneficeNet < 0">
+          <div class="kpi-icon">
+            <span class="material-symbols-outlined">{{ beneficeNet >= 0 ? 'savings' : 'trending_down' }}</span>
+          </div>
+          <div class="kpi-info">
+            <span class="kpi-label">Bénéfice net réel</span>
+            <span class="kpi-value">{{ fmtNum(beneficeNet) }} DT</span>
+            <span class="kpi-sub">Marge brute − Dépenses</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bilan financier global -->
+      <section class="bilan-section">
+        <div class="section-title">
+          <span class="material-symbols-outlined">balance</span>
+          Bilan financier global
+        </div>
+        <div class="bilan-grid">
+          <div class="bilan-card bc-stock">
+            <div class="bc-icon"><span class="material-symbols-outlined">warehouse</span></div>
+            <div class="bc-body">
+              <span class="bc-label">Valeur du stock</span>
+              <span class="bc-value">{{ fmtNum(valeurStock) }} DT</span>
+              <span class="bc-hint">Prix PUMP × quantités actuelles</span>
+            </div>
+          </div>
+
+          <div class="bilan-card bc-clients">
+            <div class="bc-icon"><span class="material-symbols-outlined">group</span></div>
+            <div class="bc-body">
+              <span class="bc-label">Crédit clients</span>
+              <span class="bc-value">{{ fmtNum(creditClients) }} DT</span>
+              <span class="bc-hint">Montants non encore encaissés</span>
+            </div>
+          </div>
+
+          <div class="bilan-card bc-fourn">
+            <div class="bc-icon"><span class="material-symbols-outlined">local_shipping</span></div>
+            <div class="bc-body">
+              <span class="bc-label">Crédit fournisseurs</span>
+              <span class="bc-value">{{ fmtNum(creditFournisseurs) }} DT</span>
+              <span class="bc-hint">Dettes envers fournisseurs</span>
+            </div>
+          </div>
+
+          <div class="bilan-card" [class.bc-solde-pos]="soldeNet >= 0" [class.bc-solde-neg]="soldeNet < 0">
+            <div class="bc-icon"><span class="material-symbols-outlined">account_balance</span></div>
+            <div class="bc-body">
+              <span class="bc-label">Solde net estimé</span>
+              <span class="bc-value">{{ fmtNum(soldeNet) }} DT</span>
+              <span class="bc-hint">Espèces + Stock + Clients − Fourn. − Dépenses</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </ng-container>
+
+    <!-- ══════════════════════════════════════════════════
+         ONGLET PAR CLIENT
+    ══════════════════════════════════════════════════ -->
+    <ng-container *ngIf="activeTab === 'clients'">
+      <section class="analysis-section">
+        <div class="section-header-row">
+          <div class="section-title">
+            <span class="material-symbols-outlined">groups</span>
+            Rentabilité par client
+            <span class="badge-total">{{ clientsRentabilite.length }} client{{ clientsRentabilite.length > 1 ? 's' : '' }}</span>
+          </div>
+          <div class="detail-search">
+            <span class="material-symbols-outlined">search</span>
+            <input type="text" placeholder="Rechercher un client…" [(ngModel)]="searchClient">
+          </div>
+        </div>
+
+        <div class="summary-bar">
+          <div class="sb-item">
+            <span class="sb-label">CA total</span>
+            <span class="sb-value">{{ fmtNum(ca) }} DT</span>
+          </div>
+          <div class="sb-sep"></div>
+          <div class="sb-item">
+            <span class="sb-label">Bénéfice total</span>
+            <span class="sb-value txt-green">{{ fmtNum(totalClientsBenefice) }} DT</span>
+          </div>
+          <div class="sb-sep"></div>
+          <div class="sb-item">
+            <span class="sb-label">Taux marge moyen</span>
+            <span class="sb-value">{{ tauxMarge | number:'1.0-1':'fr' }} %</span>
+          </div>
+          <div class="sb-sep"></div>
+          <div class="sb-item">
+            <span class="sb-label">Clients actifs</span>
+            <span class="sb-value">{{ clientsRentabilite.length }}</span>
+          </div>
+        </div>
+
+        <div class="detail-table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th style="width:36px">#</th>
+                <th>Client</th>
+                <th class="num-col">CA (DT)</th>
+                <th class="num-col">Payé (DT)</th>
+                <th class="num-col">Reste dû (DT)</th>
+                <th class="num-col">Bénéfice (DT)</th>
+                <th class="num-col">Taux marge</th>
+                <th class="num-col">BLs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="clientsFiltres.length === 0">
+                <td colspan="8" class="empty-row">Aucun client sur cette période.</td>
+              </tr>
+              <tr *ngFor="let c of clientsFiltres; let i = index">
+                <td class="rank-col">{{ i + 1 }}</td>
+                <td class="client-name-col">{{ c.nom }}</td>
+                <td class="num-col amt">{{ fmtNum(c.ca) }}</td>
+                <td class="num-col">{{ fmtNum(c.montantPaye) }}</td>
+                <td class="num-col" [class.txt-red]="c.montantReste > 0">{{ fmtNum(c.montantReste) }}</td>
+                <td class="num-col" [ngClass]="margeColor(c.benefice > 0 ? c.marge : -1)">{{ fmtNum(c.benefice) }}</td>
+                <td class="num-col">
+                  <span class="marge-badge" [ngClass]="margeColor(c.marge)">
+                    {{ c.marge | number:'1.0-1':'fr' }} %
+                  </span>
+                </td>
+                <td class="num-col">{{ c.nbBons }}</td>
+              </tr>
+            </tbody>
+            <tfoot *ngIf="clientsFiltres.length > 0">
+              <tr class="total-row">
+                <td colspan="2"><strong>TOTAL</strong></td>
+                <td class="num-col"><strong>{{ fmtNum(ca) }}</strong></td>
+                <td class="num-col"><strong>{{ fmtNum(especes) }}</strong></td>
+                <td class="num-col txt-red"><strong>{{ fmtNum(credit) }}</strong></td>
+                <td class="num-col txt-green"><strong>{{ fmtNum(totalClientsBenefice) }}</strong></td>
+                <td class="num-col"><strong>{{ tauxMarge | number:'1.0-1':'fr' }} %</strong></td>
+                <td class="num-col"><strong>{{ nbrBons }}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="show-more-row" *ngIf="clientsRentabilite.length > 10">
+          <button class="btn-show-more" (click)="showAllClients = !showAllClients">
+            <span class="material-symbols-outlined">{{ showAllClients ? 'expand_less' : 'expand_more' }}</span>
+            {{ showAllClients ? 'Afficher moins' : 'Afficher tous (' + clientsRentabilite.length + ')' }}
+          </button>
+        </div>
+      </section>
+    </ng-container>
+
+    <!-- ══════════════════════════════════════════════════
+         ONGLET JOURNALIER
+    ══════════════════════════════════════════════════ -->
+    <ng-container *ngIf="activeTab === 'jours'">
+      <section class="analysis-section">
+        <div class="section-header-row">
+          <div class="section-title">
+            <span class="material-symbols-outlined">calendar_month</span>
+            Bilan journalier
+            <span class="badge-total">{{ joursBilan.length }} jour{{ joursBilan.length > 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="num-col">CA (DT)</th>
+                <th class="num-col">Marge brute (DT)</th>
+                <th class="num-col">Dépenses (DT)</th>
+                <th class="num-col">Bénéfice net (DT)</th>
+                <th class="num-col">BLs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="joursBilan.length === 0">
+                <td colspan="6" class="empty-row">Aucune donnée sur cette période.</td>
+              </tr>
+              <tr *ngFor="let j of joursBilan">
+                <td class="date-col">{{ fmt(j.date) }}</td>
+                <td class="num-col amt">{{ fmtNum(j.ca) }}</td>
+                <td class="num-col" [class.txt-green]="j.benefice >= 0" [class.txt-red]="j.benefice < 0">
+                  {{ fmtNum(j.benefice) }}
+                </td>
+                <td class="num-col txt-red">{{ fmtNum(j.depenses) }}</td>
+                <td class="num-col" [class.txt-green]="j.beneficeNet >= 0" [class.txt-red]="j.beneficeNet < 0">
+                  <strong>{{ fmtNum(j.beneficeNet) }}</strong>
+                </td>
+                <td class="num-col">{{ j.nbBons }}</td>
+              </tr>
+            </tbody>
+            <tfoot *ngIf="joursBilan.length > 0">
+              <tr class="total-row">
+                <td><strong>TOTAL</strong></td>
+                <td class="num-col"><strong>{{ fmtNum(ca) }}</strong></td>
+                <td class="num-col txt-green"><strong>{{ fmtNum(margeBrute) }}</strong></td>
+                <td class="num-col txt-red"><strong>{{ fmtNum(totalDepensesPeriode) }}</strong></td>
+                <td class="num-col" [class.txt-green]="beneficeNet >= 0" [class.txt-red]="beneficeNet < 0">
+                  <strong>{{ fmtNum(beneficeNet) }}</strong>
+                </td>
+                <td class="num-col"><strong>{{ nbrBons }}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+
+    <!-- ══════════════════════════════════════════════════
+         ONGLET DÉPENSES
+    ══════════════════════════════════════════════════ -->
+    <ng-container *ngIf="activeTab === 'depenses'">
+      <section class="depenses-section">
+        <div class="depenses-header">
+          <div class="section-title">
+            <span class="material-symbols-outlined">receipt_long</span>
+            Gestion des dépenses
+          </div>
+          <div class="dep-actions">
+            <button class="btn-export" (click)="exportDepenses()">
+              <span class="material-symbols-outlined">download</span> Exporter CSV
+            </button>
+            <button class="btn-add-dep" (click)="openAddDep()">
+              <span class="material-symbols-outlined">add</span> Nouvelle dépense
+            </button>
+          </div>
+        </div>
+
+        <div class="dep-filters">
+          <div class="dep-filter-item">
+            <label>Du</label>
+            <input type="date" [(ngModel)]="dateDebutDep" (ngModelChange)="applyFiltreDep()">
+          </div>
+          <div class="dep-filter-item">
+            <label>Au</label>
+            <input type="date" [(ngModel)]="dateFinDep" (ngModelChange)="applyFiltreDep()">
+          </div>
+          <div class="dep-filter-item">
+            <label>Catégorie</label>
+            <select [(ngModel)]="filterCategorie" (ngModelChange)="applyFiltreDep()">
+              <option value="">Toutes</option>
+              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="dep-table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Libellé</th>
+                <th>Catégorie</th>
+                <th class="num-col">Montant (DT)</th>
+                <th>Mode</th>
+                <th>Remarque</th>
+                <th class="act-col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="filteredDepenses.length === 0">
+                <td colspan="7" class="empty-row">Aucune dépense pour cette période.</td>
+              </tr>
+              <tr *ngFor="let d of filteredDepenses">
+                <td>{{ fmt(d.date) }}</td>
+                <td class="lib-col">{{ d.libelle }}</td>
+                <td><span class="cat-chip">{{ d.categorie }}</span></td>
+                <td class="num-col amt">{{ fmtNum(d.montant, 3) }}</td>
+                <td>{{ d.modePaiement }}</td>
+                <td class="rem-col">{{ d.remarque || '—' }}</td>
+                <td class="act-col">
+                  <button class="btn-icon-tbl" (click)="openEditDep(d)" title="Modifier">
+                    <span class="material-symbols-outlined">edit</span>
+                  </button>
+                  <button class="btn-icon-tbl danger" (click)="deleteDep(d)" title="Supprimer">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot *ngIf="filteredDepenses.length > 0">
+              <tr class="total-row">
+                <td colspan="3"><strong>TOTAL DÉPENSES</strong></td>
+                <td class="num-col amt"><strong>{{ fmtNum(totalDepenses) }}</strong></td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+
+  </div><!-- /treso-body -->
+</div>
+
+<!-- ══ MODAL DÉPENSE ══ -->
+<div class="modal-overlay" *ngIf="isModalDepOpen" (click)="closeDepOnOverlay($event)">
+  <div class="modal-dep">
+    <div class="modal-hdr">
+      <div>
+        <h3>{{ isEditingDep ? 'Modifier la dépense' : 'Nouvelle dépense' }}</h3>
+        <p>Saisissez les informations de la dépense</p>
       </div>
-    </form>
+      <button class="modal-close" (click)="closeDep()">×</button>
+    </div>
+    <div class="modal-bdy" [formGroup]="depForm">
+      <div class="mform-row">
+        <div class="mform-field">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" formControlName="date">
+        </div>
+        <div class="mform-field mform-wide">
+          <label>Libellé <span class="req">*</span></label>
+          <input type="text" formControlName="libelle" placeholder="Ex : carburant, loyer…">
+          <span class="ferr" *ngIf="depForm.get('libelle')?.invalid && depForm.get('libelle')?.touched">Obligatoire</span>
+        </div>
+      </div>
+      <div class="mform-row">
+        <div class="mform-field">
+          <label>Catégorie <span class="req">*</span></label>
+          <select formControlName="categorie">
+            <option value="">— Choisir —</option>
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          </select>
+          <span class="ferr" *ngIf="depForm.get('categorie')?.invalid && depForm.get('categorie')?.touched">Obligatoire</span>
+        </div>
+        <div class="mform-field">
+          <label>Montant (DT) <span class="req">*</span></label>
+          <input type="number" formControlName="montant" step="0.001" min="0" placeholder="0.000">
+          <span class="ferr" *ngIf="depForm.get('montant')?.invalid && depForm.get('montant')?.touched">Montant invalide</span>
+        </div>
+      </div>
+      <div class="mform-row">
+        <div class="mform-field">
+          <label>Mode de paiement <span class="req">*</span></label>
+          <select formControlName="modePaiement">
+            <option *ngFor="let m of modesPaiement" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+        <div class="mform-field mform-wide">
+          <label>Remarque</label>
+          <input type="text" formControlName="remarque" placeholder="Optionnel">
+        </div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn-save-dep" (click)="submitDep()">
+        <span class="material-symbols-outlined">save</span>
+        {{ isEditingDep ? 'Modifier' : 'Enregistrer' }}
+      </button>
+      <button class="btn-cancel-dep" (click)="closeDep()">Annuler</button>
+    </div>
   </div>
 </div>

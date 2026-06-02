@@ -23,8 +23,7 @@ export class LoginComponent {
   constructor() {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      rememberMe: [false]
+      password: ['', [Validators.required, Validators.minLength(6)]]
     });
   }
 
@@ -39,16 +38,15 @@ export class LoginComponent {
       
       const credentials = {
         email: this.loginForm.value.email,
-        password: this.loginForm.value.password,
-        rememberMe: this.loginForm.value.rememberMe || false
+        password: this.loginForm.value.password
       };
 
       this.authService.login(credentials).subscribe({
         next: (response) => {
           this.isLoading = false;
           if (response.success) {
-            // Rediriger vers la page home après connexion réussie
-            this.router.navigate(['/home']);
+            // Rediriger selon le rôle (admin → /home, client → /portail-client, employé → /portail-employe)
+            this.authService.redirectAfterLogin();
           } else {
             this.errorMessage = response.message || 'Erreur lors de la connexion';
           }

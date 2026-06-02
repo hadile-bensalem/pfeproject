@@ -40,11 +40,27 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.deny())
+                .contentTypeOptions(ct -> {})
+                .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
+                .xssProtection(xss -> {})
+            )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**", "/password-reset/**", "/error").permitAll()
-                // Tous les autres endpoints exigent un JWT valide avec le rôle ADMIN.
-                // Tout nouveau controller est automatiquement protégé sans modifier cette classe.
-                .anyRequest().hasRole("ADMIN")
+                // Static resources and SPA routes
+                .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/*.ico", "/assets/**",
+                        "/chunk-*.js", "/main*.js", "/polyfills*.js", "/styles*.css").permitAll()
+                // Public API endpoints
+                .requestMatchers("/api/auth/**", "/api/password-reset/**", "/api/public/**", "/error").permitAll()
+                .requestMatchers("/api/articles/images/**").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                // Role-based API access
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/employe/**").hasRole("EMPLOYE")
+                // All API endpoints require authentication
+                .requestMatchers("/api/**").authenticated()
+                // Everything else (Angular routes) is public
+                .anyRequest().permitAll()
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -59,7 +75,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(securityProperties.getCors().getAllowedOrigins().split(",")));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);

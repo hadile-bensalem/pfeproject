@@ -1,257 +1,547 @@
 <div class="dashboard-page">
 
-  <!-- ══ BANNIÈRE D'ACCUEIL ══ -->
-  <div class="dash-banner">
-    <div class="banner-deco deco-1"></div>
-    <div class="banner-deco deco-2"></div>
-    <div class="banner-deco deco-3"></div>
-
-    <div class="banner-content">
-      <div class="banner-left">
-        <div class="banner-badge-top">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-            <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor"/>
-          </svg>
-          <span>Dind'Or — Volaille</span>
-        </div>
-        <p class="banner-greeting">{{ greeting }},</p>
-        <h1 class="banner-title" *ngIf="adminInfo">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</h1>
-        <h1 class="banner-title" *ngIf="!adminInfo">Administrateur</h1>
-        <p class="banner-sub">Tableau de bord · Gestion administrative</p>
-      </div>
-      <div class="banner-right">
-        <div class="banner-date-card">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/>
-          </svg>
-          <span>{{ todayLabel }}</span>
-        </div>
-        <div class="banner-icon-wrap">
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-            <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor" opacity="0.85"/>
-          </svg>
+  <!-- ══ HERO ══ -->
+  <section class="dash-hero">
+    <div class="dh-left">
+      <div class="dh-brand">
+        <span class="material-symbols-outlined dh-brand-icon">egg_alt</span>
+        <div>
+          <h1 class="dh-title">Dind'<span>Or</span> ERP</h1>
+          <p class="dh-sub">Système de gestion intégré · Aviculture</p>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ══ KPI STATS ══ -->
-  <div class="kpi-grid">
-
-    <div class="kpi-card kpi-ventes">
-      <div class="kpi-strip"></div>
-      <div class="kpi-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M7 18C8.1 18 9 17.1 9 16C9 14.9 8.1 14 7 14C5.9 14 5 14.9 5 16C5 17.1 5.9 18 7 18ZM1 2V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.5C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C18.1 18 19 17.1 19 16C19 14.9 18.1 14 17 14C15.9 14 15 14.9 15 16C15 17.1 15.9 18 17 18Z" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-label">Ventes du jour</span>
-        <span class="kpi-value">0 <small>MAD</small></span>
-        <span class="kpi-trend neutral">— Aucune vente</span>
+    <div class="dh-center">
+      <div class="dh-greeting">
+        <span class="material-symbols-outlined" style="font-size:1.4rem;color:rgba(255,255,255,0.7)">waving_hand</span>
+        <div>
+          <p class="dh-greet-text">
+            {{ greeting }},
+            <strong *ngIf="adminInfo">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</strong>
+            <strong *ngIf="!adminInfo">Administrateur</strong>
+          </p>
+          <p class="dh-date-text">{{ todayLabel }}</p>
+        </div>
       </div>
     </div>
 
-    <div class="kpi-card kpi-stock">
-      <div class="kpi-strip"></div>
-      <div class="kpi-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M20 6H17V4C17 2.9 16.1 2 15 2H9C7.9 2 7 2.9 7 4V6H4C2.9 6 2 6.9 2 8V19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V8C22 6.9 21.1 6 20 6ZM9 4H15V6H9V4ZM20 19H4V8H20V19Z" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-label">Articles en stock</span>
-        <span class="kpi-value">0 <small>réf.</small></span>
-        <span class="kpi-trend neutral">— Stock vide</span>
+    <div class="dh-right">
+      <div class="dh-actions">
+        <button class="dh-btn-secondary" (click)="loadAll()">
+          <span class="material-symbols-outlined">refresh</span>
+          Actualiser
+        </button>
       </div>
     </div>
+  </section>
 
-    <div class="kpi-card kpi-clients">
-      <div class="kpi-strip"></div>
-      <div class="kpi-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M16 11C17.66 11 18.99 9.66 18.99 8C18.99 6.34 17.66 5 16 5C14.34 5 13 6.34 13 8C13 9.66 14.34 11 16 11ZM8 11C9.66 11 10.99 9.66 10.99 8C10.99 6.34 9.66 5 8 5C6.34 5 5 6.34 5 8C5 9.66 6.34 11 8 11ZM8 13C5.67 13 1 14.17 1 16.5V19H15V16.5C15 14.17 10.33 13 8 13ZM16 13C15.71 13 15.38 13.02 15.03 13.05C16.19 13.89 17 15.02 17 16.5V19H23V16.5C23 14.17 18.33 13 16 13Z" fill="currentColor"/>
-        </svg>
+  <!-- ══ CONTENT AREA ══ -->
+  <div class="dash-content">
+
+    <!-- ══ KPI ROW ══ -->
+    <div class="kpi-row">
+
+      <!-- KPI 1: CA du Jour -->
+      <div class="kpi-card kpi-c1">
+        <div class="kpi-icon-wrap">
+          <span class="material-symbols-outlined">trending_up</span>
+        </div>
+        <p class="kpi-label">CA du Jour</p>
+        <h3 class="kpi-val" *ngIf="!isLoadingVente">{{ formatNum(caJour) }} <small>DT</small></h3>
+        <h3 class="kpi-val loading-val" *ngIf="isLoadingVente">…</h3>
+        <p class="kpi-sub">
+          <span class="kpi-badge" [class.kpi-badge-danger]="nombreBons === 0">{{ nombreBons }} bon(s)</span>
+        </p>
       </div>
-      <div class="kpi-body">
-        <span class="kpi-label">Clients actifs</span>
-        <span class="kpi-value">0</span>
-        <span class="kpi-trend neutral">— Aucun client</span>
+
+      <!-- KPI 2: CA de l'Année -->
+      <div class="kpi-card kpi-c2">
+        <div class="kpi-icon-wrap">
+          <span class="material-symbols-outlined">insights</span>
+        </div>
+        <p class="kpi-label">CA de l'Année</p>
+        <h3 class="kpi-val">{{ formatNum(caAnnee) }} <small>DT</small></h3>
+        <p class="kpi-sub">Exercice {{ currentYear }}</p>
       </div>
+
+      <!-- KPI 3: Valeur Stock -->
+      <div class="kpi-card kpi-c3">
+        <div class="kpi-icon-wrap">
+          <span class="material-symbols-outlined">inventory</span>
+        </div>
+        <p class="kpi-label">Valeur Stock</p>
+        <h3 class="kpi-val" *ngIf="!isLoadingStock">{{ formatNum(valeurStock) }} <small>DT</small></h3>
+        <h3 class="kpi-val loading-val" *ngIf="isLoadingStock">…</h3>
+        <p class="kpi-sub">{{ nombreArticles }} réf.</p>
+      </div>
+
+      <!-- KPI 4: Crédit Journalier -->
+      <div class="kpi-card kpi-c4">
+        <div class="kpi-icon-wrap">
+          <span class="material-symbols-outlined">payments</span>
+        </div>
+        <p class="kpi-label">Crédit Journalier</p>
+        <h3 class="kpi-val" *ngIf="!isLoadingVente">{{ formatNum(montantCreditJour) }} <small>DT</small></h3>
+        <h3 class="kpi-val loading-val" *ngIf="isLoadingVente">…</h3>
+        <p class="kpi-sub">Ventes à crédit</p>
+      </div>
+
+      <!-- KPI 5: Alertes Stock -->
+      <div class="kpi-card kpi-c5">
+        <div class="kpi-icon-wrap">
+          <span class="material-symbols-outlined">warning</span>
+        </div>
+        <p class="kpi-label">Alertes Stock</p>
+        <h3 class="kpi-val" [class.kpi-val-danger]="articlesAlerte > 0">{{ articlesAlerte }}</h3>
+        <p class="kpi-sub">articles à surveiller</p>
+      </div>
+
     </div>
 
-    <div class="kpi-card kpi-tresorerie">
-      <div class="kpi-strip"></div>
-      <div class="kpi-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M21 18V19C21 20.1 20.1 21 19 21H5C3.89 21 3 20.1 3 19V5C3 3.9 3.89 3 5 3H19C20.1 3 21 3.9 21 5V6H12C10.89 6 10 6.9 10 8V16C10 17.1 10.89 18 12 18H21ZM12 16H22V8H12V16ZM16 13.5C15.17 13.5 14.5 12.83 14.5 12C14.5 11.17 15.17 10.5 16 10.5C16.83 10.5 17.5 11.17 17.5 12C17.5 12.83 16.83 13.5 16 13.5Z" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-label">Solde trésorerie</span>
-        <span class="kpi-value">0 <small>MAD</small></span>
-        <span class="kpi-trend neutral">— Non renseigné</span>
-      </div>
+    <!-- ══ TAB BAR ══ -->
+    <div class="tab-bar">
+      <button class="tab-btn" [class.tab-active]="activeTab === 'apercu'" (click)="switchTab('apercu')">
+        <span class="material-symbols-outlined">dashboard</span>
+        Vue d'ensemble
+      </button>
+      <button class="tab-btn" [class.tab-active]="activeTab === 'analytique'" (click)="switchTab('analytique')">
+        <span class="material-symbols-outlined">bar_chart</span>
+        Analytique
+      </button>
     </div>
 
-  </div>
+    <!-- ══ OVERVIEW TAB ══ -->
+    <div *ngIf="activeTab === 'apercu'">
 
-  <!-- ══ ACCÈS RAPIDE + PROFIL ══ -->
-  <div class="dash-bottom">
+      <!-- 2-column grid: main + side -->
+      <div class="apercu-grid">
 
-    <!-- Accès rapide aux modules -->
-    <div class="quick-access-card">
-      <div class="card-header-line">
-        <div class="card-header-icon red">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor"/>
-          </svg>
-        </div>
-        <h3>Accès rapide</h3>
-        <span class="card-badge">8 modules</span>
-      </div>
-      <div class="quick-grid">
-
-        <a routerLink="/achat" class="quick-item">
-          <div class="qi-icon qi-red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M7 18C8.1 18 9 17.1 9 16C9 14.9 8.1 14 7 14C5.9 14 5 14.9 5 16C5 17.1 5.9 18 7 18ZM1 2V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.5C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C18.1 18 19 17.1 19 16C19 14.9 18.1 14 17 14C15.9 14 15 14.9 15 16C15 17.1 15.9 18 17 18Z" fill="currentColor"/>
-            </svg>
+        <!-- LEFT: Bons de Livraison du jour -->
+        <div class="bls-section">
+          <div class="bls-header">
+            <div class="bls-header-left">
+              <div class="bls-header-icon">
+                <span class="material-symbols-outlined">receipt_long</span>
+              </div>
+              <div>
+                <h2 class="bls-title">Bons de Livraison — Aujourd'hui</h2>
+                <p class="bls-sub">
+                  <span class="material-symbols-outlined" style="font-size:0.9rem;vertical-align:middle">calendar_today</span>
+                  {{ todayLabel }}
+                </p>
+              </div>
+            </div>
+            <a routerLink="/facture" class="bls-link">Voir tout →</a>
           </div>
-          <span class="qi-label">Achat</span>
-          <span class="qi-desc">Factures fournisseurs</span>
-        </a>
 
-        <a routerLink="/articles" class="quick-item">
-          <div class="qi-icon qi-gold">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM9 17H7V10H9V17ZM13 17H11V7H13V17ZM17 17H15V13H17V17Z" fill="currentColor"/>
-            </svg>
+          <div class="tbl-wrap">
+            <!-- Loading state -->
+            <div class="tbl-loading" *ngIf="isLoadingVente">
+              <span class="material-symbols-outlined spin">sync</span>
+              Chargement des bons…
+            </div>
+
+            <!-- Table -->
+            <table class="dash-tbl" *ngIf="!isLoadingVente">
+              <thead>
+                <tr>
+                  <th>N° BL</th>
+                  <th>Client</th>
+                  <th class="num">Montant TTC</th>
+                  <th>Mode</th>
+                  <th>État</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fc of recentFactures">
+                  <td class="td-mono">{{ fc.numeroFacture }}</td>
+                  <td>
+                    <span class="td-client-name">{{ fc.clientNom }}</span>
+                    <span class="td-client-code">{{ fc.clientCode }}</span>
+                  </td>
+                  <td class="num td-amount">{{ formatNum(fc.netAPayer) }} <small>DT</small></td>
+                  <td>
+                    <span class="mode-chip"
+                          [class.chip-esp]="fc.modePaiement === 'ESPECES'"
+                          [class.chip-cred]="fc.modePaiement === 'CREDIT'">
+                      {{ fc.modePaiement === 'ESPECES' ? 'Espèces' : 'Crédit' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="status-badge" [ngClass]="etatClass(fc.etatPaiement)">
+                      {{ etatLabel(fc.etatPaiement) }}
+                    </span>
+                  </td>
+                </tr>
+                <tr *ngIf="!recentFactures.length">
+                  <td colspan="5">
+                    <div class="tbl-empty">
+                      <span class="material-symbols-outlined">local_shipping</span>
+                      <p>Aucun bon de livraison aujourd'hui</p>
+                      <span>Les commandes apparaîtront ici en temps réel</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <span class="qi-label">Articles</span>
-          <span class="qi-desc">Catalogue produits</span>
-        </a>
 
-        <a routerLink="/vente" class="quick-item">
-          <div class="qi-icon qi-red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Vente</span>
-          <span class="qi-desc">Gestion des ventes</span>
-        </a>
-
-        <a routerLink="/stock" class="quick-item">
-          <div class="qi-icon qi-gold">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M20 6H17V4C17 2.9 16.1 2 15 2H9C7.9 2 7 2.9 7 4V6H4C2.9 6 2 6.9 2 8V19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V8C22 6.9 21.1 6 20 6ZM9 4H15V6H9V4ZM20 19H4V8H20V19Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Stock</span>
-          <span class="qi-desc">Niveaux & entrées</span>
-        </a>
-
-        <a routerLink="/client" class="quick-item">
-          <div class="qi-icon qi-red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Clients</span>
-          <span class="qi-desc">Base clients</span>
-        </a>
-
-        <a routerLink="/fournisseur" class="quick-item">
-          <div class="qi-icon qi-gold">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M20 8H17.19C16.74 7.22 16.12 6.55 15.37 6.04L17 4.41L15.59 3L13.42 5.17C12.96 5.06 12.49 5 12 5S11.04 5.06 10.59 5.17L8.41 3L7 4.41L8.62 6.04C7.88 6.55 7.26 7.22 6.81 8H4V10H6.09C6.04 10.33 6 10.66 6 11V12H4V14H6V15C6 15.34 6.04 15.67 6.09 16H4V18H6.81C7.85 19.79 9.78 21 12 21S16.15 19.79 17.19 18H20V16H17.91C17.96 15.67 18 15.34 18 15V14H20V12H18V11C18 10.66 17.96 10.33 17.91 10H20V8Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Fournisseurs</span>
-          <span class="qi-desc">Partenaires achat</span>
-        </a>
-
-        <a routerLink="/facture" class="quick-item">
-          <div class="qi-icon qi-red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M14 2H6C4.9 2 4.01 2.9 4.01 4L4 20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2ZM16 18H8V16H16V18ZM16 14H8V12H16V14ZM13 9V3.5L18.5 9H13Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Factures</span>
-          <span class="qi-desc">Édition & suivi</span>
-        </a>
-
-        <a routerLink="/tresorerie" class="quick-item">
-          <div class="qi-icon qi-gold">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M21 18V19C21 20.1 20.1 21 19 21H5C3.89 21 3 20.1 3 19V5C3 3.9 3.89 3 5 3H19C20.1 3 21 3.9 21 5V6H12C10.89 6 10 6.9 10 8V16C10 17.1 10.89 18 12 18H21ZM12 16H22V8H12V16ZM16 13.5C15.17 13.5 14.5 12.83 14.5 12C14.5 11.17 15.17 10.5 16 10.5C16.83 10.5 17.5 11.17 17.5 12C17.5 12.83 16.83 13.5 16 13.5Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span class="qi-label">Trésorerie</span>
-          <span class="qi-desc">Flux & solde</span>
-        </a>
-
-      </div>
-    </div>
-
-    <!-- Profil administrateur -->
-    <div class="profile-card" *ngIf="adminInfo">
-      <div class="card-header-line">
-        <div class="card-header-icon gold">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
-          </svg>
-        </div>
-        <h3>Profil administrateur</h3>
-      </div>
-
-      <div class="profile-avatar-wrap">
-        <div class="profile-avatar">
-          {{ adminInfo.firstName.charAt(0) }}{{ adminInfo.lastName.charAt(0) }}
-        </div>
-        <div class="profile-name-wrap">
-          <span class="profile-fullname">{{ adminInfo.firstName }} {{ adminInfo.lastName }}</span>
-          <span class="profile-badge">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="currentColor"/>
-            </svg>
-            Administrateur
-          </span>
-        </div>
-      </div>
-
-      <div class="profile-details">
-        <div class="profile-row">
-          <span class="pr-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" fill="currentColor"/>
-            </svg>
-          </span>
-          <div class="pr-content">
-            <span class="pr-label">Email</span>
-            <span class="pr-val">{{ adminInfo.email }}</span>
+          <div class="bls-footer">
+            <span>CA journalier : <strong>{{ formatNum(caJour) }} DT</strong></span>
+            <a routerLink="/facture" class="bls-link">Tous les bons →</a>
           </div>
         </div>
-        <div class="profile-row">
-          <span class="pr-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/>
-            </svg>
-          </span>
-          <div class="pr-content">
-            <span class="pr-label">Identifiant</span>
-            <span class="pr-val">#{{ adminInfo.id }}</span>
+
+        <!-- RIGHT: side panel -->
+        <div class="side-panel">
+
+          <!-- Alertes Stock card -->
+          <div class="alerts-card">
+            <div class="ac-hdr">
+              <div class="ac-hdr-left">
+                <div class="ac-icon">
+                  <span class="material-symbols-outlined">warning</span>
+                </div>
+                <div>
+                  <h3>Alertes Stock</h3>
+                  <p>Articles à surveiller</p>
+                </div>
+              </div>
+              <span class="ac-count" [class.ac-count-danger]="articlesAlerte > 0" [class.ac-count-ok]="articlesAlerte === 0">
+                {{ articlesAlerte }}
+              </span>
+            </div>
+
+            <div class="tbl-loading" *ngIf="isLoadingStock">
+              <span class="material-symbols-outlined spin">sync</span>
+            </div>
+
+            <div class="ac-list" *ngIf="!isLoadingStock">
+              <div class="ac-item" *ngFor="let a of stockAlertes"
+                   [class.aci-rupture]="a.enRupture">
+                <div class="aci-left">
+                  <span class="aci-code">{{ a.codeArticle }}</span>
+                  <span class="aci-name">{{ a.designation }}</span>
+                </div>
+                <span class="aci-pill" [class.aci-pill-rupture]="a.enRupture">
+                  {{ a.enRupture ? 'Rupture' : 'Alerte' }}
+                </span>
+              </div>
+              <div class="ac-ok" *ngIf="!stockAlertes.length">
+                <span class="material-symbols-outlined">check_circle</span>
+                Aucune alerte en cours
+              </div>
+            </div>
+
+            <a routerLink="/stock" class="ac-link">Gérer le stock →</a>
           </div>
+
+          <!-- Résumé Financier card -->
+          <div class="fin-card">
+            <h3 class="fin-title">
+              <span class="material-symbols-outlined">account_balance_wallet</span>
+              Résumé Financier
+            </h3>
+            <div class="fin-row">
+              <span>CA de l'année</span>
+              <strong>{{ formatNum(caAnnee) }} DT</strong>
+            </div>
+            <div class="fin-row">
+              <span>Valeur du stock</span>
+              <strong>{{ formatNum(valeurStock) }} DT</strong>
+            </div>
+            <div class="fin-row">
+              <span>Articles catalogue</span>
+              <strong>{{ nombreArticles }} réf.</strong>
+            </div>
+            <a routerLink="/tresorerie" class="fin-link">Voir la trésorerie →</a>
+          </div>
+
         </div>
       </div>
 
-      <div class="profile-status">
-        <span class="status-dot"></span>
-        <span class="status-text">Session active</span>
-      </div>
-    </div>
+      <!-- Modules grid -->
+      <div class="modules-nav">
+        <div class="modules-nav-hdr">
+          <div>
+            <h2 class="mn-title">Modules de l'Application</h2>
+            <p class="mn-sub">Accédez à tous les outils de gestion de votre ERP</p>
+          </div>
+        </div>
 
-  </div>
+        <div class="modules-grid">
+
+          <a routerLink="/facture" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">local_shipping</span>
+            </div>
+            <div>
+              <p class="mod-name">Bons de Livraison</p>
+              <p class="mod-desc">Saisie et suivi des BL clients</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/facture-client" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">receipt_long</span>
+            </div>
+            <div>
+              <p class="mod-name">Factures Client</p>
+              <p class="mod-desc">Facturation, TVA, timbres fiscaux</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/achat" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">shopping_cart</span>
+            </div>
+            <div>
+              <p class="mod-name">Achats</p>
+              <p class="mod-desc">Factures fournisseurs, approvisionnement</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/stock" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">inventory_2</span>
+            </div>
+            <div>
+              <p class="mod-name">Stock</p>
+              <p class="mod-desc">Inventaire, alertes, mouvements de stock</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/articles" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">category</span>
+            </div>
+            <div>
+              <p class="mod-name">Articles</p>
+              <p class="mod-desc">Catalogue produits, prix, PUMP</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/client" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">groups</span>
+            </div>
+            <div>
+              <p class="mod-name">Clients</p>
+              <p class="mod-desc">Base clients, gestion des comptes</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/clients-crediteurs" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">account_balance</span>
+            </div>
+            <div>
+              <p class="mod-name">Crédit Clients</p>
+              <p class="mod-desc">Suivi des créances, règlements</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/fournisseur" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">storefront</span>
+            </div>
+            <div>
+              <p class="mod-name">Fournisseurs</p>
+              <p class="mod-desc">Base fournisseurs, contacts</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/fournisseurs/etat" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">receipt</span>
+            </div>
+            <div>
+              <p class="mod-name">État Fournisseurs</p>
+              <p class="mod-desc">Comptes fournisseurs, paiements</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/decoupe-poulet" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">cut</span>
+            </div>
+            <div>
+              <p class="mod-name">Découpe Poulet</p>
+              <p class="mod-desc">Saisie découpe, lots, coûts de production</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/employes" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">badge</span>
+            </div>
+            <div>
+              <p class="mod-name">Employés</p>
+              <p class="mod-desc">Personnel, présences, fiches de paie</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/tresorerie" class="mod-card mod-primary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">savings</span>
+            </div>
+            <div>
+              <p class="mod-name">Trésorerie</p>
+              <p class="mod-desc">Flux financiers, bilans, soldes</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+          <a routerLink="/prediction" class="mod-card mod-secondary">
+            <div class="mod-icon">
+              <span class="material-symbols-outlined">auto_graph</span>
+            </div>
+            <div>
+              <p class="mod-name">Prédictions IA</p>
+              <p class="mod-desc">Prévisions ventes, intelligence artificielle</p>
+            </div>
+            <span class="mod-arrow">→</span>
+          </a>
+
+        </div>
+      </div>
+
+    </div><!-- end apercu tab -->
+
+    <!-- ══ ANALYTICS TAB ══ -->
+    <div class="analytics-section" *ngIf="activeTab === 'analytique'">
+
+      <div class="analytics-toolbar">
+        <button class="year-btn" (click)="changeAnnee(-1)">‹</button>
+        <span class="year-label">{{ anneeAnalytique }}</span>
+        <button class="year-btn" (click)="changeAnnee(1)" [disabled]="anneeAnalytique >= currentYear" [style.opacity]="anneeAnalytique >= currentYear ? '0.3' : '1'">›</button>
+        <span style="font-size:0.82rem;color:#888;margin-left:0.5rem">Données cumulées sur l'exercice</span>
+      </div>
+
+      <div class="tbl-loading" *ngIf="isLoadingAnalytics">
+        <span class="material-symbols-outlined spin">sync</span>
+        Chargement des données analytiques…
+      </div>
+
+      <!-- CA mensuel full width -->
+      <div class="chart-card chart-full" *ngIf="!isLoadingAnalytics">
+        <h3 class="chart-title">
+          <span class="material-symbols-outlined">bar_chart</span>
+          Chiffre d'affaires mensuel {{ anneeAnalytique }}
+        </h3>
+        <div class="chart-wrap chart-tall">
+          <canvas id="chartCA"></canvas>
+        </div>
+      </div>
+
+      <!-- Top clients + Top articles -->
+      <div class="analytics-row" *ngIf="!isLoadingAnalytics">
+
+        <div class="chart-card">
+          <h3 class="chart-title">
+            <span class="material-symbols-outlined">emoji_events</span>
+            Top 10 clients
+          </h3>
+          <div class="chart-wrap chart-medium">
+            <canvas id="chartClients"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">
+            <span class="material-symbols-outlined">category</span>
+            Top articles (quantité)
+          </h3>
+          <div class="chart-wrap chart-medium">
+            <canvas id="chartArticles"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recouvrement row -->
+      <div class="analytics-row analytics-row-3" *ngIf="!isLoadingAnalytics && recouvrement">
+
+        <div class="chart-card">
+          <h3 class="chart-title">
+            <span class="material-symbols-outlined">donut_large</span>
+            Taux de recouvrement
+          </h3>
+          <div class="chart-wrap chart-small">
+            <canvas id="chartRecouvre"></canvas>
+          </div>
+          <div class="recouvre-rate">
+            <span class="rate-value">{{ recouvrement!.tauxRecouvrement | number:'1.1-1' }}%</span>
+            <span class="rate-label">BL entièrement payés</span>
+          </div>
+        </div>
+
+        <div class="kpi-stats-card">
+          <h3 class="chart-title">
+            <span class="material-symbols-outlined">receipt_long</span>
+            Résumé financier {{ anneeAnalytique }}
+          </h3>
+          <div class="stat-rows">
+            <div class="stat-row">
+              <span class="stat-label">CA total</span>
+              <span class="stat-val primary">{{ formatNum(recouvrement!.montantTotal) }} DT</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Montant recouvré</span>
+              <span class="stat-val green">{{ formatNum(recouvrement!.montantRecouvre) }} DT</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Total BL</span>
+              <span class="stat-val">{{ recouvrement!.total }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">BL payés</span>
+              <span class="stat-val green">{{ recouvrement!.payes }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">BL en attente</span>
+              <span class="stat-val warn">{{ recouvrement!.enAttente }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card top-articles-list">
+          <h3 class="chart-title">
+            <span class="material-symbols-outlined">format_list_numbered</span>
+            Classement articles
+          </h3>
+          <div class="article-rank-list">
+            <div class="article-rank-item" *ngFor="let a of topArticles; let i = index">
+              <span class="rank-num">{{ i + 1 }}</span>
+              <span class="rank-name">{{ a.designation }}</span>
+              <span class="rank-qty">{{ formatNum(a.qty, 0) }} u.</span>
+            </div>
+            <div class="empty-analytics" *ngIf="!topArticles.length">Aucune donnée disponible</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- end analytics section -->
+
+  </div><!-- end dash-content -->
+
+  <!-- ══ FAB ══ -->
+  <button class="fab-btn" [routerLink]="['/facture']">
+    <span class="material-symbols-outlined">add_circle</span>
+    <div class="fab-tooltip">Nouveau BL</div>
+  </button>
 
 </div>

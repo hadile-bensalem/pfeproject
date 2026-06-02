@@ -1,360 +1,362 @@
-<div class="clients-container">
+<div class="client-container">
 
   <header class="page-header">
-    <div class="page-header-content">
+    <div class="hdr-deco d1"></div><div class="hdr-deco d2"></div>
+    <div class="hdr-inner">
       <div>
-        <h2>Gestion des Clients</h2>
-        <p class="subtitle">Ajout, consultation et régularisation des comptes clients</p>
+        <h2>Gestion Clients</h2>
+        <p class="subtitle">Répertoire des clients · Fiches et soldes</p>
       </div>
-      <div class="header-stats" *ngIf="etatClients.length > 0">
-        <div class="stat-chip">
-          <span class="stat-val">{{ etatClients.length }}</span>
-          <span class="stat-lbl">Clients</span>
+      <div class="hdr-kpis">
+        <div class="hdr-kpi">
+          <span class="hdr-kpi-label">Total clients</span>
+          <span class="hdr-kpi-val">{{ clients.length }}</span>
+        </div>
+        <div class="hdr-kpi-sep"></div>
+        <div class="hdr-kpi">
+          <span class="hdr-kpi-label">Actifs</span>
+          <span class="hdr-kpi-val green">{{ activeClientsCount }}</span>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Toolbar -->
-  <div class="page-toolbar">
-    <div class="toolbar-buttons">
-      <button type="button" class="btn primary" (click)="openAddClientPanel()">
-        <span class="btn-icon">＋</span>
-        Nouveau Client
-      </button>
-      <button type="button" class="btn secondary" (click)="openAncienFactureModal()">
-        <span class="btn-icon">📄</span>
-        Ancien Facture
-      </button>
-      <button type="button" class="btn outline" (click)="openBonLivraisonModal()">
-        <span class="btn-icon">📦</span>
-        Bon de Livraison
-      </button>
-      <button type="button" class="btn outline" (click)="openClientCrediteurModal()">
-        <span class="btn-icon">💰</span>
-        Clients Créditeurs
-      </button>
-      <button type="button" class="btn neutral" (click)="loadEtatClientsPublic()">
-        <span class="btn-icon">↻</span>
-        Actualiser
-      </button>
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-inp" placeholder="Code, nom, téléphone, matricule…"
+             [(ngModel)]="searchTerm" (input)="applySearch()">
     </div>
+    <button class="btn primary" (click)="openCreate()">+ Nouveau client</button>
+    <button class="btn neutral" (click)="load()">🔄</button>
   </div>
 
-  <!-- ═══ PANNEAU AJOUT / MODIFICATION INLINE ═══ -->
-  <div id="client-panel" class="client-panel" *ngIf="showClientPanel" [formGroup]="clientForm">
+  <div class="msg-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="loading-wrap" *ngIf="isLoading"><div class="spinner"></div><span>Chargement…</span></div>
 
-    <!-- En-tête panneau -->
-    <div class="cp-header">
-      <div class="cp-header-left">
-        <div class="cp-icon">{{ isEditingClient ? '✏️' : '👤' }}</div>
-        <div>
-          <h3>{{ isEditingClient ? 'Modifier le client' : 'Nouveau client' }}</h3>
-          <span class="cp-code-preview" *ngIf="!isEditingClient">
-            Code : <strong>{{ clientForm.get('codeClient')?.value }}</strong>
-          </span>
-        </div>
-      </div>
-      <button type="button" class="close-btn" (click)="closeClientPanel()" title="Fermer">×</button>
-    </div>
-
-    <!-- Corps du formulaire -->
-    <div class="cp-body">
-
-      <!-- Ligne 1 : code + nom -->
-      <div class="cp-row">
-        <div class="cp-field cp-field-sm">
-          <label>Code Client <span class="req">*</span></label>
-          <input type="text" formControlName="codeClient"
-                 class="cp-inp" [class.cp-inp-readonly]="!isEditingClient"
-                 [readonly]="!isEditingClient"
-                 placeholder="Généré automatiquement">
-          <span class="cp-err" *ngIf="clientForm.get('codeClient')?.invalid && clientForm.get('codeClient')?.touched">
-            Obligatoire
-          </span>
-        </div>
-        <div class="cp-field cp-field-lg">
-          <label>Nom / Raison Sociale <span class="req">*</span></label>
-          <input type="text" formControlName="nom"
-                 class="cp-inp" placeholder="Nom complet du client" autofocus>
-          <span class="cp-err" *ngIf="clientForm.get('nom')?.invalid && clientForm.get('nom')?.touched">
-            Obligatoire
-          </span>
-        </div>
-      </div>
-
-      <!-- Ligne 2 : adresse -->
-      <div class="cp-row">
-        <div class="cp-field cp-field-full">
-          <label>Adresse</label>
-          <input type="text" formControlName="adresse"
-                 class="cp-inp" placeholder="Adresse complète">
-        </div>
-      </div>
-
-      <!-- Ligne 3 : téléphone + email -->
-      <div class="cp-row">
-        <div class="cp-field">
-          <label>Téléphone</label>
-          <input type="tel" formControlName="telephone"
-                 class="cp-inp" placeholder="+216 XX XXX XXX">
-        </div>
-        <div class="cp-field">
-          <label>Email</label>
-          <input type="email" formControlName="email"
-                 class="cp-inp" placeholder="email@exemple.com">
-          <span class="cp-err" *ngIf="clientForm.get('email')?.invalid && clientForm.get('email')?.touched">
-            Email invalide
-          </span>
-        </div>
-      </div>
-
-      <!-- Ligne 4 : observations -->
-      <div class="cp-row">
-        <div class="cp-field cp-field-full">
-          <label>Observations</label>
-          <textarea formControlName="observations" class="cp-inp cp-textarea"
-                    rows="2" placeholder="Notes, remarques…"></textarea>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Messages -->
-    <div class="cp-msgs" *ngIf="clientPanelError || clientPanelSuccess">
-      <div class="cp-error" *ngIf="clientPanelError">⚠ {{ clientPanelError }}</div>
-      <div class="cp-success" *ngIf="clientPanelSuccess">✓ {{ clientPanelSuccess }}</div>
-    </div>
-
-    <!-- Footer -->
-    <div class="cp-footer">
-      <span class="cp-hint">Les champs marqués <span class="req">*</span> sont obligatoires</span>
-      <div class="cp-footer-btns">
-        <button type="button" class="btn neutral" (click)="closeClientPanel()">Annuler</button>
-        <button type="button" class="btn success cp-save-btn"
-                (click)="onSubmitClient()" [disabled]="clientIsSaving">
-          <span *ngIf="!clientIsSaving">✓&nbsp; {{ isEditingClient ? 'Enregistrer les modifications' : 'Créer le client' }}</span>
-          <span *ngIf="clientIsSaving">Enregistrement…</span>
-        </button>
-      </div>
-    </div>
-
-  </div><!-- /client-panel -->
-
-  <!-- Liste des clients -->
-  <section class="card list-card">
-    <div class="list-header">
-      <h3>
-        Liste des clients
-        <span class="list-count" *ngIf="filteredEtat.length > 0">{{ filteredEtat.length }}</span>
-      </h3>
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text"
-               [(ngModel)]="searchTerm"
-               (ngModelChange)="onSearchChange()"
-               placeholder="Rechercher par code ou nom…">
-      </div>
-    </div>
-
-    <div class="table-wrapper" *ngIf="!isLoading; else loadingTpl">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Nom Client</th>
-            <th class="numeric">Solde</th>
-            <th class="numeric">En cours</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngIf="filteredEtat.length === 0">
-            <td colspan="5" class="empty-state">
-              Aucun client. Cliquez sur « Nouveau Client » pour commencer.
-            </td>
-          </tr>
-          <tr *ngFor="let e of filteredEtat"
-              (click)="goToDetail(e)" class="row-clickable">
-            <td class="code-cell">{{ e.codeClient }}</td>
-            <td class="nom-cell">{{ e.nomClient }}</td>
-            <td class="numeric" [class.solde-negatif]="e.solde < 0"
-                [class.solde-positif]="e.solde > 0">
-              {{ formatMontant(e.solde) }}
-            </td>
-            <td class="numeric">{{ formatMontant(e.traitementEnCours) }}</td>
-            <td class="actions-col" (click)="$event.stopPropagation()">
-              <button type="button" class="chip primary" (click)="editClient(e)">Modifier</button>
-              <button type="button" class="chip danger" (click)="deleteClient(e)">Supprimer</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <ng-template #loadingTpl>
-      <div class="loading-state">Chargement des clients…</div>
-    </ng-template>
-    <p *ngIf="errorMessage" class="error-msg">{{ errorMessage }}</p>
-  </section>
+  <div class="table-card" *ngIf="!isLoading">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>CODE</th>
+          <th>TYPE</th>
+          <th>NOM</th>
+          <th>TÉLÉPHONE</th>
+          <th>MATRICULE FISCAL</th>
+          <th>VILLE</th>
+          <th>SOLDE DÛ</th>
+          <th>STATUT</th>
+          <th style="width:90px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of filtered" [class.row-inactive]="!c.actif">
+          <td class="code-cell">{{ c.codeClient }}</td>
+          <td><span class="type-badge type-{{ (c.typeClient || '').toLowerCase().replace('_','-') }}">{{ typeLabel(c.typeClient) }}</span></td>
+          <td class="nom-cell">
+            <span>{{ c.nom }}</span>
+            <small *ngIf="c.responsable" class="sub-text">{{ c.responsable }}</small>
+          </td>
+          <td class="tel-cell">{{ c.telephone || '—' }}</td>
+          <td class="mf-cell">{{ c.matriculeFiscal || '—' }}</td>
+          <td class="ville-cell">{{ c.ville || '—' }}</td>
+          <td class="solde-cell">{{ formatNum(c.soldeTotalDu) }} DT</td>
+          <td>
+            <span class="status-badge" [class.badge-actif]="c.actif" [class.badge-inactif]="!c.actif">
+              {{ c.actif ? 'Actif' : 'Inactif' }}
+            </span>
+          </td>
+          <td class="actions-cell">
+            <button class="chip info" (click)="openEdit(c)" title="Modifier">✏️</button>
+            <button class="chip releve" (click)="openReleve(c)" title="Relevé de compte">📋</button>
+            <button class="chip danger" (click)="delete(c)" title="Supprimer">🗑</button>
+          </td>
+        </tr>
+        <tr *ngIf="!filtered.length && !isLoading">
+          <td colspan="9" class="empty-row">Aucun client trouvé.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
 </div>
 
-<!-- ═══ Modal Ancien Facture Client ═══ -->
-<div class="modal-backdrop" *ngIf="isAncienFactureModalOpen" (click)="closeAncienFactureModal()">
-  <div class="modal-dialog modal-ancien-facture" (click)="$event.stopPropagation()">
-    <div class="modal-header ancien-facture-header">
-      <div>
-        <h3 class="ancien-facture-title">AJOUT ANCIEN FACTURE CLIENT</h3>
-        <p class="modal-subtitle">Régularisation des comptes (tasfiyet hsebet)</p>
+<!-- ═══════════════════════════════ MODAL FICHE CLIENT ═══════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-box" (click)="$event.stopPropagation()" [formGroup]="clientForm">
+
+    <div class="modal-hdr">
+      <div class="modal-hdr-left">
+        <div class="modal-hdr-icon">👤</div>
+        <div>
+          <h3>{{ isEditing ? 'Modifier le client' : 'Nouveau client' }}</h3>
+          <p class="modal-hdr-sub">Fiche client Dind'Or</p>
+        </div>
       </div>
-      <button type="button" class="close-btn" (click)="closeAncienFactureModal()">&times;</button>
+      <button class="close-btn" (click)="closeModal()">×</button>
     </div>
-    <form [formGroup]="ancienFactureForm">
-      <div class="modal-body">
-        <div class="form-grid ancien-facture-form">
-          <div class="form-group">
-            <label>N° Facture <span class="required">*</span></label>
-            <input type="text" formControlName="numeroFacture" placeholder="Ex. FAC-2024-001">
-          </div>
-          <div class="form-group">
-            <label>Date <span class="required">*</span></label>
-            <input type="date" formControlName="date">
-          </div>
-          <div class="form-group wide">
-            <label>Client <span class="required">*</span></label>
-            <select formControlName="clientId">
-              <option [ngValue]="null">— Choisir un client —</option>
-              <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.codeClient }} — {{ c.nom }}</option>
-            </select>
-          </div>
-          <div class="form-row-label">M · T · V · A</div>
-          <div class="form-row-three">
-            <div class="form-group">
-              <label>Montant HT</label>
-              <input type="number" formControlName="montantHT" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-              <label>TVA (%)</label>
-              <input type="number" formControlName="tauxTva" step="0.01" min="0" max="100">
-            </div>
-            <div class="form-group">
-              <label>Montant TVA</label>
-              <input type="number" formControlName="montantTva" step="0.01" min="0">
-            </div>
-          </div>
-          <div class="form-row-label">Timbres fiscaux</div>
-          <div class="form-row-three">
-            <div class="form-group">
-              <label>Timbre 1</label>
-              <input type="number" formControlName="timbre1" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-              <label>Timbre 2</label>
-              <input type="number" formControlName="timbre2" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-              <label>Timbre 3</label>
-              <input type="number" formControlName="timbre3" step="0.01" min="0">
-            </div>
-          </div>
-          <div class="form-group montant-facture-row">
-            <label>MONTANT FACTURE</label>
-            <div class="montant-facture-value" [class.has-value]="montantFactureTotal > 0">
-              {{ formatMontant(montantFactureTotal) }}
-            </div>
-          </div>
-          <p *ngIf="ancienFactureMessage" class="ancien-facture-msg"
-             [class.error]="ancienFactureMessage.includes('Veuillez')">
-            {{ ancienFactureMessage }}
+
+    <!-- ── TYPE DE CLIENT ── -->
+    <div class="section-block">
+      <div class="section-title">Type de client</div>
+      <div class="type-radio-group">
+        <label class="type-radio-card" *ngFor="let t of CLIENT_TYPES"
+               [class.selected]="clientForm.get('typeClient')?.value === t.value">
+          <input type="radio" formControlName="typeClient" [value]="t.value">
+          <span class="type-radio-label">{{ t.label }}</span>
+          <span class="type-radio-hint" *ngIf="t.hint">{{ t.hint }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── IDENTIFICATION ── -->
+    <div class="section-block">
+      <div class="section-title">Identification</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Désignation (Nom) <span class="req">*</span></label>
+          <input type="text" class="form-inp" formControlName="nom" placeholder="Nom complet du client">
+          <span class="field-err" *ngIf="clientForm.get('nom')?.invalid && clientForm.get('nom')?.touched">Obligatoire</span>
+        </div>
+        <div class="form-group form-full">
+          <label>Responsable / Contact</label>
+          <input type="text" class="form-inp" formControlName="responsable" placeholder="Nom du responsable ou contact">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COORDONNÉES ── -->
+    <div class="section-block">
+      <div class="section-title">Coordonnées</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="text" class="form-inp" formControlName="telephone" placeholder="Ex: 29 281 061">
+        </div>
+        <div class="form-group">
+          <label>Téléphone 2</label>
+          <input type="text" class="form-inp" formControlName="telephone2" placeholder="Ex: 73 123 456">
+        </div>
+        <div class="form-group">
+          <label>Fax</label>
+          <input type="text" class="form-inp" formControlName="fax" placeholder="Ex: 73 123 457">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" class="form-inp" formControlName="email" placeholder="exemple@société.tn">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ADRESSE ── -->
+    <div class="section-block">
+      <div class="section-title">Adresse</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Adresse</label>
+          <input type="text" class="form-inp" formControlName="adresse" placeholder="Rue, numéro, quartier…">
+        </div>
+        <div class="form-group">
+          <label>Ville</label>
+          <input type="text" class="form-inp" formControlName="ville" placeholder="Ex: Monastir">
+        </div>
+        <div class="form-group">
+          <label>Zone / Région</label>
+          <input type="text" class="form-inp" formControlName="zone" placeholder="Ex: Centre, Nord…">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FISCAL & COMMERCIAL ── -->
+    <div class="section-block">
+      <div class="section-title">Fiscal & Commercial</div>
+      <div class="form-grid form-grid-3">
+        <div class="form-group">
+          <label>Matricule Fiscal</label>
+          <input type="text" class="form-inp" formControlName="matriculeFiscal" placeholder="Ex: 1229324P/C/M/000">
+        </div>
+        <div class="form-group">
+          <label>Code TVA</label>
+          <input type="text" class="form-inp" formControlName="codeTVA" placeholder="Ex: A">
+        </div>
+        <div class="form-group">
+          <label>TVA (%)</label>
+          <input type="number" class="form-inp" formControlName="tva" placeholder="Ex: 19" min="0" max="100" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Prix de vente</label>
+          <select class="form-inp form-select" formControlName="prixVente">
+            <option [value]="1">Prix 1</option>
+            <option [value]="2">Prix 2</option>
+            <option [value]="3">Prix 3</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Plafond crédit (DT)</label>
+          <input type="number" class="form-inp" formControlName="plafond" placeholder="Ex: 5000.000" min="0" step="0.001">
+        </div>
+        <div class="form-group">
+          <label>Devise</label>
+          <select class="form-inp form-select" formControlName="devise">
+            <option value="DT">DT — Dinar Tunisien</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="USD">USD — Dollar</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NOTES & STATUT ── -->
+    <div class="section-block">
+      <div class="section-title">Notes & Statut</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Notes / Remarques</label>
+          <textarea class="form-inp" formControlName="notes" rows="2" placeholder="Remarques internes…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="actif"> Client actif
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="msg-error" *ngIf="formError">{{ formError }}</div>
+
+    <div class="modal-actions">
+      <button class="btn primary" [disabled]="isSaving" (click)="submit()">
+        <span *ngIf="!isSaving">💾 {{ isEditing ? 'Enregistrer' : 'Créer le client' }}</span>
+        <span *ngIf="isSaving">Sauvegarde en cours…</span>
+      </button>
+      <button class="btn neutral" (click)="closeModal()">Annuler</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODAL RELEVÉ DE COMPTE ═══════════════════════ -->
+<div class="modal-overlay releve-overlay" *ngIf="showReleve" (click)="closeReleve()">
+  <div class="releve-box" (click)="$event.stopPropagation()">
+
+    <div class="releve-hdr">
+      <div class="releve-hdr-left">
+        <div class="releve-hdr-icon">📋</div>
+        <div>
+          <h3>Relevé de compte</h3>
+          <p class="releve-hdr-sub" *ngIf="releveClient">
+            {{ releveClient.codeClient }} — {{ releveClient.nom }}
           </p>
         </div>
       </div>
-      <div class="modal-footer modal-footer-four">
-        <button type="button" class="btn success" (click)="onAncienFactureAjouter()">Ajouter</button>
-        <button type="button" class="btn primary" (click)="onAncienFactureValider()">Valider</button>
-        <button type="button" class="btn danger" (click)="onAncienFactureSupprimer()">Supprimer</button>
-        <button type="button" class="btn neutral" (click)="closeAncienFactureModal()">Fermer</button>
+      <div class="releve-solde" *ngIf="releveClient">
+        <span class="releve-solde-label">Solde dû</span>
+        <span class="releve-solde-val" [class.solde-zero]="releveClient.soldeTotalDu <= 0">
+          {{ formatNum(releveClient.soldeTotalDu) }} DT
+        </span>
       </div>
-    </form>
-  </div>
-</div>
-
-<!-- ═══ Modal Bon de Livraison ═══ -->
-<div class="modal-backdrop" *ngIf="isBonLivraisonModalOpen" (click)="closeBonLivraisonModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h3>Bon de Livraison</h3>
-      <button type="button" class="close-btn" (click)="closeBonLivraisonModal()">&times;</button>
+      <button class="close-btn" (click)="closeReleve()">×</button>
     </div>
-    <form [formGroup]="bonLivraisonForm" (ngSubmit)="onSubmitBonLivraison()">
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>N° Bon de Livraison <span class="required">*</span></label>
-            <input type="text" formControlName="numeroBL" placeholder="Ex. BL-2024-001">
-          </div>
-          <div class="form-group">
-            <label>Date <span class="required">*</span></label>
-            <input type="date" formControlName="date">
-          </div>
-          <div class="form-group wide">
-            <label>Client <span class="required">*</span></label>
-            <select formControlName="clientId">
-              <option [ngValue]="null">— Choisir un client —</option>
-              <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.codeClient }} — {{ c.nom }}</option>
-            </select>
-          </div>
-          <div class="form-group wide">
-            <label>Remarques</label>
-            <textarea formControlName="remarques" rows="2" placeholder="Notes éventuelles"></textarea>
-          </div>
+
+    <div class="releve-loading" *ngIf="isLoadingReleve">Chargement…</div>
+
+    <div class="releve-content" *ngIf="!isLoadingReleve">
+
+      <!-- ── Bons de livraison ── -->
+      <div class="releve-section">
+        <div class="releve-section-hdr">
+          <h4>Bons de livraison ({{ releveBons.length }})</h4>
+        </div>
+        <div class="releve-tbl-wrap">
+          <table class="releve-tbl" *ngIf="releveBons.length">
+            <thead>
+              <tr>
+                <th>N° BL</th>
+                <th>Date</th>
+                <th class="num">Montant</th>
+                <th>État</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let b of releveBons">
+                <td class="mono">{{ b.numeroBL }}</td>
+                <td>{{ formatDate(b.dateBL) }}</td>
+                <td class="num solde-cell">{{ formatNum(b.netAPayer) }} DT</td>
+                <td>
+                  <span class="etat-pill etat-{{ (b.etatPaiement || '').toLowerCase().replace('_','-') }}">
+                    {{ etatLabel(b.etatPaiement) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="releve-empty" *ngIf="!releveBons.length">Aucun bon de livraison.</div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn neutral" (click)="closeBonLivraisonModal()">Annuler</button>
-        <button type="submit" class="btn success" [disabled]="bonLivraisonForm.invalid">Créer le bon</button>
-      </div>
-    </form>
-  </div>
-</div>
 
-<!-- ═══ Modal Clients Créditeurs ═══ -->
-<div class="modal-backdrop" *ngIf="isClientCrediteurModalOpen" (click)="closeClientCrediteurModal()">
-  <div class="modal-dialog modal-large" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div>
-        <h3>Clients Créditeurs</h3>
-        <p class="modal-subtitle">Clients avec un solde créditeur (avance ou avoir)</p>
+      <!-- ── Paiements ── -->
+      <div class="releve-section">
+        <div class="releve-section-hdr">
+          <h4>Paiements enregistrés ({{ relevePaiements.length }})</h4>
+          <button class="btn primary small" (click)="openPaiementForm()" *ngIf="!showPaiementForm">
+            + Enregistrer paiement
+          </button>
+        </div>
+
+        <!-- Paiement form -->
+        <div class="paiement-form-wrap" *ngIf="showPaiementForm" [formGroup]="paiementForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Montant (DT) <span class="req">*</span></label>
+              <input type="number" class="form-inp" formControlName="montant" placeholder="Ex: 500.000" min="0" step="0.001">
+              <span class="field-err" *ngIf="paiementForm.get('montant')?.invalid && paiementForm.get('montant')?.touched">Montant invalide</span>
+            </div>
+            <div class="form-group">
+              <label>Date <span class="req">*</span></label>
+              <input type="date" class="form-inp" formControlName="datePaiement">
+            </div>
+            <div class="form-group form-full">
+              <label>N° BL concernés</label>
+              <input type="text" class="form-inp" formControlName="blNumeros" placeholder="Ex: BL-2025-001, BL-2025-002">
+            </div>
+            <div class="form-group form-full">
+              <label>Notes</label>
+              <input type="text" class="form-inp" formControlName="notes" placeholder="Remarque…">
+            </div>
+          </div>
+          <div class="msg-error" *ngIf="paiementError">{{ paiementError }}</div>
+          <div class="paiement-form-actions">
+            <button class="btn primary" [disabled]="isSavingPaiement" (click)="submitPaiement()">
+              {{ isSavingPaiement ? 'Enregistrement…' : '💾 Enregistrer' }}
+            </button>
+            <button class="btn neutral" (click)="showPaiementForm = false">Annuler</button>
+          </div>
+        </div>
+
+        <div class="releve-tbl-wrap">
+          <table class="releve-tbl" *ngIf="relevePaiements.length">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="num">Montant</th>
+                <th>N° BL</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of relevePaiements">
+                <td>{{ formatDate(p.datePaiement) }}</td>
+                <td class="num" style="color:#2e7d32;font-weight:700;">{{ formatNum(p.montant) }} DT</td>
+                <td class="mono" style="font-size:.82rem;">{{ p.blNumeros || '—' }}</td>
+                <td style="font-size:.82rem;color:#777;">{{ p.notes || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="releve-empty" *ngIf="!relevePaiements.length && !showPaiementForm">Aucun paiement enregistré.</div>
+        </div>
       </div>
-      <button type="button" class="close-btn" (click)="closeClientCrediteurModal()">&times;</button>
+
     </div>
-    <div class="modal-body">
-      <div class="table-wrapper small">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Nom Client</th>
-              <th class="numeric">Solde créditeur</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngIf="clientsCrediteurs.length === 0">
-              <td colspan="3" class="empty-state">Aucun client créditeur.</td>
-            </tr>
-            <tr *ngFor="let e of clientsCrediteurs"
-                (click)="goToDetail(e); closeClientCrediteurModal()" class="row-clickable">
-              <td>{{ e.codeClient }}</td>
-              <td>{{ e.nomClient }}</td>
-              <td class="numeric solde-positif">{{ formatMontant(e.solde) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn neutral" (click)="closeClientCrediteurModal()">Fermer</button>
-    </div>
+
   </div>
 </div>

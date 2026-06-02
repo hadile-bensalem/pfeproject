@@ -1,6 +1,3 @@
-/**
- * Ligne du tableau récapitulatif "État Fournisseur"
- */
 export interface FournisseurEtat {
   fournisseurId: number;
   nom: string;
@@ -9,23 +6,33 @@ export interface FournisseurEtat {
   traitementEnCours: number;
 }
 
-/**
- * Transaction d'un fournisseur (historique détaillé)
- */
 export interface TransactionFournisseur {
   id: number;
-  fournisseurId: number;
+  /** Présent uniquement sur les PaiementFournisseur (règlements supprimables) */
+  paiementFournisseurId?: number;
+  type: string;           // 'Achat' | 'TRAITE' | 'Espèces' | 'Crédit' | 'Règlement'
   numeroFacture: string;
-  date: string; // ISO date
+  date: string;
   debit: number;
   credit: number;
+  soldeCumule: number;
+  modePaiement: string;
+  numeroTraite?: string;
+  echeance?: string;
   espece: number;
-  modePaiement: string; // TRA, ESP, CHQ, etc.
 }
 
-/**
- * Résumé financier pour la vue détail
- */
+export interface PaiementFournisseurRequest {
+  montant: number;
+  datePaiement: string;
+  modePaiement: 'ESPECE' | 'CHEQUE' | 'TRAITE';
+  numeroPaiement?: string;
+  echeance?: string;
+  banque?: string;
+  remarque?: string;
+  numeroFacture?: string;
+}
+
 export interface ResumeFournisseur {
   totalGeneral: number;
   solde: number;

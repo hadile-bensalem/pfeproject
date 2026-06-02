@@ -1,0 +1,404 @@
+<div class="prediction-page">
+
+  <!-- ── En-tête bordeaux ───────────────────────────────────────────────── -->
+  <div class="page-hero">
+    <div class="hero-left">
+      <span class="material-symbols-outlined hero-icon">psychology</span>
+      <div>
+        <h1>Intelligence Artificielle — Aide à l'Achat</h1>
+        <p class="hero-sub">Analyse proactive des stocks, prix et tendances avant toute décision d'achat</p>
+      </div>
+    </div>
+    <div class="hero-kpis">
+      <div class="hero-kpi">
+        <span class="hero-kpi-val critique">{{ critiques.length }}</span>
+        <span class="hero-kpi-lbl">Critiques</span>
+      </div>
+      <div class="hero-kpi">
+        <span class="hero-kpi-val alerte">{{ alertes.length }}</span>
+        <span class="hero-kpi-lbl">Alertes</span>
+      </div>
+      <div class="hero-kpi">
+        <span class="hero-kpi-val ok-c">{{ ok.length }}</span>
+        <span class="hero-kpi-lbl">OK</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab bar ────────────────────────────────────────────────────────── -->
+  <div class="tab-bar">
+    <button class="tab-btn" [class.active]="activeTab === 'dashboard'" (click)="activeTab = 'dashboard'">
+      <span class="material-symbols-outlined">dashboard</span>
+      Tableau de Bord
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'detail'" (click)="activeTab = 'detail'">
+      <span class="material-symbols-outlined">auto_awesome</span>
+      Analyse IA Détaillée
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB 1 — TABLEAU DE BORD
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (activeTab === 'dashboard') {
+
+    @if (dashboardLoading) {
+      <div class="dash-loading">
+        <span class="material-symbols-outlined spin">autorenew</span>
+        Analyse de vos articles en cours…
+      </div>
+    } @else if (dashboardError) {
+      <div class="alert alert-error">
+        <span class="material-symbols-outlined">error</span> {{ dashboardError }}
+        <button class="btn-retry" (click)="loadDashboard()">Réessayer</button>
+      </div>
+    } @else if (dashboardItems.length === 0) {
+      <div class="dash-empty">
+        <span class="material-symbols-outlined">inventory_2</span>
+        <p>Aucun article avec historique d'achats trouvé.<br>Commencez par enregistrer des factures d'achat.</p>
+      </div>
+    } @else {
+
+      <!-- Barre de recherche -->
+      <div class="dash-search-bar">
+        <div class="dash-search-field">
+          <span class="material-symbols-outlined">search</span>
+          <input type="text"
+                 [(ngModel)]="dashboardSearch"
+                 placeholder="Rechercher un article…"
+                 class="dash-search-input">
+          @if (dashboardSearch) {
+            <button class="dash-clear-btn" (click)="dashboardSearch=''">✕</button>
+          }
+        </div>
+        <span class="dash-search-count">
+          {{ filteredDashboard.length }} / {{ dashboardItems.length }} articles
+        </span>
+      </div>
+
+      @if (filteredDashboard.length === 0) {
+        <div class="dash-empty">
+          <span class="material-symbols-outlined">search_off</span>
+          <p>Aucun article correspond à "{{ dashboardSearch }}"</p>
+        </div>
+      }
+
+      <!-- Section CRITIQUE -->
+      @if (critiques.length > 0) {
+        <div class="dash-section-title critique-title">
+          <span class="material-symbols-outlined">warning</span>
+          Stock Critique — Action Immédiate Requise ({{ critiques.length }})
+        </div>
+        <div class="dash-grid">
+          @for (item of critiques; track item.designation) {
+            <div class="dash-card critique" (click)="openDetail(item)">
+              <ng-container *ngTemplateOutlet="cardTpl; context: { $implicit: item }"></ng-container>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Section ALERTE -->
+      @if (alertes.length > 0) {
+        <div class="dash-section-title alerte-title">
+          <span class="material-symbols-outlined">trending_up</span>
+          Alertes — Surveiller et Anticiper ({{ alertes.length }})
+        </div>
+        <div class="dash-grid">
+          @for (item of alertes; track item.designation) {
+            <div class="dash-card alerte" (click)="openDetail(item)">
+              <ng-container *ngTemplateOutlet="cardTpl; context: { $implicit: item }"></ng-container>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Section OK -->
+      @if (ok.length > 0) {
+        <div class="dash-section-title ok-title">
+          <span class="material-symbols-outlined">check_circle</span>
+          Situation Normale ({{ ok.length }})
+        </div>
+        <div class="dash-grid">
+          @for (item of ok; track item.designation) {
+            <div class="dash-card ok" (click)="openDetail(item)">
+              <ng-container *ngTemplateOutlet="cardTpl; context: { $implicit: item }"></ng-container>
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB 2 — ANALYSE DÉTAILLÉE (Prophet)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (activeTab === 'detail') {
+
+    <!-- Sélection article + bouton -->
+    <div class="control-card">
+      <div class="control-row">
+        <div class="select-wrapper">
+          <label for="articleSelect">
+            <span class="material-symbols-outlined">category</span>
+            Article à analyser
+          </label>
+          <select id="articleSelect" [(ngModel)]="selectedArticle" [disabled]="loadingArticles || loading">
+            <option value="" disabled>-- Choisir un article --</option>
+            @for (a of articles; track a.designation) {
+              <option [value]="a.designation">
+                {{ a.designation }} ({{ a.nbVentes }} vente(s) — Moy. {{ a.prixMoyenRecent.toFixed(3) }} DT)
+              </option>
+            }
+          </select>
+          @if (loadingArticles) {
+            <span class="loading-hint">Chargement des articles…</span>
+          }
+          @if (!loadingArticles && articles.length === 0) {
+            <span class="loading-hint warn">Aucun article avec historique d'achats trouvé.</span>
+          }
+        </div>
+        <button class="btn-predict" (click)="predict()"
+                [disabled]="!selectedArticle || loading || loadingArticles">
+          @if (loading) {
+            <span class="material-symbols-outlined spin">autorenew</span>
+            Analyse en cours…
+          } @else {
+            <span class="material-symbols-outlined">auto_awesome</span>
+            Analyser avec Prophet
+          }
+        </button>
+      </div>
+      @if (error) {
+        <div class="alert alert-error">
+          <span class="material-symbols-outlined">error</span> {{ error }}
+        </div>
+      }
+    </div>
+
+    @if (result) {
+
+      <!-- Décision principale -->
+      <div class="recommendation-banner" [ngClass]="getRecommandationClass()">
+        <div class="rec-left">
+          <span class="material-symbols-outlined rec-icon">{{ getTendanceIcon() }}</span>
+          <div>
+            <div class="rec-label">Décision recommandée</div>
+            <div class="rec-value">{{ getRecommandationLabel() }}</div>
+            @if (result.quantiteAAcheter > 0) {
+              <div class="rec-qty">
+                Quantité suggérée : <strong>{{ result.quantiteAAcheter.toFixed(0) }} unités</strong>
+              </div>
+            }
+          </div>
+        </div>
+        <div class="rec-center">
+          <div class="period-badge">
+            <span class="material-symbols-outlined">event</span> {{ result.periodeCourante }}
+          </div>
+          <div class="period-badge" style="margin-top:6px">
+            <span class="material-symbols-outlined">device_thermostat</span> {{ result.modele }}
+          </div>
+        </div>
+        <div class="rec-right">
+          <div class="confiance-label">Confiance du modèle</div>
+          <div class="confiance-bar-wrap">
+            <div class="confiance-bar" [style.width.%]="getConfianceBar()"></div>
+          </div>
+          <div class="confiance-pct">{{ getConfianceBar() }}%</div>
+        </div>
+      </div>
+
+      <div class="message-card">
+        <span class="material-symbols-outlined">info</span>
+        <p>{{ result.message }}</p>
+        <div class="message-tags">
+          <span class="source-tag">
+            <span class="material-symbols-outlined">database</span> {{ getSourceLabel() }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Stock -->
+      <div class="section-title">
+        <span class="material-symbols-outlined">inventory_2</span> Situation du Stock
+      </div>
+
+      <div class="stock-dashboard">
+        <div class="stock-kpi" [ngClass]="getStockStatusClass()">
+          <span class="material-symbols-outlined stock-kpi-icon">{{ getStockStatusIcon() }}</span>
+          <div class="stock-kpi-val">{{ result.stockActuel.toFixed(0) }}</div>
+          <div class="stock-kpi-lbl">Stock disponible</div>
+        </div>
+        <div class="stock-kpi">
+          <span class="material-symbols-outlined stock-kpi-icon grey">security</span>
+          <div class="stock-kpi-val">{{ result.stockMinimum.toFixed(0) }}</div>
+          <div class="stock-kpi-lbl">Stock minimum</div>
+        </div>
+        <div class="stock-kpi" [class.negative]="result.quantiteCommandee > 0">
+          <span class="material-symbols-outlined stock-kpi-icon orange">pending_actions</span>
+          <div class="stock-kpi-val">{{ result.quantiteCommandee.toFixed(0) }}</div>
+          <div class="stock-kpi-lbl">Commandes en attente</div>
+        </div>
+        <div class="stock-kpi" [class.negative]="result.stockNet < 0">
+          <span class="material-symbols-outlined stock-kpi-icon" [class.red]="result.stockNet < 0">balance</span>
+          <div class="stock-kpi-val" [class.negative]="result.stockNet < 0">{{ result.stockNet.toFixed(0) }}</div>
+          <div class="stock-kpi-lbl">Stock net</div>
+        </div>
+        <div class="stock-kpi highlight">
+          <span class="material-symbols-outlined stock-kpi-icon">shopping_cart</span>
+          <div class="stock-kpi-val">{{ result.quantiteAAcheter.toFixed(0) }}</div>
+          <div class="stock-kpi-lbl">Quantité à commander</div>
+        </div>
+        <div class="stock-kpi">
+          <span class="material-symbols-outlined stock-kpi-icon blue">insights</span>
+          <div class="stock-kpi-val">{{ result.demandeHebdoMoyenne.toFixed(1) }}</div>
+          <div class="stock-kpi-lbl">Demande hebdo. moyenne</div>
+        </div>
+      </div>
+
+      <div class="stock-bar-card">
+        <div class="stock-bar-label">
+          <span>0</span>
+          <span>Min : {{ result.stockMinimum.toFixed(0) }}</span>
+          <span>Actuel : {{ result.stockActuel.toFixed(0) }}</span>
+        </div>
+        <div class="stock-bar-track">
+          <div class="stock-bar-min" [style.width.%]="stockMinPercent()"></div>
+          <div class="stock-bar-fill" [style.width.%]="stockFillPercent()" [ngClass]="getStockStatusClass()"></div>
+        </div>
+        @if (result.stockCritique) {
+          <div class="stock-alert">
+            <span class="material-symbols-outlined">warning</span>
+            Stock critique — achat requis pour couvrir les commandes et maintenir le seuil minimum.
+          </div>
+        }
+      </div>
+
+      <!-- Prix -->
+      <div class="section-title">
+        <span class="material-symbols-outlined">show_chart</span> Prévision des Prix d'Achat
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <span class="material-symbols-outlined kpi-icon bx">payments</span>
+          <div class="kpi-val">{{ result.prixActuel.toFixed(3) }} DT</div>
+          <div class="kpi-lbl">Prix actuel</div>
+        </div>
+        @for (p of result.predictions; track p.horizon) {
+          <div class="kpi-card">
+            <span class="material-symbols-outlined kpi-icon gold">schedule</span>
+            <div class="kpi-val">{{ p.prixPredit.toFixed(3) }} DT</div>
+            <div class="kpi-lbl">Dans {{ p.horizon }} jours</div>
+            <div class="kpi-date">{{ formatDate(p.date) }}</div>
+            @let varPct = ((p.prixPredit - result.prixActuel) / result.prixActuel * 100);
+            <div class="kpi-var" [class.up]="varPct > 0" [class.down]="varPct < 0">
+              {{ varPct > 0 ? '+' : '' }}{{ varPct.toFixed(2) }}%
+            </div>
+            <div class="kpi-range">{{ p.prixMin.toFixed(3) }} – {{ p.prixMax.toFixed(3) }} DT</div>
+          </div>
+        }
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="material-symbols-outlined">show_chart</span>
+          <h3>Évolution du Prix — Historique &amp; Prévision Prophet</h3>
+        </div>
+        <canvas #priceChart height="100"></canvas>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <span class="material-symbols-outlined">table_chart</span>
+          <h3>Détail des Prédictions</h3>
+        </div>
+        <table class="pred-table">
+          <thead>
+            <tr>
+              <th>Horizon</th><th>Date prévue</th><th>Prix prédit (DT)</th>
+              <th>Fourchette (DT)</th><th>Variation vs actuel</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of result.predictions; track p.horizon) {
+              <tr>
+                <td><span class="horizon-badge">J+{{ p.horizon }}</span></td>
+                <td>{{ formatDate(p.date) }}</td>
+                <td class="price-cell">{{ p.prixPredit.toFixed(3) }}</td>
+                <td class="range-cell">{{ p.prixMin.toFixed(3) }} – {{ p.prixMax.toFixed(3) }}</td>
+                <td>
+                  @let varPct = ((p.prixPredit - result.prixActuel) / result.prixActuel * 100);
+                  <span [class]="varPct > 0 ? 'var-up' : varPct < 0 ? 'var-down' : 'var-flat'">
+                    {{ varPct > 0 ? '+' : '' }}{{ varPct.toFixed(2) }}%
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+</div>
+
+<!-- ── Template de carte tableau de bord ─────────────────────────────── -->
+<ng-template #cardTpl let-item>
+  <div class="dash-card-head">
+    <div class="dash-card-avatar">{{ item.designation.charAt(0).toUpperCase() }}</div>
+    <div class="dash-card-info">
+      <div class="dash-card-name">{{ item.designation }}</div>
+      <div class="dash-card-meta">{{ item.nbVentes }} vente(s)</div>
+    </div>
+    <div class="dash-urgence-badge" [class]="'ub-' + item.urgence.toLowerCase()">
+      {{ item.urgence }}
+    </div>
+  </div>
+
+  <div class="dash-stock-row">
+    <span class="material-symbols-outlined ds-icon">inventory_2</span>
+    <div class="dash-stock-bars">
+      <div class="dash-bar-track">
+        <div class="dash-bar-min" [style.width.%]="stockMinPct(item)"></div>
+        <div class="dash-bar-fill" [style.width.%]="stockBarPct(item)"
+             [class.bar-critique]="item.stockCritique"
+             [class.bar-alerte]="item.stockBas && !item.stockCritique"
+             [class.bar-ok]="!item.stockCritique && !item.stockBas"></div>
+      </div>
+      <div class="dash-stock-text">
+        Stock : <strong>{{ item.stockActuel.toFixed(0) }}</strong>
+        / Min : {{ item.stockMinimum.toFixed(0) }}
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-price-row">
+    <div class="dash-price-cell">
+      <span class="dp-label">Prix moy.</span>
+      <span class="dp-val">{{ item.prixMoyen.toFixed(3) }} DT</span>
+    </div>
+    <div class="dash-price-cell">
+      <span class="dp-label">Dernier</span>
+      <span class="dp-val">{{ item.prixDernier.toFixed(3) }} DT</span>
+    </div>
+    <div class="dash-price-cell">
+      <span class="dp-label">Tendance</span>
+      <span class="dp-trend"
+            [class.trend-up]="item.tendance === 'hausse'"
+            [class.trend-down]="item.tendance === 'baisse'"
+            [class.trend-flat]="item.tendance === 'stable'">
+        @if (item.tendance === 'hausse') { ↗ +{{ item.prixVariationPct.toFixed(1) }}% }
+        @else if (item.tendance === 'baisse') { ↘ {{ item.prixVariationPct.toFixed(1) }}% }
+        @else { → Stable }
+      </span>
+    </div>
+  </div>
+
+  <div class="dash-card-footer">
+    <button class="btn-analyse" (click)="$event.stopPropagation(); openDetail(item)">
+      <span class="material-symbols-outlined">auto_awesome</span> Analyser avec Prophet
+    </button>
+  </div>
+</ng-template>

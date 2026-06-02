@@ -1,99 +1,64 @@
-import { inject, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map, catchError, of } from 'rxjs';
-import { ApiResponse } from '../models/fournisseur.model';
-import { Client } from '../models/client.model';
-import { ClientEtat, TransactionClient } from '../models/client.model';
-import { AncienFactureClientForm } from '../models/ancien-facture-client.model';
+import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { Client, PaiementClient } from '../models/client.model';
+import { BonLivraison } from '../models/vente.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ClientService {
-  private http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/clients`;
+  private api = `${environment.apiUrl}/admin/clients`;
+  private creditApi = `${environment.apiUrl}/admin/clients-crediteurs`;
+
+  constructor(private http: HttpClient) {}
 
   getAll(): Observable<Client[]> {
-    return this.http
-      .get<ApiResponse<Client[]>>(this.baseUrl)
-      .pipe(
-        map(res => res.data ?? []),
-        catchError(() => of([]))
-      );
+    return this.http.get<Client[]>(this.api);
   }
 
-  getById(id: number): Observable<Client | null> {
-    return this.http
-      .get<ApiResponse<Client>>(`${this.baseUrl}/${id}`)
-      .pipe(
-        map(res => res.data ?? null),
-        catchError(() => of(null))
-      );
+  getActifs(): Observable<Client[]> {
+    return this.http.get<Client[]>(`${this.api}/actifs`);
   }
 
-  create(payload: Partial<Client>): Observable<Client> {
-    return this.http
-      .post<ApiResponse<Client>>(this.baseUrl, payload)
-      .pipe(map(res => res.data));
+  search(q: string): Observable<Client[]> {
+    return this.http.get<Client[]>(`${this.api}/search`, { params: { q } });
   }
 
-  update(id: number, payload: Partial<Client>): Observable<Client> {
-    return this.http
-      .put<ApiResponse<Client>>(`${this.baseUrl}/${id}`, payload)
-      .pipe(map(res => res.data));
+  getById(id: number): Observable<Client> {
+    return this.http.get<Client>(`${this.api}/${id}`);
   }
 
-  delete(id: number): Observable<void> {
-    return this.http
-      .delete<ApiResponse<null>>(`${this.baseUrl}/${id}`)
-      .pipe(
-        map(() => void 0),
-        catchError(() => of(void 0))
-      );
+  create(data: Partial<Client>): Observable<Client> {
+    return this.http.post<Client>(this.api, data);
   }
 
-  getEtatClients(): Observable<ClientEtat[]> {
-    return this.http
-      .get<ApiResponse<ClientEtat[]>>(`${this.baseUrl}/etat`)
-      .pipe(
-        map(res => res.data ?? []),
-        catchError(() => this.getAll().pipe(
-          map(list => list.map(c => ({
-            clientId: c.id,
-            codeClient: c.codeClient,
-            nomClient: c.nom,
-            solde: 0,
-            traitementEnCours: 0
-          })))
-        ))
-      );
+  update(id: number, data: Partial<Client>): Observable<Client> {
+    return this.http.put<Client>(`${this.api}/${id}`, data);
   }
 
-  getTransactionsByClient(clientId: number): Observable<TransactionClient[]> {
-    return this.http
-      .get<ApiResponse<TransactionClient[]>>(`${this.baseUrl}/${clientId}/transactions`)
-      .pipe(
-        map(res => res.data ?? []),
-        catchError(() => of([]))
-      );
+  delete(id: number): Observable<any> {
+    return this.http.delete(`${this.api}/${id}`);
   }
 
-  deleteTransaction(transactionId: number): Observable<void> {
-    return this.http
-      .delete<ApiResponse<null>>(`${environment.apiUrl}/clients/transactions/${transactionId}`)
-      .pipe(
-        map(() => void 0),
-        catchError(() => of(void 0))
-      );
+  // ── Crédit ────────────────────────────────────────────────────────────
+
+  getAllWithSolde(): Observable<Client[]> {
+    return this.http.get<Client[]>(this.creditApi);
   }
 
-  saveAncienFactureClient(form: AncienFactureClientForm): Observable<unknown> {
-    return this.http
-      .post<ApiResponse<unknown>>(`${this.baseUrl}/factures-anciennes`, form)
-      .pipe(
-        map(res => res.data),
-        catchError(() => of(null))
-      );
+  getBonsByClient(clientId: number): Observable<BonLivraison[]> {
+    return this.http.get<BonLivraison[]>(`${this.creditApi}/${clientId}/bons`);
+  }
+
+  getPaiementsByClient(clientId: number): Observable<PaiementClient[]> {
+    return this.http.get<PaiementClient[]>(`${this.creditApi}/${clientId}/paiements`);
+  }
+
+  addPaiement(clientId: number, data: Partial<PaiementClient>): Observable<PaiementClient> {
+    return this.http.post<PaiementClient>(`${this.creditApi}/${clientId}/paiements`, data);
+  }
+
+  deletePaiement(clientId: number, paiementId: number): Observable<any> {
+    return this.http.delete(`${this.creditApi}/${clientId}/paiements/${paiementId}`);
   }
 }

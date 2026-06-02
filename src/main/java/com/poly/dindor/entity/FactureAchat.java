@@ -79,7 +79,7 @@ public class FactureAchat {
     @Column(name = "date_modification")
     private LocalDateTime dateModification;
 
-    public enum StatutFacture { BROUILLON, VALIDEE }
+    public enum StatutFacture { BROUILLON, VALIDEE, PAYEE }
 
     public void recalculerTotaux() {
         totalBrut = lignes.stream()

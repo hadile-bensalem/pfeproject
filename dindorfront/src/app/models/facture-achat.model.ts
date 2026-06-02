@@ -11,6 +11,7 @@ export interface LigneFactureAchat {
   montantTVA: number;
   totalTTC: number;
   montantRemise: number;
+  tauxTransformation?: number | null;
   ordre?: number;
 }
 
@@ -39,7 +40,7 @@ export interface FactureAchat {
   totalTVA: number;
   timbreFiscal: number;
   netAPayer: number;
-  statut: string;
+  statut: 'BROUILLON' | 'VALIDEE' | 'PAYEE' | string;
   paiement?: PaiementAchat;
 }
 
@@ -58,6 +59,8 @@ export interface LigneFactureAchatRequest {
   prixUnitaireHT: number;
   remise: number;
   tva: number;
+  /** Taux en décimal (ex: 0.74 pour 74 %). Null si article non spécial. */
+  tauxTransformation?: number | null;
   ordre?: number;
 }
 

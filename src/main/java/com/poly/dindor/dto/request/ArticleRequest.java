@@ -36,9 +36,15 @@ public class ArticleRequest {
 
     private BigDecimal tauxConversion;
 
+    private String codeArticleSource;
+
+    private Boolean produitSpecial;
+
     private BigDecimal prixAchatHT;
 
     private BigDecimal prixVente;
+
+    private BigDecimal prixPublic;
 
     private BigDecimal tva;
 

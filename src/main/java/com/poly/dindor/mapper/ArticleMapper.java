@@ -21,9 +21,13 @@ public final class ArticleMapper {
                 .unite(request.getUnite())
                 .famille(request.getFamille())
                 .origine(request.getOrigine())
-                .tauxConversion(nullSafeBigDecimal(request.getTauxConversion(), BigDecimal.ONE))
+                .codeArticleSource(request.getCodeArticleSource())
+                .produitSpecial(produitSpecialEffectif(request))
+                .tauxConversion(nullSafeBigDecimal(request.getTauxConversion(),
+                        request.getCodeArticleSource() != null ? BigDecimal.ZERO : BigDecimal.ONE))
                 .prixAchatHT(nullSafeBigDecimal(request.getPrixAchatHT(), BigDecimal.ZERO))
                 .prixVente(nullSafeBigDecimal(request.getPrixVente(), BigDecimal.ZERO))
+                .prixPublic(nullSafeBigDecimal(request.getPrixPublic(), BigDecimal.ZERO))
                 .tva(nullSafeBigDecimal(request.getTva(), BigDecimal.ZERO))
                 .stock1(nullSafeBigDecimal(request.getStock1(), BigDecimal.ZERO))
                 .stock2(nullSafeBigDecimal(request.getStock2(), BigDecimal.ZERO))
@@ -43,9 +47,16 @@ public final class ArticleMapper {
         entity.setUnite(request.getUnite());
         entity.setFamille(request.getFamille());
         entity.setOrigine(request.getOrigine());
-        entity.setTauxConversion(nullSafeBigDecimal(request.getTauxConversion(), BigDecimal.ONE));
+        entity.setCodeArticleSource(request.getCodeArticleSource());
+        entity.setProduitSpecial(produitSpecialEffectif(request));
+        // Si on passe d'un article standard à dérivé et qu'aucun taux n'est fourni, remettre à 0
+        BigDecimal tauxDefault = (request.getCodeArticleSource() != null
+                && entity.getTauxConversion().compareTo(BigDecimal.ONE) == 0)
+                ? BigDecimal.ZERO : BigDecimal.ONE;
+        entity.setTauxConversion(nullSafeBigDecimal(request.getTauxConversion(), tauxDefault));
         entity.setPrixAchatHT(nullSafeBigDecimal(request.getPrixAchatHT(), BigDecimal.ZERO));
         entity.setPrixVente(nullSafeBigDecimal(request.getPrixVente(), BigDecimal.ZERO));
+        entity.setPrixPublic(nullSafeBigDecimal(request.getPrixPublic(), BigDecimal.ZERO));
         entity.setTva(nullSafeBigDecimal(request.getTva(), BigDecimal.ZERO));
         entity.setStock1(nullSafeBigDecimal(request.getStock1(), BigDecimal.ZERO));
         entity.setStock2(nullSafeBigDecimal(request.getStock2(), BigDecimal.ZERO));
@@ -66,9 +77,12 @@ public final class ArticleMapper {
                 .unite(entity.getUnite())
                 .famille(entity.getFamille())
                 .origine(entity.getOrigine())
+                .codeArticleSource(entity.getCodeArticleSource())
+                .produitSpecial(entity.getProduitSpecial())
                 .tauxConversion(entity.getTauxConversion())
                 .prixAchatHT(entity.getPrixAchatHT())
                 .prixVente(entity.getPrixVente())
+                .prixPublic(entity.getPrixPublic())
                 .tva(entity.getTva())
                 .stock1(entity.getStock1())
                 .stock2(entity.getStock2())
@@ -76,6 +90,7 @@ public final class ArticleMapper {
                 .qteNbre(entity.getQteNbre())
                 .autreIndir(entity.getAutreIndir())
                 .stockezBlock(entity.getStockezBlock())
+                .imageUrl(entity.getImageUrl())
                 .dateCreation(entity.getDateCreation())
                 .dateModification(entity.getDateModification())
                 .build();
@@ -83,5 +98,13 @@ public final class ArticleMapper {
 
     private static BigDecimal nullSafeBigDecimal(BigDecimal value, BigDecimal defaultVal) {
         return value != null ? value : defaultVal;
+    }
+
+    /** Produit dérivé : jamais « spécial ». */
+    private static boolean produitSpecialEffectif(ArticleRequest request) {
+        if (request.getCodeArticleSource() != null && !request.getCodeArticleSource().isBlank()) {
+            return false;
+        }
+        return Boolean.TRUE.equals(request.getProduitSpecial());
     }
 }

@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,7 +20,7 @@ import java.util.List;
  * Supprimez cette classe (ou décommentez le guard) en production.
  */
 @Slf4j
-@Component
+// @Component  // Désactivé — données de test supprimées
 @Order(10)
 @RequiredArgsConstructor
 public class RetenueTestDataInitializer implements CommandLineRunner {

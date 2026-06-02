@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Article, UNITES_ARTICLE } from '../../models/article.model';
@@ -15,8 +16,8 @@ import { NumberFormatPipe } from '../../pipes/number-format.pipe';
 import { FactureAchatService } from '../../services/facture-achat.service';
 import { FactureAchat, FactureAchatRequest, LigneFactureAchatRequest, PaiementAchatRequest } from '../../models/facture-achat.model';
 import { TraiteService } from '../../services/traite.service';
-import { RetenueSourceService } from '../../services/retenue-source.service';
 import { montantEnLettres } from '../../utils/montant-en-lettres';
+import { environment } from '../../../environments/environment';
 
 type FilterBloc = 'non-bloques' | 'bloques' | 'globale';
 
@@ -28,6 +29,8 @@ type FilterBloc = 'non-bloques' | 'bloques' | 'globale';
   styleUrl: './achat.component.css'
 })
 export class AchatComponent implements OnInit {
+  private readonly apiBase = environment.apiUrl;
+
   articles: Article[] = [];
   filteredArticles: Article[] = [];
   fournisseurs: Fournisseur[] = [];
@@ -42,8 +45,11 @@ export class AchatComponent implements OnInit {
   isEditingArticle = false;
   articleForm!: FormGroup;
   articleDuplicateError = '';
-  /** Articles ajoutés dans la modale pendant la session (affichés dans un tableau) */
   articlesAddedInModal: Article[] = [];
+
+  // ── Photo article ─────────────────────────────────────────────────────────
+  selectedPhotoFile: File | null = null;
+  photoPreviewUrl: string | null = null;
 
   unites = [...UNITES_ARTICLE];
   familles: Famille[] = [];
@@ -59,7 +65,77 @@ export class AchatComponent implements OnInit {
   factures: FactureAchat[] = [];
   facturesLoading = false;
   activeTab: 'factures' | 'articles' = 'factures';
+  today = new Date();
   traitesAlert: { numeroFacture: string; fournisseur: string; dateEcheance: string; joursRestants: number }[] = [];
+
+  // ── SUIVI FACTURES ACHAT ──────────────────────────────────────────────
+  factureFilter: 'TOUT' | 'VALIDEE' | 'CREDIT' = 'TOUT';
+  factureSearchTerm = '';
+  dateFrom = '';
+  dateTo = '';
+
+  get displayedFactures(): FactureAchat[] {
+    let list = [...this.factures];
+    if (this.factureFilter === 'CREDIT') {
+      list = list.filter(f => this.isCreditFacture(f));
+    } else if (this.factureFilter === 'VALIDEE') {
+      list = list.filter(f => f.statut === 'VALIDEE' && !this.isCreditFacture(f));
+    }
+    if (this.dateFrom) {
+      list = list.filter(f => new Date(f.dateFacture) >= new Date(this.dateFrom));
+    }
+    if (this.dateTo) {
+      list = list.filter(f => new Date(f.dateFacture) <= new Date(this.dateTo));
+    }
+    if (this.factureSearchTerm.trim()) {
+      const t = this.factureSearchTerm.trim().toLowerCase();
+      list = list.filter(f =>
+        (f.numeroFacture || '').toLowerCase().includes(t) ||
+        (f.fournisseurRaisonSociale || '').toLowerCase().includes(t) ||
+        (f.fournisseurMatricule || '').toLowerCase().includes(t)
+      );
+    }
+    return list;
+  }
+
+  isCreditFacture(f: FactureAchat): boolean {
+    const s = f.paiement?.sousMode ?? '';
+    return s === 'ACOMPTE_CREDIT' || s === 'TOUT_CREDIT';
+  }
+
+  soldeCredit(f: FactureAchat): number {
+    return f.paiement?.montantReste ?? 0;
+  }
+
+  modePaiementLabel(f: FactureAchat): string {
+    const sous = f.paiement?.sousMode ?? '';
+    const mode = f.paiement?.modePaiement ?? '';
+    if (sous === 'TOUT_ESPECES' || mode === 'ESPECES') return 'Espèces';
+    if (sous === 'ACOMPTE_TRAITE') return 'Traite';
+    if (sous === 'ACOMPTE_CREDIT') return 'Crédit';
+    return mode || '—';
+  }
+
+  etatPaiementLabel(f: FactureAchat): string {
+    if (f.statut === 'PAYEE') return 'Payée';
+    if (this.isCreditFacture(f)) return 'Crédit';
+    if (f.statut === 'VALIDEE') return 'Validée';
+    return 'Brouillon';
+  }
+
+  etatPaiementClass(f: FactureAchat): string {
+    if (f.statut === 'PAYEE') return 'sp-payee';
+    if (this.isCreditFacture(f)) return 'sp-credit';
+    if (f.statut === 'VALIDEE') return 'sp-validee';
+    return 'sp-brouillon';
+  }
+
+  get creditCount(): number { return this.factures.filter(f => this.isCreditFacture(f)).length; }
+  get creditTotal(): number { return this.factures.filter(f => this.isCreditFacture(f)).reduce((s, f) => s + this.soldeCredit(f), 0); }
+
+  sumField(list: FactureAchat[], field: keyof FactureAchat): number {
+    return list.reduce((s, f) => s + ((f[field] as number) || 0), 0);
+  }
 
   // ── SAISIE INLINE ─────────────────────────────────────────────────────────
   showSaisiePanel = false;
@@ -68,6 +144,7 @@ export class AchatComponent implements OnInit {
   saisieError = '';
   saisieSuccess = '';
   nextNumeroFacture = '';
+  editingFactureId: number | null = null;
 
   // ── Article picker modal ──────────────────────────────────────────────
   isArticlePickerOpen = false;
@@ -95,16 +172,30 @@ export class AchatComponent implements OnInit {
     this.articlePickerRowIdx = -1;
   }
 
+  selectFirstPickerArticle(): void {
+    if (this.filteredArticlesPicker.length > 0) {
+      this.selectArticleFromPicker(this.filteredArticlesPicker[0]);
+    }
+  }
+
   selectArticleFromPicker(article: Article): void {
     const rowIdx = this.articlePickerRowIdx;
     this.saisiesLignes.at(rowIdx).patchValue({
-      codeArticle: article.codeArticle,
-      designation: article.designation,
-      puHT: article.prixAchatHT ?? 0,
-      tva:  article.tva ?? 0
+      codeArticle:        article.codeArticle,
+      designation:        article.designation,
+      puHT:               0,
+      tva:                article.tva ?? 0,
+      tauxTransformation: null,
+      estSpecial:         this.articleEstSpecialOuAvecDerives(article)
     });
     this.closeArticlePicker();
     setTimeout(() => this.focusCell(rowIdx, 'qte'), 80);
+  }
+
+  /** Active le champ Taux% si l'article est marqué spécial OU s'il a au moins un produit transformé enregistré. */
+  private articleEstSpecialOuAvecDerives(article: Article): boolean {
+    return !!article.produitSpecial
+      || this.articles.some(x => x.codeArticleSource === article.codeArticle);
   }
 
   // Gardé pour rétro-compatibilité (plus utilisé)
@@ -161,6 +252,10 @@ export class AchatComponent implements OnInit {
     });
   }
 
+  montantEnLettres(montant: number): string {
+    return montantEnLettres(montant);
+  }
+
   syncMontantPaye(): void {
     const mode = this.saisieModePaiement;
     if (mode === 'especes') {
@@ -188,7 +283,7 @@ export class AchatComponent implements OnInit {
     const today = new Date().toISOString().slice(0, 10);
     this.saisieRetenueForm = this.fb.group({
       tauxRetenue:  [1.5, [Validators.required, Validators.min(0.001), Validators.max(99)]],
-      lieuRetenue:  ['', Validators.required],
+      lieuRetenue:  ['KSIBET'],
       dateRetenue:  [today, Validators.required]
     });
   }
@@ -232,12 +327,14 @@ export class AchatComponent implements OnInit {
 
   private buildSaisieLigneGroup(): FormGroup {
     return this.fb.group({
-      codeArticle: [''],
-      designation: ['', Validators.required],
-      quantite:    [1,   [Validators.required, Validators.min(0.001)]],
-      puHT:        [0,   [Validators.required, Validators.min(0)]],
-      remise:      [0,   [Validators.min(0), Validators.max(100)]],
-      tva:         [19,  [Validators.min(0), Validators.max(100)]]
+      codeArticle:        [''],
+      designation:        ['', Validators.required],
+      quantite:           [1,    [Validators.required, Validators.min(0.001)]],
+      puHT:               [0,    [Validators.required, Validators.min(0)]],
+      remise:             [0,    [Validators.min(0), Validators.max(100)]],
+      tva:                [19,   [Validators.min(0), Validators.max(100)]],
+      tauxTransformation: [null, [Validators.min(0), Validators.max(100)]],
+      estSpecial:         [false]
     });
   }
 
@@ -267,10 +364,57 @@ export class AchatComponent implements OnInit {
     }, 120);
   }
 
+  openSaisieFactureForEdit(f: FactureAchat): void {
+    this.editingFactureId = f.id!;
+    this.showSaisiePanel  = true;
+    this.saisieError      = '';
+    this.saisieSuccess    = '';
+    this.saisieWithPaiement = false;
+    this.nextNumeroFacture  = f.numeroFacture;
+
+    const lignesArr = this.saisieHeaderForm.get('lignes') as FormArray;
+    while (lignesArr.length) lignesArr.removeAt(0);
+    this.articleDropdownSearch = [];
+    this.showArticleDropdowns  = [];
+
+    this.saisieHeaderForm.patchValue({
+      fournisseurId: f.fournisseurId,
+      dateFacture:   f.dateFacture
+    });
+
+    (f.lignes ?? []).forEach(l => {
+      const tauxPct = l.tauxTransformation != null && l.tauxTransformation > 0
+        ? +(l.tauxTransformation * 100).toFixed(2) : null;
+      const g = this.buildSaisieLigneGroup();
+      g.patchValue({
+        codeArticle:        l.codeArticle ?? '',
+        designation:        l.designation,
+        quantite:           l.quantite,
+        puHT:               l.prixUnitaireHT,
+        remise:             l.remise,
+        tva:                l.tva,
+        tauxTransformation: tauxPct,
+        estSpecial:         tauxPct != null && tauxPct > 0
+      });
+      lignesArr.push(g);
+      this.articleDropdownSearch.push(undefined);
+      this.showArticleDropdowns.push(false);
+    });
+
+    const fournisseur = this.fournisseurs.find(x => x.id === f.fournisseurId);
+    this.fournisseurAvecRS  = fournisseur?.avecRS ?? false;
+    this.saisieWithRetenue  = false;
+
+    setTimeout(() => {
+      document.getElementById('saisie-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }
+
   closeSaisiePanel(): void {
-    this.showSaisiePanel = false;
-    this.saisieError = '';
-    this.saisieSuccess = '';
+    this.showSaisiePanel    = false;
+    this.editingFactureId   = null;
+    this.saisieError        = '';
+    this.saisieSuccess      = '';
   }
 
   addSaisieLigne(): void {
@@ -292,8 +436,9 @@ export class AchatComponent implements OnInit {
       if (found) {
         this.saisiesLignes.at(rowIdx).patchValue({
           designation: found.designation,
-          puHT: found.prixAchatHT ?? 0,
-          tva:  found.tva ?? 0
+          puHT:        0,
+          tva:         found.tva ?? 0,
+          estSpecial:  this.articleEstSpecialOuAvecDerives(found)
         });
       }
     }
@@ -302,6 +447,10 @@ export class AchatComponent implements OnInit {
 
   onCellEnter(rowIdx: number, nextField: string): void {
     this.focusCell(rowIdx, nextField);
+  }
+
+  onTauxEnter(rowIdx: number): void {
+    this.onLastCellEnter(rowIdx);
   }
 
   onLastCellEnter(rowIdx: number): void {
@@ -368,20 +517,28 @@ export class AchatComponent implements OnInit {
       fournisseurId: hv.fournisseurId,
       lignes: this.saisiesLignes.controls.map((ctrl, i) => {
         const v = ctrl.value;
+        const tauxPct = +v.tauxTransformation;
         return {
-          codeArticle:    v.codeArticle || undefined,
-          designation:    v.designation,
-          quantite:       +v.quantite,
-          prixUnitaireHT: +v.puHT,
-          remise:         +v.remise || 0,
-          tva:            +v.tva || 0,
+          codeArticle:        v.codeArticle || undefined,
+          designation:        v.designation,
+          quantite:           +v.quantite,
+          prixUnitaireHT:     +v.puHT,
+          remise:             +v.remise || 0,
+          tva:                +v.tva || 0,
+          tauxTransformation: v.estSpecial && tauxPct > 0
+            ? +(tauxPct / 100).toFixed(4)
+            : null,
           ordre: i + 1
         } as LigneFactureAchatRequest;
       }),
       paiement
     };
 
-    this.factureAchatService.create(request).subscribe({
+    const save$ = this.editingFactureId
+      ? this.factureAchatService.update(this.editingFactureId, request)
+      : this.factureAchatService.create(request);
+
+    save$.subscribe({
       next: (facture) => {
         const numeroFacture = facture?.numeroFacture ?? this.nextNumeroFacture;
         const fournisseur = this.fournisseurs.find(f => f.id === hv.fournisseurId);
@@ -411,38 +568,46 @@ export class AchatComponent implements OnInit {
         }
 
         // ── Enregistrer la retenue à la source ────────────────────────────
+        let retenueOk = false;
         if (this.saisieWithRetenue && stats.totalHT > 0) {
           const rv = this.saisieRetenueForm.value;
+          const retenueRequest = {
+            fournisseurId: +hv.fournisseurId,
+            dateRetenue: rv.dateRetenue,
+            lieuRetenue: rv.lieuRetenue || 'KSIBET',
+            lignes: [{
+              numeroFacture: numeroFacture || this.nextNumeroFacture,
+              montantBrut: +stats.totalHT.toFixed(3),
+              tauxRetenue: +rv.tauxRetenue,
+              ordre: 1
+            }]
+          };
           tasks.push(new Promise(resolve => {
-            const retenuePayload = {
-              fournisseurId: hv.fournisseurId,
-              fournisseurNom: fournisseur?.raisonSociale ?? '',
-              fournisseurAdresse: fournisseur?.adresse ?? '',
-              fournisseurMatricule: fournisseur?.matricule ?? '',
-              fournisseurCodeTVA: fournisseur?.codeTVA ?? '',
-              dateRetenue: rv.dateRetenue,
-              lot: rv.lieuRetenue || 'KSIBET',
-              taux: +rv.tauxRetenue,
-              numeroFacture,
-              montantBrut: stats.totalHT,
-              retenue: stats.totalHT * (+rv.tauxRetenue) / 100,
-              montantNet: stats.totalHT - (stats.totalHT * (+rv.tauxRetenue) / 100),
-              libelle: `Retenue à la source ${rv.tauxRetenue}%`
-            };
-            this.retenueSourceService.create(retenuePayload).subscribe({
-              next: () => resolve(),
-              error: () => resolve()
+            this.http.post<any>(`${this.apiBase}/retenue-source`, retenueRequest).subscribe({
+              next: () => { retenueOk = true; resolve(); },
+              error: (err) => {
+                const msg = err?.error?.message || err?.error?.data || JSON.stringify(err?.error) || 'Erreur retenue';
+                this.saisieError = `Retenue non enregistrée : ${msg}`;
+                resolve();
+              }
             });
           }));
         }
 
         Promise.all(tasks).then(() => {
           this.saisieIsSaving = false;
+          const creditMode = mode === 'credit' || mode === 'especes_credit';
+          const traiteMode = mode === 'traite' || mode === 'especes_traite';
           const msgs: string[] = ['Facture enregistrée.'];
-          if (mode === 'traite' || mode === 'especes_traite') msgs.push('Traite enregistrée dans État.');
-          if (this.saisieWithRetenue) msgs.push('Retenue à la source enregistrée dans État.');
+          if (traiteMode) msgs.push('Traite enregistrée. Redirection vers État Fournisseur…');
+          if (creditMode) msgs.push('Crédit enregistré. Redirection vers État Crédit…');
+          if (this.saisieWithRetenue && retenueOk) msgs.push('Retenue à la source enregistrée.');
           this.saisieSuccess = msgs.join(' ');
-          setTimeout(() => { this.closeSaisiePanel(); this.loadFactures(); }, 1800);
+          if (creditMode || traiteMode) {
+            setTimeout(() => { this.closeSaisiePanel(); this.router.navigate(['/fournisseurs/etat']); }, 1800);
+          } else {
+            setTimeout(() => { this.closeSaisiePanel(); this.loadFactures(); }, 1800);
+          }
         });
       },
       error: err => {
@@ -466,7 +631,7 @@ export class AchatComponent implements OnInit {
     private origineService: OrigineService,
     private factureAchatService: FactureAchatService,
     private traiteService: TraiteService,
-    private retenueSourceService: RetenueSourceService
+    private http: HttpClient
   ) {
     this.buildArticleForm();
     this.buildSaisieHeaderForm();
@@ -500,17 +665,33 @@ export class AchatComponent implements OnInit {
       unite: ['', Validators.required],
       famille: ['', Validators.required],
       origine: ['', Validators.maxLength(200)],
-      // Champs conservés en interne pour l'API (non affichés dans le formulaire)
-      prixAchatHT: [0, Validators.min(0)],
-      prixVente: [0, Validators.min(0)],
-      tva: [0, [Validators.min(0), Validators.max(100)]],
-      stock1: [0, Validators.min(0)],
-      stock2: [0, Validators.min(0)],
-      pump: [0, Validators.min(0)],
+      typeArticle: ['standard', Validators.required],
+      codeArticleSource: [''],
+      produitSpecial: [false],
       qteNbre: [false],
       autreIndir: [false],
       stockezBlock: [false]
     });
+  }
+
+  get articlesOriginePossible(): Article[] {
+    return this.articles.filter(
+      a => !a.codeArticleSource && (!!a.produitSpecial || this.aUnDeriveEnregistre(a.codeArticle))
+    );
+  }
+
+  private aUnDeriveEnregistre(codeArticle: string): boolean {
+    return this.articles.some(x => x.codeArticleSource === codeArticle);
+  }
+
+  libelleTypeArticle(a: Article): string {
+    if (a.codeArticleSource) return 'Transformé';
+    if (a.produitSpecial) return 'Spécial';
+    return '—';
+  }
+
+  aDejaPrixAchat(a: Article): boolean {
+    return (a.prixAchatHT != null && a.prixAchatHT > 0) || (a.pump != null && a.pump > 0);
   }
 
   ngOnInit(): void {
@@ -525,6 +706,15 @@ export class AchatComponent implements OnInit {
       if (params['tab'] === 'articles') this.activeTab = 'articles';
       else this.activeTab = 'factures';
     });
+  }
+
+  @HostListener('keydown.escape')
+  onEscape(): void {
+    if (this.isArticlePickerOpen) { this.closeArticlePicker(); return; }
+    if (this.isModalArticleOpen)  { this.closeArticleModal();  return; }
+    if (this.isModalFamilleOpen)  { this.closeFamilleModal();  return; }
+    if (this.isModalOrigineOpen)  { this.closeOrigineModal();  return; }
+    if (this.showSaisiePanel)     { this.closeSaisiePanel();   return; }
   }
 
   loadFactures(): void {
@@ -578,8 +768,37 @@ export class AchatComponent implements OnInit {
     });
   }
 
+  viewFacture(id: number): void {
+    this.factureAchatService.viewFacturePdf(id);
+  }
+
   printFacture(id: number, numeroFacture: string): void {
     this.factureAchatService.downloadFacturePdf(id, numeroFacture);
+  }
+
+  printPage(): void {
+    window.print();
+  }
+
+  validateFacture(f: FactureAchat): void {
+    if (!confirm(`Valider la facture ${f.numeroFacture} ? Le stock sera mis à jour.`)) return;
+    this.factureAchatService.validateFacture(f.id!).subscribe({
+      next: updated => {
+        const idx = this.factures.findIndex(x => x.id === f.id);
+        if (idx >= 0) this.factures[idx] = updated;
+      },
+      error: err => { this.errorMessage = err?.error?.message || 'Erreur lors de la validation.'; }
+    });
+  }
+
+  editFacture(f: FactureAchat): void {
+    this.router.navigate(['/achat/facture/edit', f.id!]);
+  }
+
+  /** Prix d'achat effectif : pump pour les dérivés, prixAchatHT sinon. */
+  effectivePrixAchat(a: Article): number {
+    if (a.codeArticleSource) return a.pump ?? 0;
+    return (a.prixAchatHT && a.prixAchatHT > 0) ? a.prixAchatHT : (a.pump ?? 0);
   }
 
   private loadFamillesEtOrigines(): void {
@@ -631,6 +850,14 @@ export class AchatComponent implements OnInit {
       });
     }
     this.filteredArticles = list;
+  }
+
+  get totalAchats(): number {
+    return this.factures.reduce((s, f) => s + (f.netAPayer ?? 0), 0);
+  }
+
+  get facturesEnAttente(): number {
+    return this.factures.filter(f => f.statut !== 'PAYE' && f.statut !== 'PAYEE').length;
   }
 
   get totalValeur(): number {
@@ -719,12 +946,9 @@ export class AchatComponent implements OnInit {
       unite: '',
       famille: '',
       origine: '',
-      prixAchatHT: 0,
-      prixVente: 0,
-      tva: 0,
-      stock1: 0,
-      stock2: 0,
-      pump: 0,
+      typeArticle: 'standard',
+      codeArticleSource: '',
+      produitSpecial: false,
       qteNbre: false,
       autreIndir: false,
       stockezBlock: false
@@ -736,6 +960,21 @@ export class AchatComponent implements OnInit {
     this.isModalArticleOpen = false;
     this.articleDuplicateError = '';
     this.articlesAddedInModal = [];
+    this.selectedPhotoFile = null;
+    this.photoPreviewUrl = null;
+  }
+
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file  = input.files?.[0] ?? null;
+    this.selectedPhotoFile = file;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => this.photoPreviewUrl = e.target?.result as string;
+      reader.readAsDataURL(file);
+    } else {
+      this.photoPreviewUrl = null;
+    }
   }
 
   onViderArticle(): void {
@@ -744,12 +983,9 @@ export class AchatComponent implements OnInit {
       unite: '',
       famille: '',
       origine: '',
-      prixAchatHT: 0,
-      prixVente: 0,
-      tva: 0,
-      stock1: 0,
-      stock2: 0,
-      pump: 0,
+      typeArticle: 'standard',
+      codeArticleSource: '',
+      produitSpecial: false,
       qteNbre: false,
       autreIndir: false,
       stockezBlock: false
@@ -760,12 +996,23 @@ export class AchatComponent implements OnInit {
     this.articleDuplicateError = '';
   }
 
+  onArticleFormEnter(event: Event): void {
+    const tag = (event.target as HTMLElement)?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (this.articleForm.valid) this.onAjouterArticle();
+  }
+
   onAjouterArticle(): void {
     if (this.articleForm.invalid) {
       this.articleForm.markAllAsTouched();
       return;
     }
     const v = this.articleForm.value;
+    const type = v.typeArticle as 'standard' | 'special' | 'derive';
+    if (type === 'derive' && !v.codeArticleSource) {
+      this.articleDuplicateError = 'Choisissez l’article d’origine pour un produit transformé.';
+      return;
+    }
     this.articleDuplicateError = '';
     this.articleService.checkDuplicate(v.codeArticle, v.designation, this.isEditingArticle ? v.id : undefined).subscribe({
       next: (r) => {
@@ -784,51 +1031,84 @@ export class AchatComponent implements OnInit {
 
   private saveArticle(): void {
     const v = this.articleForm.value;
+    const type = v.typeArticle as 'standard' | 'special' | 'derive';
     const codeFinal = this.isEditingArticle ? v.codeArticle : this.generateCodeArticle();
+    const ex = this.isEditingArticle ? this.articles.find(x => x.id === v.id) : undefined;
     const payload: Partial<Article> = {
       codeArticle: codeFinal,
       designation: v.designation,
       unite: v.unite,
       famille: v.famille != null ? String(v.famille) : '',
       origine: v.origine != null ? String(v.origine) : '',
-      prixAchatHT: Number(v.prixAchatHT) || 0,
-      prixVente: Number(v.prixVente) || 0,
-      tva: Number(v.tva) || 0,
-      stock1: Number(v.stock1) || 0,
-      stock2: Number(v.stock2) || 0,
-      pump: Number(v.pump) || 0,
+      produitSpecial: type === 'special',
+      codeArticleSource: type === 'derive' && v.codeArticleSource
+        ? String(v.codeArticleSource).trim() : null,
       qteNbre: !!v.qteNbre,
       autreIndir: !!v.autreIndir,
-      stockezBlock: !!v.stockezBlock
+      stockezBlock: !!v.stockezBlock,
+      prixAchatHT: ex?.prixAchatHT ?? 0,
+      prixVente: ex?.prixVente ?? 0,
+      tva: ex?.tva ?? 0,
+      stock1: ex?.stock1 ?? 0,
+      stock2: ex?.stock2 ?? 0,
+      pump: ex?.pump ?? 0
     };
     if (this.isEditingArticle && v.id) {
       this.articleService.update(v.id, payload).subscribe({
         next: (updated) => {
-          const idx = this.articles.findIndex(a => a.id === updated.id);
-          if (idx !== -1) this.articles[idx] = updated;
-          this.applyFilterAndSort();
-          this.closeArticleModal();
+          this._uploadPhotoIfSelected(updated.id, () => {
+            this.articleService.getById(updated.id).subscribe(a => {
+              if (a) {
+                const idx = this.articles.findIndex(x => x.id === a.id);
+                if (idx !== -1) this.articles[idx] = a;
+                this.applyFilterAndSort();
+              }
+            });
+            this.closeArticleModal();
+          });
         },
         error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la mise à jour.'
       });
     } else {
       this.articleService.create(payload).subscribe({
         next: (created) => {
-          this.articles = [created, ...this.articles];
-          this.applyFilterAndSort();
-          this.articlesAddedInModal = [created, ...this.articlesAddedInModal];
-          this.onViderArticle();
+          this._uploadPhotoIfSelected(created.id, () => {
+            this.articleService.getById(created.id).subscribe(a => {
+              const final = a ?? created;
+              this.articles = [final, ...this.articles];
+              this.applyFilterAndSort();
+              this.articlesAddedInModal = [final, ...this.articlesAddedInModal];
+            });
+            this.onViderArticle();
+            this.selectedPhotoFile = null;
+            this.photoPreviewUrl = null;
+          });
         },
         error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la création.'
       });
     }
   }
 
+  private _uploadPhotoIfSelected(id: number, done: () => void): void {
+    if (!this.selectedPhotoFile) { done(); return; }
+    this.articleService.uploadImage(id, this.selectedPhotoFile).subscribe({
+      next:  () => done(),
+      error: () => done()   // la photo a échoué mais l'article est sauvegardé
+    });
+  }
+
   openEditArticle(article: Article): void {
     this.isEditingArticle = true;
     this.articleDuplicateError = '';
+    this.selectedPhotoFile = null;
+    this.photoPreviewUrl = article.imageUrl
+      ? this.articleService.imageUrl(article.imageUrl)
+      : null;
     const familleVal = this.familles.find(f => f.code === Number(article.famille) || f.nom === article.famille)?.code ?? article.famille;
     const origineVal = this.origines.find(o => o.code === Number(article.origine) || o.designation === article.origine)?.code ?? article.origine;
+    let typeArticle: 'standard' | 'special' | 'derive' = 'standard';
+    if (article.codeArticleSource) typeArticle = 'derive';
+    else if (article.produitSpecial) typeArticle = 'special';
     this.articleForm.patchValue({
       id: article.id,
       codeArticle: article.codeArticle,
@@ -836,12 +1116,9 @@ export class AchatComponent implements OnInit {
       unite: article.unite,
       famille: familleVal,
       origine: origineVal,
-      prixAchatHT: article.prixAchatHT,
-      prixVente: article.prixVente,
-      tva: article.tva ?? 0,
-      stock1: article.stock1,
-      stock2: article.stock2 ?? 0,
-      pump: article.pump ?? 0,
+      typeArticle,
+      codeArticleSource: article.codeArticleSource || '',
+      produitSpecial: !!article.produitSpecial,
       qteNbre: article.qteNbre ?? false,
       autreIndir: article.autreIndir ?? false,
       stockezBlock: article.stockezBlock ?? false
@@ -857,7 +1134,10 @@ export class AchatComponent implements OnInit {
         this.articles = this.articles.filter(a => a.id !== article.id);
         this.applyFilterAndSort();
       },
-      error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la suppression.'
+      error: (err) => {
+        const msg = err?.error?.message ?? err?.error?.error ?? err?.message;
+        this.errorMessage = (typeof msg === 'string' && msg) ? msg : 'Erreur lors de la suppression de l’article.';
+      }
     });
   }
 

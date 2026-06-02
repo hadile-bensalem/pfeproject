@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 public class OrigineResponse {
 
     private Long id;
-    private Integer code;
+    private Long code;
     private String designation;
     private LocalDateTime dateCreation;
     private LocalDateTime dateModification;

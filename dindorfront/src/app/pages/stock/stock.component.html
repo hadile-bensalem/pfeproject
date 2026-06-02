@@ -1,9 +1,567 @@
-<div class="page-placeholder">
-  <div class="page-header">
-    <h2>{{ title }}</h2>
-    <p class="subtitle">{{ subtitle }}</p>
+<div class="stock-container">
+
+  <!-- ═══ EN-TÊTE ═══ -->
+  <header class="page-header">
+    <div class="header-deco deco-1"></div>
+    <div class="header-deco deco-2"></div>
+    <div class="header-content">
+      <div>
+        <h2>Gestion du Stock</h2>
+        <p class="subtitle">Suivi temps réel · PUMP · Mouvements · Ajustements</p>
+      </div>
+      <div class="header-badges">
+        <span class="hdr-badge" *ngIf="dashboard">
+          <span class="hdr-badge-icon">📦</span>
+          {{ dashboard.nombreArticles }} articles
+        </span>
+        <span class="hdr-badge hdr-badge-gold" *ngIf="dashboard">
+          <span class="hdr-badge-icon">💰</span>
+          {{ formatNum(dashboard.valeurTotale, 3) }} DT
+        </span>
+        <span class="hdr-badge hdr-badge-alert" *ngIf="dashboard && dashboard.articlesEnAlerte > 0">
+          <span class="hdr-badge-icon">⚠</span>
+          {{ dashboard.articlesEnAlerte }} en alerte
+        </span>
+        <span class="hdr-badge hdr-badge-rupture" *ngIf="dashboard && dashboard.articlesEnRupture > 0">
+          <span class="hdr-badge-icon">🔴</span>
+          {{ dashboard.articlesEnRupture }} rupture
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ TABS ═══ -->
+  <div class="tabs-nav">
+    <button class="tab-btn" [class.active]="activeTab === 'dashboard'" (click)="activeTab = 'dashboard'">
+      📊 Tableau de bord
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'stock'" (click)="activeTab = 'stock'">
+      📦 Stock par Article
+      <span class="tab-count" *ngIf="articles.length > 0">{{ articles.length }}</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'historique'" (click)="activeTab = 'historique'">
+      📋 Historique
+      <span class="tab-count" *ngIf="mouvements.length > 0">{{ mouvements.length }}</span>
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'ajustement'" (click)="activeTab = 'ajustement'">
+      ✏️ Ajustements
+    </button>
   </div>
-  <div class="page-content">
-    <p>Contenu de la page Stock à venir.</p>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB — TABLEAU DE BORD
+  ═══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab === 'dashboard'" class="tab-content">
+
+    <!-- Loader -->
+    <div class="loading-wrap" *ngIf="dashboardLoading">
+      <div class="spinner"></div>
+      <span>Chargement…</span>
+    </div>
+
+    <ng-container *ngIf="!dashboardLoading && dashboard">
+
+      <!-- KPI GRID -->
+      <div class="kpi-grid">
+        <div class="kpi-card kpi-valeur">
+          <div class="kpi-strip"></div>
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Valeur Totale du Stock</div>
+            <div class="kpi-value">{{ formatNum(dashboard.valeurTotale, 3) }} <small>DT</small></div>
+            <div class="kpi-sub">Prix Unitaire Moyen Pondéré</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-articles">
+          <div class="kpi-strip"></div>
+          <div class="kpi-icon">📦</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Articles en Stock</div>
+            <div class="kpi-value">{{ dashboard.nombreArticles }}</div>
+            <div class="kpi-sub">références actives</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-alerte" [class.kpi-alerte-active]="dashboard.articlesEnAlerte > 0">
+          <div class="kpi-strip"></div>
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-body">
+            <div class="kpi-label">En Alerte</div>
+            <div class="kpi-value">{{ dashboard.articlesEnAlerte }}</div>
+            <div class="kpi-sub">sous le seuil minimum</div>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-rupture" [class.kpi-rupture-active]="dashboard.articlesEnRupture > 0">
+          <div class="kpi-strip"></div>
+          <div class="kpi-icon">🔴</div>
+          <div class="kpi-body">
+            <div class="kpi-label">En Rupture</div>
+            <div class="kpi-value">{{ dashboard.articlesEnRupture }}</div>
+            <div class="kpi-sub">stock = 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RÉPARTITION PAR FAMILLE -->
+      <div class="famille-card" *ngIf="dashboard.parFamille.length">
+        <div class="card-hdr">
+          <div class="card-hdr-icon gold">🏷️</div>
+          <h3>Valorisation par Famille</h3>
+          <span class="card-badge">{{ dashboard.parFamille.length }} familles</span>
+        </div>
+        <div class="famille-list">
+          <div class="famille-row" *ngFor="let f of dashboard.parFamille">
+            <div class="famille-left">
+              <span class="famille-nom">{{ f.famille }}</span>
+              <span class="famille-count">{{ f.nombreArticles }} art.</span>
+            </div>
+            <div class="famille-bar-wrap">
+              <div class="famille-bar" [style.width.%]="barWidth(f.valeur)"></div>
+            </div>
+            <div class="famille-val">{{ formatNum(f.valeur, 3) }} DT</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vide -->
+      <div class="empty-state" *ngIf="!dashboard.parFamille.length">
+        <div class="empty-icon">📦</div>
+        <p>Aucun article en stock pour l'instant.</p>
+        <small>Enregistrez des factures d'achat pour alimenter le stock.</small>
+      </div>
+
+    </ng-container>
   </div>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB — STOCK PAR ARTICLE
+  ═══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab === 'stock'" class="tab-content">
+
+    <!-- Toolbar -->
+    <div class="page-toolbar">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-inp" placeholder="Rechercher un article…"
+                 [(ngModel)]="searchTerm" (input)="applyArticleFilter()">
+        </div>
+        <div class="filter-chips">
+          <button class="filter-chip" [class.active]="filterAlerte === 'tous'"    (click)="filterAlerte = 'tous';    applyArticleFilter()">Tous</button>
+          <button class="filter-chip chip-alerte"   [class.active]="filterAlerte === 'alerte'"  (click)="filterAlerte = 'alerte';  applyArticleFilter()">⚠ Alerte</button>
+          <button class="filter-chip chip-rupture"  [class.active]="filterAlerte === 'rupture'" (click)="filterAlerte = 'rupture'; applyArticleFilter()">🔴 Rupture</button>
+          <button class="filter-chip chip-ok"       [class.active]="filterAlerte === 'ok'"      (click)="filterAlerte = 'ok';      applyArticleFilter()">✅ OK</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn neutral" (click)="loadStockArticles()">↻ Actualiser</button>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loading-wrap" *ngIf="articlesLoading">
+      <div class="spinner"></div><span>Chargement…</span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card" *ngIf="!articlesLoading">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Désignation</th>
+              <th>Famille</th>
+              <th>Unité</th>
+              <th class="num" title="Stock physique confirmé">Stock actuel</th>
+              <th class="num" title="Réservé pour commandes">Réservé</th>
+              <th class="num" title="Achats brouillon en attente">En attente</th>
+              <th class="num" title="stock - réservé">Dispo réel</th>
+              <th class="num" title="stock + en_attente - réservé">Dispo prévu</th>
+              <th class="num">Seuil min.</th>
+              <th class="num">PUMP (DT)</th>
+              <th class="num">Valeur (DT)</th>
+              <th>Statut</th>
+              <th>Lots</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let a of filteredArticles">
+              <tr [class.row-alerte]="a.enAlerte"
+                  [class.row-rupture]="a.enRupture"
+                  [class.row-derive]="a.estDerive">
+                <td class="code-cell">{{ a.codeArticle }}</td>
+                <td class="desig-cell">
+                  {{ a.designation }}
+                  <span class="badge-derive" *ngIf="a.estDerive"
+                        [title]="'Dérivé depuis : ' + a.codeArticleSource">↻ Dérivé</span>
+                </td>
+                <td>{{ a.famille }}</td>
+                <td>{{ a.unite }}</td>
+                <td class="num">{{ formatNum(a.stock) }}</td>
+                <td class="num val-warn">{{ formatNum(a.stockReserve) }}</td>
+                <td class="num val-info">{{ formatNum(a.stockEnAttente) }}</td>
+                <td class="num" [class.val-danger]="a.disponibleReel<=0" [class.val-warn]="a.enAlerte&&a.disponibleReel>0">
+                  <strong>{{ formatNum(a.disponibleReel) }}</strong>
+                </td>
+                <td class="num">{{ formatNum(a.disponiblePrevu) }}</td>
+                <td class="num seuil-cell">
+                  <ng-container *ngIf="!a.estDerive">
+                    <ng-container *ngIf="editingSeuilId !== a.id">
+                      <span class="seuil-val">{{ formatNum(a.stockMinimum) }}</span>
+                      <button class="btn-icon-sm" (click)="startEditSeuil(a)" title="Modifier">✏️</button>
+                    </ng-container>
+                    <ng-container *ngIf="editingSeuilId === a.id">
+                      <input type="number" class="seuil-inp"
+                             [ngModel]="editingSeuilValue" (ngModelChange)="onSeuilChange($event)"
+                             step="0.001" min="0"
+                             (keydown.enter)="saveSeuil(a)" (keydown.escape)="cancelEditSeuil()">
+                      <button class="btn-icon-sm green" (click)="saveSeuil(a)" [disabled]="seuilSaving">{{ seuilSaving ? '…' : '✓' }}</button>
+                      <button class="btn-icon-sm red"   (click)="cancelEditSeuil()" [disabled]="seuilSaving">✗</button>
+                      <span class="seuil-error" *ngIf="seuilError && editingSeuilId === a.id">{{ seuilError }}</span>
+                    </ng-container>
+                  </ng-container>
+                  <span *ngIf="a.estDerive" class="text-muted">—</span>
+                </td>
+                <td class="num pump-cell">{{ formatNum(a.pump) }}</td>
+                <td class="num valeur-cell">
+                  <span *ngIf="!a.estDerive">{{ formatNum(a.valeurStock) }}</span>
+                  <span *ngIf="a.estDerive" class="text-muted">—</span>
+                </td>
+                <td>
+                  <ng-container *ngIf="!a.estDerive">
+                    <span class="status-badge badge-rupture" *ngIf="a.enRupture">Rupture</span>
+                    <span class="status-badge badge-alerte"  *ngIf="!a.enRupture && a.enAlerte">Alerte</span>
+                    <span class="status-badge badge-ok"      *ngIf="!a.enRupture && !a.enAlerte">OK</span>
+                  </ng-container>
+                  <span class="status-badge badge-derive" *ngIf="a.estDerive">Dérivé</span>
+                </td>
+                <td>
+                  <button class="btn-lots" (click)="toggleLots(a)"
+                          [class.active]="expandedLotsId === a.id">
+                    {{ expandedLotsId === a.id ? '▲ Fermer' : '▼ Lots' }}
+                  </button>
+                </td>
+              </tr>
+
+              <!-- ── Panel lots ────────────────────────────────────── -->
+              <tr *ngIf="expandedLotsId === a.id" class="lots-row">
+                <td colspan="14">
+                  <div class="lots-panel">
+                    <div class="lots-header">
+                      <span>📦 Lots de stock — {{ a.designation }}</span>
+                      <span class="taux-moyen-badge" *ngIf="!a.estDerive">
+                        Taux moyen pondéré : <strong>{{ getTauxMoyen(a.id) }}</strong>
+                      </span>
+                    </div>
+                    <div class="loading-wrap-sm" *ngIf="lotsLoading">
+                      <div class="spinner-sm"></div> Chargement…
+                    </div>
+                    <table class="lots-table" *ngIf="!lotsLoading && getLots(a.id).length > 0">
+                      <thead>
+                        <tr>
+                          <th>N° Facture</th>
+                          <th>Fournisseur</th>
+                          <th>Date entrée</th>
+                          <th class="num">PU (DT)</th>
+                          <th class="num">Qté init.</th>
+                          <th class="num">Qté restante</th>
+                          <th class="num">Taux</th>
+                          <th class="num">Dérivé init.</th>
+                          <th class="num">Dérivé rest.</th>
+                          <th>Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let l of getLots(a.id)" [class.lot-epuise]="!l.actif">
+                          <td>{{ l.numeroFacture }}</td>
+                          <td>{{ l.fournisseurNom }}</td>
+                          <td>{{ l.dateEntree | date:'dd/MM/yyyy' }}</td>
+                          <td class="num">{{ formatNum(l.prixUnitaire) }}</td>
+                          <td class="num">{{ formatNum(l.qteOrigineInitiale) }}</td>
+                          <td class="num" [class.val-danger]="l.qteOrigineRestante === 0">
+                            {{ formatNum(l.qteOrigineRestante) }}
+                          </td>
+                          <td class="num">{{ l.tauxConversion != null ? (l.tauxConversion*100).toFixed(2)+'%' : '—' }}</td>
+                          <td class="num">{{ l.qteDeriveInitiale != null ? formatNum(l.qteDeriveInitiale) : '—' }}</td>
+                          <td class="num">{{ l.qteDeriveRestante != null ? formatNum(l.qteDeriveRestante) : '—' }}</td>
+                          <td>
+                            <span class="lot-badge-actif" *ngIf="l.actif">Actif</span>
+                            <span class="lot-badge-epuise" *ngIf="!l.actif">Épuisé</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p class="empty-lots" *ngIf="!lotsLoading && getLots(a.id).length === 0">
+                      Aucun lot enregistré pour cet article.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
+
+            <tr *ngIf="!filteredArticles.length">
+              <td colspan="14" class="empty-row">Aucun article trouvé.</td>
+            </tr>
+          </tbody>
+          <tfoot *ngIf="filteredArticles.length > 0">
+            <tr>
+              <td colspan="11" class="foot-label">Total valeur stock physique (hors articles dérivés)</td>
+              <td class="num foot-val">{{ formatNum(valeurTotaleFiltre) }}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB — HISTORIQUE MOUVEMENTS
+  ═══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab === 'historique'" class="tab-content">
+
+    <!-- Toolbar -->
+    <div class="page-toolbar">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-inp" placeholder="Article, référence…"
+                 [(ngModel)]="searchMvt" (input)="applyMvtFilter()">
+        </div>
+        <select class="filter-select" [(ngModel)]="filterTypeMvt" (change)="applyMvtFilter()">
+          <option value="">Tous les types</option>
+          <option value="ENTREE_ACHAT">Entrée Achat</option>
+          <option value="SORTIE_VENTE">Sortie Vente</option>
+          <option value="AJUSTEMENT_POSITIF">Ajustement +</option>
+          <option value="AJUSTEMENT_NEGATIF">Ajustement −</option>
+          <option value="SORTIE_DERIVE">Sortie Dérivé</option>
+          <option value="INVENTAIRE">Inventaire</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <span class="count-badge">{{ filteredMouvements.length }} mouvement(s)</span>
+        <button class="btn neutral" (click)="loadMouvements()">↻ Actualiser</button>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loading-wrap" *ngIf="mouvementsLoading">
+      <div class="spinner"></div><span>Chargement…</span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card" *ngIf="!mouvementsLoading">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Code</th>
+              <th>Désignation</th>
+              <th class="num">Quantité</th>
+              <th class="num">PU (DT)</th>
+              <th class="num">Stock avant</th>
+              <th class="num">Stock après</th>
+              <th class="num">PUMP après</th>
+              <th>Référence</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of filteredMouvements"
+                [class.row-entree]="m.typeMouvement === 'ENTREE_ACHAT' || m.typeMouvement === 'AJUSTEMENT_POSITIF'"
+                [class.row-sortie]="m.typeMouvement === 'SORTIE_VENTE' || m.typeMouvement === 'AJUSTEMENT_NEGATIF'">
+              <td class="date-cell">{{ formatDate(m.dateOperation) }}</td>
+              <td><span [ngClass]="typeMvtClass(m.typeMouvement)">{{ typeMvtLabel(m.typeMouvement) }}</span></td>
+              <td class="code-cell">{{ m.codeArticle }}</td>
+              <td class="desig-cell">{{ m.designation }}</td>
+              <td class="num" [class.val-up]="m.quantite > 0" [class.val-down]="m.quantite < 0">
+                {{ m.quantite > 0 ? '+' : '' }}{{ formatNum(m.quantite) }}
+              </td>
+              <td class="num">{{ formatNum(m.prixUnitaire) }}</td>
+              <td class="num">{{ formatNum(m.stockAvant) }}</td>
+              <td class="num bold-cell">{{ formatNum(m.stockApres) }}</td>
+              <td class="num pump-cell">{{ formatNum(m.pumpApres) }}</td>
+              <td class="ref-cell">{{ m.referenceDocument || '—' }}</td>
+              <td class="notes-cell">{{ m.notes || '—' }}</td>
+            </tr>
+            <tr *ngIf="!filteredMouvements.length">
+              <td colspan="11" class="empty-row">Aucun mouvement enregistré.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       TAB — AJUSTEMENTS
+  ═══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab === 'ajustement'" class="tab-content">
+
+    <!-- En-tête inventaire -->
+    <div class="inv-header">
+      <div class="inv-header-left">
+        <div class="inv-header-icon">
+          <span class="material-symbols-outlined">inventory</span>
+        </div>
+        <div>
+          <h2 class="inv-title">Ajustement de stock par inventaire</h2>
+          <p class="inv-subtitle">Saisissez le stock réel constaté — la différence est calculée automatiquement</p>
+        </div>
+      </div>
+      <div class="inv-header-actions">
+        <button class="btn-inv-reset" (click)="resetInventaire()" type="button">
+          <span class="material-symbols-outlined">restart_alt</span>
+          Réinitialiser
+        </button>
+        <button class="btn-inv-valider-tout"
+                [disabled]="nbLignesAajuster === 0 || inventaireSavingAll"
+                (click)="ajusterTout()" type="button">
+          <span class="material-symbols-outlined">check_circle</span>
+          Valider {{ nbLignesAajuster > 0 ? '(' + nbLignesAajuster + ')' : 'les ajustements' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Barre de résumé -->
+    <div class="inv-summary-bar">
+      <div class="inv-sb-item">
+        <span class="inv-sb-label">Total articles</span>
+        <span class="inv-sb-value">{{ inventaireLines.length }}</span>
+      </div>
+      <div class="inv-sb-sep"></div>
+      <div class="inv-sb-item">
+        <span class="inv-sb-label">Stock saisi</span>
+        <span class="inv-sb-value">{{ nbLignesSaisies }}</span>
+      </div>
+      <div class="inv-sb-sep"></div>
+      <div class="inv-sb-item">
+        <span class="inv-sb-label">À ajuster</span>
+        <span class="inv-sb-value inv-sb-highlight">{{ nbLignesAajuster }}</span>
+      </div>
+      <div class="inv-sb-sep"></div>
+      <div class="inv-sb-item">
+        <span class="inv-sb-label">Déjà validés</span>
+        <span class="inv-sb-value inv-sb-ok">{{ nbLignesValidees }}</span>
+      </div>
+      <div class="inv-search-wrap">
+        <span class="material-symbols-outlined inv-search-icon">search</span>
+        <input type="text" class="inv-search-input" placeholder="Filtrer par code ou désignation…"
+               [(ngModel)]="inventaireSearch">
+        <button class="inv-search-clear" *ngIf="inventaireSearch" (click)="inventaireSearch = ''">×</button>
+      </div>
+    </div>
+
+    <!-- Table inventaire -->
+    <div class="inv-table-wrap">
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th class="col-code">Code</th>
+            <th>Désignation</th>
+            <th class="col-famille">Famille</th>
+            <th class="col-num">Stock système</th>
+            <th class="col-input">Stock réel</th>
+            <th class="col-num">Différence</th>
+            <th class="col-notes">Notes</th>
+            <th class="col-act"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="articlesLoading">
+            <td colspan="8" class="inv-loading-row">Chargement des articles…</td>
+          </tr>
+          <tr *ngIf="!articlesLoading && inventaireLinesFiltrees.length === 0">
+            <td colspan="8" class="inv-empty-row">Aucun article trouvé.</td>
+          </tr>
+          <tr *ngFor="let line of inventaireLinesFiltrees"
+              [class.inv-row-saved]="line.saved"
+              [class.inv-row-changed]="getDiff(line) !== null && getDiff(line) !== 0">
+
+            <td class="col-code inv-code">{{ line.article.codeArticle }}</td>
+            <td class="inv-desig">{{ line.article.designation }}</td>
+            <td class="col-famille inv-famille">{{ line.article.famille }}</td>
+
+            <!-- Stock système -->
+            <td class="col-num">
+              <span class="inv-stock-sys"
+                    [class.inv-stock-rupture]="line.article.stock <= 0"
+                    [class.inv-stock-alerte]="line.article.enAlerte && line.article.stock > 0">
+                {{ formatNum(line.article.stock) }}
+              </span>
+            </td>
+
+            <!-- Stock réel — saisie -->
+            <td class="col-input">
+              <input type="number" class="inv-reel-input"
+                     [(ngModel)]="line.stockReel"
+                     min="0" step="0.001"
+                     placeholder="—"
+                     [class.inv-input-changed]="getDiff(line) !== null && getDiff(line) !== 0"
+                     [class.inv-input-ok]="getDiff(line) === 0">
+            </td>
+
+            <!-- Différence calculée -->
+            <td class="col-num">
+              <ng-container *ngIf="getDiff(line) !== null">
+                <span class="inv-diff"
+                      [class.inv-diff-pos]="getDiff(line)! > 0"
+                      [class.inv-diff-neg]="getDiff(line)! < 0"
+                      [class.inv-diff-zero]="getDiff(line) === 0">
+                  {{ getDiff(line)! > 0 ? '+' : '' }}{{ formatNum(getDiff(line)) }}
+                </span>
+              </ng-container>
+              <span *ngIf="getDiff(line) === null" class="inv-diff-dash">—</span>
+            </td>
+
+            <!-- Notes -->
+            <td class="col-notes">
+              <input type="text" class="inv-notes-input"
+                     [(ngModel)]="line.notes"
+                     placeholder="Motif (optionnel)">
+            </td>
+
+            <!-- Action -->
+            <td class="col-act">
+              <span *ngIf="line.saved" class="inv-ok-check">
+                <span class="material-symbols-outlined">check_circle</span>
+              </span>
+              <span *ngIf="line.error" class="inv-err-badge" [title]="line.error">
+                <span class="material-symbols-outlined">error</span>
+              </span>
+              <button *ngIf="!line.saved && !line.saving && getDiff(line) !== null && getDiff(line) !== 0"
+                      class="btn-inv-ajust"
+                      (click)="ajusterLigne(line)" type="button"
+                      title="Appliquer cet ajustement">
+                <span class="material-symbols-outlined">save</span>
+              </button>
+              <span *ngIf="line.saving" class="inv-spinner"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Légende -->
+    <div class="inv-legend">
+      <div class="inv-leg-item">
+        <span class="inv-leg-dot inv-diff-pos-dot"></span>
+        <span>Écart positif — stock réel supérieur au système</span>
+      </div>
+      <div class="inv-leg-item">
+        <span class="inv-leg-dot inv-diff-neg-dot"></span>
+        <span>Écart négatif — perte, casse ou consommation</span>
+      </div>
+      <div class="inv-leg-item">
+        <span class="inv-leg-dot inv-diff-zero-dot"></span>
+        <span>Stock confirmé — aucun ajustement nécessaire</span>
+      </div>
+    </div>
+  </div>
+
 </div>

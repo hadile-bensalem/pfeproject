@@ -64,6 +64,12 @@ public class FactureAchatLigne {
     @Builder.Default
     private BigDecimal montantRemise = BigDecimal.ZERO;
 
+    /** Taux de transformation pour ce lot (ex: 0.74 = 74%).
+     *  Renseigné uniquement si l'article est source d'un produit dérivé.
+     *  Permet de mettre à jour la moyenne pondérée de l'article dérivé. */
+    @Column(name = "taux_transformation", precision = 5, scale = 4)
+    private BigDecimal tauxTransformation;
+
     @Column(name = "ordre")
     @Builder.Default
     private Integer ordre = 0;

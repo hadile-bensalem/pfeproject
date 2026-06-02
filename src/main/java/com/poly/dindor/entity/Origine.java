@@ -23,7 +23,7 @@ public class Origine {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private Integer code;
+    private Long code;
 
     @Column(nullable = false, length = 255)
     private String designation;

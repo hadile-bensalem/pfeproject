@@ -1,29 +1,31 @@
 package com.poly.dindor.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
+import java.math.BigDecimal;
 
 @Data
 public class ClientRequest {
 
-    @NotBlank(message = "Le code client est obligatoire")
-    @Size(max = 50)
-    private String codeClient;
-
     @NotBlank(message = "Le nom est obligatoire")
-    @Size(max = 255)
     private String nom;
 
-    @Size(max = 500)
-    private String adresse;
+    private String typeClient = "AUTRE"; // ETATIQUE, CLIENT_DIVERS, AUTRE, AMBULANT
 
-    @Size(max = 30)
+    private String responsable;
     private String telephone;
-
-    @Size(max = 150)
+    private String telephone2;
+    private String fax;
     private String email;
-
-    @Size(max = 1000)
-    private String observations;
+    private String adresse;
+    private String ville;
+    private String zone;
+    private String matriculeFiscal;
+    private String codeTVA;
+    private BigDecimal tva;
+    private Integer prixVente = 1;
+    private BigDecimal plafond;
+    private String devise = "DT";
+    private String notes;
+    private boolean actif = true;
 }

@@ -67,12 +67,41 @@ export class ArticleService {
       .pipe(map(res => res.data));
   }
 
+  uploadImage(id: number, file: File): Observable<Article> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http
+      .post<ApiResponse<Article>>(`${this.baseUrl}/${id}/image`, form)
+      .pipe(map(res => res.data));
+  }
+
+  /** Retourne l'URL complète d'une image à partir du nom de fichier. */
+  imageUrl(filename: string | undefined | null): string | null {
+    if (!filename) return null;
+    return `${this.baseUrl}/images/${filename}`;
+  }
+
   delete(id: number): Observable<void> {
     return this.http
       .delete<ApiResponse<null>>(`${this.baseUrl}/${id}`)
-      .pipe(
-        map(() => void 0),
-        catchError(() => of(void 0))
-      );
+      .pipe(map(() => void 0));
+  }
+
+  initialiserStock(req: { articleId: number; quantite: number; prixUnitaire?: number }): Observable<any> {
+    return this.http
+      .post<ApiResponse<any>>(`${environment.apiUrl}/stock/initialiser`, req)
+      .pipe(map(res => res.data));
+  }
+
+  getMouvementsByArticle(articleId: number): Observable<any[]> {
+    return this.http
+      .get<ApiResponse<any[]>>(`${environment.apiUrl}/stock/mouvements/article/${articleId}`)
+      .pipe(map(res => res.data ?? []), catchError(() => of([])));
+  }
+
+  getStockArticles(): Observable<any[]> {
+    return this.http
+      .get<ApiResponse<any[]>>(`${environment.apiUrl}/stock/articles`)
+      .pipe(map(res => res.data ?? []), catchError(() => of([])));
   }
 }

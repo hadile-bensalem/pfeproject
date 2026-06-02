@@ -10,14 +10,32 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class AuthResponse {
-    
+
     private String token;
     private String refreshToken;
     @Builder.Default
     private String type = "Bearer";
     private Long expiresIn;
-    private AdminInfo admin;
-    
+
+    /** ROLE_ADMIN | ROLE_CLIENT | ROLE_EMPLOYE */
+    private String role;
+
+    private UserInfo user;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UserInfo {
+        private Long id;
+        private String email;
+        private String firstName;
+        private String lastName;
+        /** Pour garder la compatibilité avec l'ancien code admin */
+        private AdminInfo admin;
+    }
+
+    /** Conservé pour compatibilité côté frontend admin */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

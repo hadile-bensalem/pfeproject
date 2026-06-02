@@ -43,6 +43,31 @@ public class AchatController {
                 factureAchatService.create(request)));
     }
 
+    @PostMapping("/factures/brouillon")
+    public ResponseEntity<ApiResponse<FactureAchatResponse>> saveDraftFacture(
+            @Valid @RequestBody FactureAchatRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("Facture brouillon enregistrée avec succès",
+                factureAchatService.sauvegarderBrouillon(request)));
+    }
+
+    @PutMapping("/factures/{id}")
+    public ResponseEntity<ApiResponse<FactureAchatResponse>> updateBrouillon(
+            @PathVariable Long id,
+            @Valid @RequestBody FactureAchatRequest request) {
+        return ResponseEntity.ok(
+            ApiResponse.success("Facture brouillon mise à jour",
+                factureAchatService.updateBrouillon(id, request)));
+    }
+
+    @PutMapping("/factures/{id}/valider")
+    public ResponseEntity<ApiResponse<FactureAchatResponse>> validateFacture(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(
+            ApiResponse.success("Facture validée avec succès",
+                factureAchatService.validerFactureAchat(id)));
+    }
+
     /**
      * GET /api/achats/factures/{id}
      * Récupère une facture d'achat par son identifiant.

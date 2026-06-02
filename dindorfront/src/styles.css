@@ -102,3 +102,30 @@ button.mat-mdc-raised-button.mat-primary {
   color: #8B1A1A;
 }
 .mat-pseudo-checkbox-checked.mat-pseudo-checkbox-minimal::after { color: #8B1A1A; }
+
+/* ══════════════════════════════════════════════════
+   IMPRESSION — masque toute l'appli, n'affiche
+   que la zone .print-zone du composant actif
+══════════════════════════════════════════════════ */
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* 1. Rendre tout invisible */
+  body * { visibility: hidden !important; }
+
+  /* 2. Rendre visible uniquement la zone d'impression */
+  .print-zone,
+  .print-zone * { visibility: visible !important; }
+
+  /* 3. Positionner la zone en haut à gauche, pleine page */
+  .print-zone {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+}

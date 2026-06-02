@@ -6,18 +6,26 @@ import com.poly.dindor.entity.Article;
 import com.poly.dindor.exception.ResourceNotFoundException;
 import com.poly.dindor.mapper.ArticleMapper;
 import com.poly.dindor.repository.ArticleRepository;
+import com.poly.dindor.repository.LotStockRepository;
+import com.poly.dindor.repository.MouvementStockRepository;
+
 import com.poly.dindor.util.ServiceUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ArticleService {
 
-    private final ArticleRepository articleRepository;
+    private final ArticleRepository             articleRepository;
+    private final ImageStorageService           imageStorageService;
+    private final LotStockRepository            lotStockRepository;
+    private final MouvementStockRepository      mouvementStockRepository;
 
     private static String trimOrEmpty(String s) {
         return s != null ? s.trim() : "";
@@ -70,6 +78,29 @@ public class ArticleService {
 
     @Transactional
     public void delete(Long id) {
-        ServiceUtils.deleteByIdOrThrow(articleRepository, id, "Article");
+        deleteRecursive(id, 0);
+    }
+
+    private void deleteRecursive(Long id, int depth) {
+        if (depth > 10) {
+            throw new IllegalStateException("Chaîne d'articles trop profonde — possible cycle détecté.");
+        }
+        Article article = ServiceUtils.findByIdOrThrow(articleRepository, id, "Article");
+        for (Article enfant : articleRepository.findByCodeArticleSource(article.getCodeArticle())) {
+            deleteRecursive(enfant.getId(), depth + 1);
+        }
+        lotStockRepository.clearArticleDeriveByArticleId(article.getId());
+        mouvementStockRepository.deleteByArticle_Id(article.getId());
+        lotStockRepository.deleteByArticleOrigine_Id(article.getId());
+        imageStorageService.delete(article.getImageUrl());
+        articleRepository.delete(article);
+    }
+
+    @Transactional
+    public ArticleResponse uploadImage(Long id, MultipartFile file) throws IOException {
+        Article article = ServiceUtils.findByIdOrThrow(articleRepository, id, "Article");
+        imageStorageService.delete(article.getImageUrl());
+        article.setImageUrl(imageStorageService.store(file));
+        return ArticleMapper.toResponse(articleRepository.save(article));
     }
 }

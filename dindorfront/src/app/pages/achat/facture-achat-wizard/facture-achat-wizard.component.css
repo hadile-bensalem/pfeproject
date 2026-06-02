@@ -52,6 +52,20 @@
   white-space: nowrap;
 }
 
+.edit-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: rgba(201,162,39,0.18);
+  color: #8B6914;
+  border: 1px solid rgba(201,162,39,0.4);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+
 .wiz-topbar-sub {
   font-size: 0.8rem;
   color: #6B7A8D;
@@ -108,6 +122,23 @@
   background: #fff0f0;
   color: #b71c1c;
   border-left: 4px solid #e53935;
+}
+
+.alert-brouillon {
+  background: #fffbef;
+  color: #7A5C00;
+  border-left: 4px solid #C9A227;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.btn-valider-brouillon {
+  background-color: #1c9c73 !important;
+  color: #fff !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .alert-msg { flex: 1; min-width: 200px; }
@@ -692,6 +723,14 @@
   gap: 6px;
 }
 
+.btn-brouillon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #7A5C00 !important;
+  border-color: #C9A227 !important;
+}
+
 .btn-spinner {
   display: inline-block;
   vertical-align: middle;
@@ -1023,3 +1062,224 @@ td.cert-dc {
 
   .step-footer button { width: 100%; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ADVISORY IA — conseil intégré à la ligne d'achat
+══════════════════════════════════════════════════════════════════════ */
+
+.ligne-advisory-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 4px 0 10px;
+}
+
+.ligne-advisory {
+  background: linear-gradient(135deg, #fdf8ee, #fef9f3);
+  border: 1.5px solid #e8d5a3;
+  border-left: 4px solid #C9A227;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 4px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Stock status chip */
+.adv-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.adv-chip-critique { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+.adv-chip-alerte   { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+.adv-chip-ok       { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+.adv-chip-icon { font-size: 0.95rem; }
+
+/* Price info */
+.adv-price-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+.adv-price-label { color: #6b7280; }
+.adv-price-val   { color: #1f2937; font-size: 0.9rem; }
+.adv-price-last  { color: #9ca3af; font-size: 0.75rem; }
+.adv-trend       { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+.adv-trend-up    { background: #ffebee; color: #c62828; }
+.adv-trend-down  { background: #e8f5e9; color: #2e7d32; }
+.adv-trend-flat  { background: #f3f4f6; color: #6b7280; }
+
+/* Price comparison note */
+.adv-price-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.adv-note-icon { font-size: 1rem; }
+.adv-warn  { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+.adv-alert { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+.adv-good  { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+.adv-ok    { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+
+/* ══════════════════════════════════════════════════════
+   PANNEAU PRÉDICTION IA — AVANT L'ACHAT
+══════════════════════════════════════════════════════ */
+
+/* Spinner de chargement prédiction */
+.ligne-prediction-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+/* Conteneur global */
+.ligne-prediction {
+  margin: 8px 14px 14px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e3e7ef;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+/* ── Bandeau recommandation ─── */
+.pred-reco-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Couleurs par recommandation */
+.reco-buy-now         { background: #e8f5e9; color: #1b5e20; }
+.reco-buy-progressive { background: #e3f2fd; color: #0d47a1; }
+.reco-wait            { background: #ffebee; color: #b71c1c; }
+.reco-watch           { background: #fff8e1; color: #e65100; }
+
+.pred-reco-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.pred-reco-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pred-reco-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pred-reco-msg {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.pred-reco-conf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pred-conf-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.pred-conf-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* ── Cartes J+7 / J+15 / J+30 ─── */
+.pred-horizons {
+  display: flex;
+  gap: 0;
+  background: #fff;
+}
+
+.pred-h-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-right: 1px solid #e3e7ef;
+  gap: 3px;
+}
+.pred-h-card:last-child { border-right: none; }
+
+.pred-h-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #8B1A1A;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pred-h-prix {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.pred-h-range {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.pred-h-date {
+  font-size: 0.68rem;
+  color: #9ca3af;
+}
+
+/* ── Pied de panneau ─── */
+.pred-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f7f8fb;
+  font-size: 0.73rem;
+  color: #6b7280;
+  border-top: 1px solid #e3e7ef;
+}
+
+.pred-meta-icon { font-size: 0.85rem; }
+.pred-meta-sep  { opacity: 0.5; }
+.pred-meta-model { font-style: italic; }

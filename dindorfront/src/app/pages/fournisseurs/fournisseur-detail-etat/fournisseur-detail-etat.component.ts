@@ -139,14 +139,17 @@ export class FournisseurDetailEtatComponent implements OnInit, OnDestroy {
   }
 
   getModeLabel(code: string): string {
-    const map: Record<string, string> = {
-      TRA: 'Transfert',
-      ESP: 'Espèces',
-      CHQ: 'Chèque',
-      CB: 'Carte bancaire',
-      VIR: 'Virement'
-    };
-    return map[code?.toUpperCase()] || code || '—';
+    return code || '—';
+  }
+
+  modeBadgeClass(type: string): string {
+    switch (type) {
+      case 'Achat':   return 'badge-achat';
+      case 'TRAITE':  return 'badge-traite';
+      case 'Crédit':  return 'badge-credit';
+      case 'Espèces': return 'badge-especes';
+      default:        return '';
+    }
   }
 
   openDeleteConfirm(t: TransactionFournisseur): void {
@@ -164,10 +167,15 @@ export class FournisseurDetailEtatComponent implements OnInit, OnDestroy {
       this.closeDeleteConfirm();
       return;
     }
-    const id = this.transactionToDelete.id;
-    this.fournisseurService.deleteTransaction(id).pipe(takeUntil(this.destroy$)).subscribe({
+    const paiementId = this.transactionToDelete.paiementFournisseurId;
+    if (!paiementId) {
+      this.closeDeleteConfirm();
+      return;
+    }
+    const txId = this.transactionToDelete.id;
+    this.fournisseurService.deletePaiement(paiementId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
-        this.transactions = this.transactions.filter(tr => tr.id !== id);
+        this.transactions = this.transactions.filter(tr => tr.id !== txId);
         this.computeResume();
         this.applyFilterAndSort();
         this.closeDeleteConfirm();

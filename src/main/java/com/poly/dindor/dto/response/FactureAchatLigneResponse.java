@@ -20,5 +20,6 @@ public class FactureAchatLigneResponse {
     private BigDecimal montantTVA;
     private BigDecimal totalTTC;
     private BigDecimal montantRemise;
+    private BigDecimal tauxTransformation;
     private Integer ordre;
 }

@@ -1,0 +1,353 @@
+================================================================
+    DÉROULEMENT DU MODULE ACHAT — APPLICATION DINDOR
+================================================================
+Date de rédaction : 02/04/2026
+Rédigé à partir du code source (achat.component.ts / html,
+AchatController.java, FactureAchatService.java, etc.)
+================================================================
+
+
+1. PRÉSENTATION GÉNÉRALE
+─────────────────────────
+Le module Achat est accessible via la page "Gestion des Achats et
+Articles". Il est composé de deux onglets :
+
+  - Onglet "Factures d'Achat" : liste et saisie des factures
+  - Onglet "Articles"          : catalogue des articles achetés
+
+Au chargement de la page (ngOnInit), l'application :
+  1. Charge la liste de tous les articles (GET /api/articles)
+  2. Charge les familles et origines d'articles
+  3. Charge la liste de toutes les factures (GET /api/achats/factures)
+  4. Charge la liste de tous les fournisseurs (GET /api/fournisseurs)
+  5. Vérifie les échéances de traites pour afficher des alertes
+
+
+================================================================
+2. ALERTES TRAITES PROCHES DE L'ÉCHÉANCE
+─────────────────────────────────────────
+Après chaque chargement de la liste de factures, l'application
+calcule les traites dont la date d'échéance est dans les 7 prochains
+jours (ou aujourd'hui).
+
+Ces alertes s'affichent en haut de la page sous forme d'une barre
+colorée avec :
+  - Numéro de la facture concernée
+  - Nom du fournisseur
+  - Date d'échéance
+  - Nombre de jours restants (ou "AUJOURD'HUI" si joursRestants = 0)
+
+Niveaux d'alerte visuels :
+  - Rouge  : échéance aujourd'hui (joursRestants = 0)
+  - Orange : échéance dans 1 à 3 jours
+  - Normal : échéance dans 4 à 7 jours
+
+
+================================================================
+3. SAISIE D'UNE NOUVELLE FACTURE D'ACHAT
+─────────────────────────────────────────
+
+3.1 OUVERTURE DU PANNEAU DE SAISIE
+────────────────────────────────────
+L'utilisateur clique sur "Nouvelle Facture Achat".
+L'application :
+  - Affiche un panneau de saisie inline (sans changement de page)
+  - Appelle GET /api/achats/factures/next-number pour obtenir
+    le prochain numéro de facture (format : AAAA000001, ex: 2025000001)
+  - Réinitialise tous les formulaires
+  - Pré-remplit la date du jour
+  - Place le curseur sur le premier champ de la première ligne article
+
+
+3.2 EN-TÊTE DE LA FACTURE
+───────────────────────────
+Champs obligatoires :
+  - Fournisseur  : sélectionné dans une liste déroulante
+                   (affiche matricule + raison sociale)
+                   Si le fournisseur a l'option "avecRS = true",
+                   un badge "★ Retenue à la source activée" apparaît
+  - Date facture : pré-remplie à la date du jour
+
+
+3.3 LIGNES D'ARTICLES
+──────────────────────
+Chaque ligne contient :
+  - Code article  : optionnel (saisie ou clic → ouvre modale de recherche)
+  - Désignation   : obligatoire (peut être remplie manuellement)
+  - Quantité      : obligatoire (min 0.001), défaut = 1
+  - Prix unitaire HT : obligatoire (min 0)
+  - Remise (%)    : optionnel, défaut = 0 (entre 0 et 100)
+  - TVA (%)       : optionnel, défaut = 19 (entre 0 et 100)
+
+Navigation au clavier (touche Entrée) :
+  Code → Désignation → Quantité → PU HT → Remise → TVA
+  Sur la dernière cellule de la dernière ligne : crée une nouvelle ligne
+
+Sélection d'article par modale :
+  - Clic sur la cellule code ou via bouton "Chercher"
+  - Recherche en temps réel par code ou désignation
+  - Sélection remplit automatiquement : désignation, prix achat HT, TVA
+
+Calculs automatiques par ligne :
+  Montant HT ligne = Quantité × PU HT × (1 - Remise/100)
+
+Boutons :
+  - "+ Ligne" : ajoute une ligne vide
+  - "×"       : supprime la ligne (minimum 1 ligne)
+
+
+3.4 RÉCAPITULATIF (TOTAUX)
+───────────────────────────
+Calculé dynamiquement à partir des lignes :
+
+  Total Brut      = Σ (Quantité × PU HT)
+  Total Remise    = Σ (Montant brut ligne × Remise/100)
+  Total HT        = Total Brut - Total Remise
+  Total TVA       = Σ ((Montant HT ligne) × TVA/100)
+  Timbre fiscal   = 1.000 DT si Total HT > 0, sinon 0
+  Net à Payer     = Total HT + Total TVA + Timbre
+
+
+3.5 INFORMATIONS DE PAIEMENT
+──────────────────────────────
+Toujours affiché. Modes disponibles :
+
+  a) ESPÈCES
+     - Montant payé = Net à Payer (total)
+     - Pas de traite ni de crédit
+
+  b) TRAITE INTÉGRALE
+     - Montant traite = Net à Payer (total)
+     - Champs traite obligatoires : tireur, tiré, domiciliation,
+       date création, date échéance, lieu création, valeur en
+
+  c) ACOMPTE ESPÈCES + TRAITE
+     - L'utilisateur saisit un montant en espèces
+     - Le reste = Net à Payer - Montant espèces → traite
+     - Mêmes champs traite qu'en mode (b)
+
+  d) CRÉDIT
+     - Montant reste = Net à Payer (crédit total)
+     - Champ : date limite de crédit
+
+  e) ACOMPTE ESPÈCES + CRÉDIT
+     - L'utilisateur saisit un montant en espèces
+     - Le reste = crédit
+     - Champ : date limite de crédit
+
+Correspondance frontend → backend :
+  "especes"        → modePaiement=ESPECES, sousMode=TOUT_ESPECES
+  "traite"         → modePaiement=AUTRE,   sousMode=ACOMPTE_TRAITE
+  "especes_traite" → modePaiement=AUTRE,   sousMode=ACOMPTE_TRAITE
+  "credit"         → modePaiement=AUTRE,   sousMode=ACOMPTE_CREDIT
+  "especes_credit" → modePaiement=AUTRE,   sousMode=ACOMPTE_CREDIT
+
+
+3.6 RETENUE À LA SOURCE (optionnel)
+─────────────────────────────────────
+Apparaît uniquement si le fournisseur sélectionné a "avecRS = true".
+
+Champs :
+  - Taux de retenue (%) : obligatoire, défaut = 1.5 (entre 0.001 et 99)
+  - Lieu de retenue     : optionnel, défaut = "KSIBET"
+  - Date de retenue     : obligatoire, pré-remplie à la date du jour
+
+Montant retenu (calculé) = Total HT × Taux / 100
+
+Ce montant est affiché à titre informatif dans le panneau.
+
+
+================================================================
+4. ENREGISTREMENT DE LA FACTURE
+─────────────────────────────────
+
+4.1 VALIDATIONS FRONTEND
+──────────────────────────
+Avant l'envoi, l'application vérifie :
+  1. Formulaire en-tête valide (fournisseur et date obligatoires)
+  2. Toutes les lignes valides (désignation, quantité, prix)
+  3. Formulaire paiement valide (mode sélectionné)
+  4. Si retenue active : formulaire retenue valide (taux et date)
+
+Si une validation échoue, les champs invalides sont mis en évidence
+et un message d'erreur s'affiche.
+
+
+4.2 ENVOI AU BACKEND
+──────────────────────
+L'application envoie simultanément (en séquence) :
+
+  ÉTAPE 1 — Création de la facture
+  ──────────────────────────────────
+  POST /api/achats/factures
+  Corps JSON :
+    {
+      "dateFacture": "YYYY-MM-DD",
+      "fournisseurId": <id>,
+      "lignes": [
+        {
+          "codeArticle": "...",
+          "designation": "...",
+          "quantite": ...,
+          "prixUnitaireHT": ...,
+          "remise": ...,
+          "tva": ...,
+          "ordre": 1
+        },
+        ...
+      ],
+      "paiement": {
+        "modePaiement": "ESPECES" | "AUTRE",
+        "sousMode": "TOUT_ESPECES" | "ACOMPTE_TRAITE" | "ACOMPTE_CREDIT",
+        "montantPaye": ...,
+        "montantReste": ...,
+        "numeroTraite": "...",         (si traite)
+        "dateEcheance": "YYYY-MM-DD",  (si traite)
+        "dateLimiteCredit": "YYYY-MM-DD", (si crédit)
+        "avecRetenue": true | false
+      }
+    }
+
+  Le backend génère automatiquement le numéro de facture
+  (format AAAA000001) et retourne la facture créée avec son
+  numéro définitif.
+
+  ÉTAPE 2 — Enregistrement de la traite (si mode traite)
+  ────────────────────────────────────────────────────────
+  La traite est stockée dans le localStorage (côté navigateur)
+  via TraiteService, pour consultation dans la section "État → Traites".
+
+  Données enregistrées :
+    - Fournisseur (id + raison sociale)
+    - Tireur, Tiré, Domiciliation
+    - Montant, Montant en lettres
+    - Date de création, Date d'échéance, Lieu de création
+    - Valeur en (devise)
+    - Statut : "non_imprimee"
+
+  ÉTAPE 3 — Enregistrement de la retenue à la source (si avecRS)
+  ────────────────────────────────────────────────────────────────
+  Envoyé uniquement si Total HT > 0 et retenue activée.
+
+  POST /api/retenue-source
+  Corps JSON :
+    {
+      "fournisseurId": <id>,
+      "dateRetenue": "YYYY-MM-DD",
+      "lieuRetenue": "...",
+      "lignes": [
+        {
+          "numeroFacture": "2025000001",
+          "montantBrut": <Total HT>,
+          "tauxRetenue": <taux>,
+          "ordre": 1
+        }
+      ]
+    }
+
+  Le backend calcule automatiquement le montant retenu
+  et le montant net à partir du montant brut et du taux.
+
+
+4.3 RÉSULTAT FINAL
+───────────────────
+Si toutes les opérations réussissent :
+  - Message de succès affiché (ex: "Facture enregistrée. Traite
+    enregistrée dans État. Retenue à la source enregistrée dans État.")
+  - Après 1.8 secondes : fermeture du panneau et rechargement
+    de la liste des factures
+
+En cas d'erreur sur la facture :
+  - Message d'erreur détaillé avec le code HTTP et le champ invalide
+
+En cas d'erreur sur la retenue seulement :
+  - La facture est quand même enregistrée
+  - Message d'erreur spécifique à la retenue
+
+
+================================================================
+5. LISTE DES FACTURES
+──────────────────────
+Affichage sous forme de tableau avec :
+  - Numéro de facture
+  - Date
+  - Fournisseur (raison sociale)
+  - Montant HT
+  - TVA
+  - Net à Payer
+  - Mode de paiement
+  - Statut (avec badge coloré)
+
+Actions par ligne :
+  - Imprimer : génère le PDF (GET /api/achats/factures/{id}/pdf)
+               → téléchargement automatique nommé "facture-achat-XXXXXX.pdf"
+  - Supprimer : supprime après confirmation (DELETE /api/achats/factures/{id})
+
+Bouton "Actualiser" : recharge la liste depuis le backend.
+
+
+================================================================
+6. GESTION DES ARTICLES
+─────────────────────────
+Accessible via l'onglet "Articles".
+
+Fonctionnalités :
+  - Liste complète des articles avec filtres :
+      * Non bloqués (défaut)
+      * Bloqués
+      * Tous
+
+  - Recherche textuelle par code, désignation ou famille
+
+  - Tri par colonne (clic sur en-tête)
+
+  - Valeur totale du stock calculée en bas de tableau
+
+  - Création d'article via modale ("Nouvel Article")
+    Champs : code, désignation, unité, famille, origine,
+             prix achat HT, prix vente, TVA, stocks, PUMP
+
+  - Modification d'article existant (clic sur "Modifier")
+
+  - Suppression d'article (clic sur "Supprimer")
+
+  - Création rapide de famille ou d'origine depuis la modale article
+    (boutons "+" à côté des listes déroulantes)
+
+
+================================================================
+7. FLUX GLOBAL RÉSUMÉ
+───────────────────────
+
+  Utilisateur
+      │
+      ▼
+  Sélectionne fournisseur → vérifie avecRS → affiche section retenue
+      │
+      ▼
+  Saisit les lignes d'articles (avec navigation au clavier)
+      │
+      ▼
+  Choisit mode de paiement → renseigne traite ou crédit si besoin
+      │
+      ▼
+  Remplit retenue à la source si fournisseur avec RS
+      │
+      ▼
+  Clique "Enregistrer"
+      │
+      ├── POST /api/achats/factures ────────────► Base de données (PostgreSQL)
+      │
+      ├── TraiteService.create() ───────────────► localStorage navigateur
+      │
+      └── POST /api/retenue-source ─────────────► Base de données (PostgreSQL)
+              │
+              ▼
+          Visible dans "État → Retenues à la Source"
+          Visible dans "État → Traites"
+          Visible dans "Achat → Factures d'Achat"
+
+
+================================================================
+FIN DU DOCUMENT
+================================================================

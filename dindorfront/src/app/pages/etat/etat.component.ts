@@ -37,6 +37,7 @@ export class EtatComponent implements OnInit {
   isModalTraiteOpen = false;
   isModalRibOpen = false;
   isModalRibEdit = false;
+  editTraiteId: number | null = null;
   ribForm!: FormGroup;
   traiteForm!: FormGroup;
   ribListForSelect: { value: string; label: string; rib: RIB }[] = [];
@@ -78,7 +79,7 @@ export class EtatComponent implements OnInit {
       ribManual: [''],
       fournisseurId: [null as number | null, Validators.required],
       tireur: ['', Validators.required],
-      tire: [''],
+      faitA: [''],
       montant: [0, [Validators.required, Validators.min(0)]],
       montantLettres: [''],
       dateCreation: [today, Validators.required],
@@ -172,19 +173,20 @@ export class EtatComponent implements OnInit {
 
   // --- Traite ---
   openAddTraiteModal(): void {
+    this.editTraiteId = null;
     this.traiteForm.reset({
       ribSelect: '',
       ribManual: '',
       fournisseurId: null,
-      tireur: '',
-      tire: 'KSIBET',
+      tireur: 'STE DIND\'OR K.M.',
+      faitA: 'KSIBET',
       montant: 0,
       montantLettres: montantEnLettres(0),
       dateCreation: new Date().toISOString().slice(0, 10),
       dateEcheance: new Date().toISOString().slice(0, 10),
       lieuCreation: 'KSIBET',
       domiciliation: 'BIAT KSIBET EL M.',
-      nomAdresseTire: 'STE DINDOR',
+      nomAdresseTire: '',
       valeurEn: 'DT'
     });
     this.ribFormMode = 'select';
@@ -192,8 +194,40 @@ export class EtatComponent implements OnInit {
     this.isModalTraiteOpen = true;
   }
 
+  openEditTraiteModal(t: Traite): void {
+    this.editTraiteId = t.id;
+    const rib = this.ribs.find(r => r.id === t.ribId);
+    const ribDisplay = rib ? `${rib.codeEtablissement}|${rib.codeAgence}|${rib.numeroCompte}` : '';
+    this.traiteForm.patchValue({
+      ribSelect: rib ? `${rib.codeEtablissement} ${rib.codeAgence} ${rib.numeroCompte}` : '',
+      ribManual: '',
+      fournisseurId: t.fournisseurId ?? null,
+      tireur: t.tireur ?? '',
+      faitA: t.faitA ?? '',
+      montant: t.montant,
+      montantLettres: t.montantLettres ?? montantEnLettres(t.montant),
+      dateCreation: t.dateCreation,
+      dateEcheance: t.dateEcheance,
+      lieuCreation: t.lieuCreation ?? '',
+      domiciliation: t.domiciliation ?? '',
+      nomAdresseTire: t.nomAdresseTire ?? '',
+      valeurEn: t.valeurEn ?? 'DT'
+    });
+    // pré-sélectionner le RIB dans la liste
+    if (rib) {
+      const opt = this.ribListForSelect.find(o => o.rib.id === rib.id);
+      if (opt) {
+        this.traiteForm.patchValue({ ribSelect: opt.value });
+        this.selectedRibForLink = rib;
+      }
+    }
+    this.ribFormMode = 'select';
+    this.isModalTraiteOpen = true;
+  }
+
   closeTraiteModal(): void {
     this.isModalTraiteOpen = false;
+    this.editTraiteId = null;
   }
 
   onRibSelectChange(): void {
@@ -226,47 +260,42 @@ export class EtatComponent implements OnInit {
       return;
     }
     const v = this.traiteForm.value;
-    let rib: RIB;
 
     if (this.ribFormMode === 'select' && v.ribSelect) {
       const opt = this.ribListForSelect.find(o => o.value === v.ribSelect);
-      if (!opt) return;
-      rib = opt.rib;
+      if (!opt) { alert('Veuillez sélectionner un RIB valide.'); return; }
+      this.doSaveTraite(opt.rib, v);
     } else {
       const manual = String(v.ribManual || '').trim();
       const parts = manual.split('|').map((p: string) => p.trim());
       if (parts.length !== 3) {
-        alert('Format RIB attendu : Code Établissement | Code Agence | N° Compte (ex: 08 | 505 | 00027100209688)');
+        alert('Format RIB attendu : Code Établissement | Code Agence | N° Compte\nEx : 08 | 505 | 00027100209688');
         return;
       }
-      const fournisseurId = v.fournisseurId;
-      rib = {
+      const rib: RIB = {
         id: 0,
         codeEtablissement: parts[0],
         codeAgence: parts[1],
         numeroCompte: parts[2],
         domiciliation: v.domiciliation || '',
-        fournisseurIds: fournisseurId ? [fournisseurId] : []
+        fournisseurIds: v.fournisseurId ? [v.fournisseurId] : []
       };
       this.ribService.save(rib).subscribe(saved => {
-        rib = saved;
         this.ribs = [saved, ...this.ribs];
         this.ribListForSelect = [{ value: formatRibDisplay(saved), label: formatRibDisplay(saved) + ' - ' + saved.domiciliation, rib: saved }, ...this.ribListForSelect];
-        this.doSaveTraite(rib, v);
+        this.doSaveTraite(saved, v);
       });
-      return;
     }
-    this.doSaveTraite(rib, v);
   }
 
   private doSaveTraite(rib: RIB, v: any): void {
     const fournisseur = this.fournisseurs.find(f => f.id === v.fournisseurId);
-    this.traiteService.create({
+    const payload = {
       ribId: rib.id,
       fournisseurId: v.fournisseurId,
       fournisseurNom: fournisseur?.raisonSociale ?? '',
       tireur: v.tireur,
-      tire: v.tire || 'KSIBET',
+      faitA: v.faitA || '',
       montant: Number(v.montant) || 0,
       montantLettres: v.montantLettres || montantEnLettres(Number(v.montant) || 0),
       dateCreation: v.dateCreation,
@@ -275,11 +304,22 @@ export class EtatComponent implements OnInit {
       domiciliation: v.domiciliation || rib.domiciliation,
       nomAdresseTire: v.nomAdresseTire || '',
       valeurEn: v.valeurEn || 'DT',
-      statut: 'non_imprimee'
-    }).subscribe(() => {
-      this.loadData();
-      this.closeTraiteModal();
-    });
+    };
+    if (this.editTraiteId !== null) {
+      this.traiteService.update(this.editTraiteId, payload).subscribe(() => {
+        this.loadData();
+        this.closeTraiteModal();
+      });
+    } else {
+      this.traiteService.create({ ...payload, statut: 'non_imprimee' }).subscribe(() => {
+        this.loadData();
+        this.closeTraiteModal();
+      });
+    }
+  }
+
+  setStatutTraite(t: Traite, s: StatutTraite): void {
+    this.traiteService.setStatut(t.id, s).subscribe(() => this.loadData());
   }
 
   voirTraite(t: Traite): void {
@@ -329,7 +369,7 @@ export class EtatComponent implements OnInit {
       t.montant,
       this.formatDate(t.dateCreation),
       this.formatDate(t.dateEcheance),
-      this.getRibDisplay(t.ribId),
+      this.getRibDisplay(t.ribId ?? 0),
       t.domiciliation,
       this.getStatutLabel(t.statut)
     ]);
@@ -527,5 +567,21 @@ export class EtatComponent implements OnInit {
 
   getNextNumeroRetenue(): string {
     return this.retenueSourceService.getNextNumero();
+  }
+
+  get totalMontantTraites(): number {
+    return this.traites.reduce((s, t) => s + (t.montant ?? 0), 0);
+  }
+
+  get totalMontantFiltrees(): number {
+    return this.filteredTraites.reduce((s, t) => s + (t.montant ?? 0), 0);
+  }
+
+  get nbNonImprimees(): number {
+    return this.traites.filter(t => t.statut === 'non_imprimee').length;
+  }
+
+  get nbEchues(): number {
+    return this.traites.filter(t => t.statut === 'echue').length;
   }
 }

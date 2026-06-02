@@ -34,9 +34,17 @@ build/
 
 ### Application Properties (sensitive) ###
 application-local.properties
-application-prod.properties
 *.env
 .env
+
+### Generated Angular build (rebuilt by CI) ###
+src/main/resources/static/
+
+### Database backup (sensitive data) ###
+backup_dindor.sql
+backend-logs*
+dindor-ai-deploy.zip
+publish-profile.xml
 
 ### Logs ###
 logs/

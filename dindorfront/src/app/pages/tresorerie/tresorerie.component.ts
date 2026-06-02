@@ -1,31 +1,43 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { DepenseService } from '../../services/depense.service';
-import { FournisseurService } from '../../services/fournisseur.service';
-import { ClientService } from '../../services/client.service';
-import { ArticleService } from '../../services/article.service';
-import {
-  Depense,
-  CATEGORIES_DEPENSE,
-  ModePaiementDepense
-} from '../../models/depense.model';
-import { Fournisseur } from '../../models/fournisseur.model';
-import { FournisseurEtat } from '../../models/fournisseur-etat.model';
-import { ClientEtat } from '../../models/client.model';
-import { Article } from '../../models/article.model';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Subject, forkJoin } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
-interface RecapLigne {
-  libelle: string;
-  montant: number;
-  isDebiteur?: boolean;
-  isNegatif?: boolean;
+import { FactureClientService } from '../../services/facture-client.service';
+import { FactureAchatService } from '../../services/facture-achat.service';
+import { FournisseurService } from '../../services/fournisseur.service';
+import { ArticleService } from '../../services/article.service';
+import { DepenseService } from '../../services/depense.service';
+import { ClientService } from '../../services/client.service';
+
+import { FactureClient, FactureClientStats } from '../../models/facture-client.model';
+import { FactureAchat } from '../../models/facture-achat.model';
+import { FournisseurEtat } from '../../models/fournisseur-etat.model';
+import { Article } from '../../models/article.model';
+import { Depense, CATEGORIES_DEPENSE, ModePaiementDepense } from '../../models/depense.model';
+import { Fournisseur } from '../../models/fournisseur.model';
+import { Client } from '../../models/client.model';
+
+export interface ClientRentabilite {
+  nom: string;
+  clientId: number | null;
+  ca: number;
+  benefice: number;
+  marge: number;
+  nbBons: number;
+  montantPaye: number;
+  montantReste: number;
 }
 
-interface VenteArticle {
-  article: string;
-  qte: number;
+export interface JourBilan {
+  date: string;
+  ca: number;
+  benefice: number;
+  depenses: number;
+  beneficeNet: number;
+  nbBons: number;
 }
 
 @Component({
@@ -35,253 +47,346 @@ interface VenteArticle {
   templateUrl: './tresorerie.component.html',
   styleUrl: './tresorerie.component.css'
 })
-export class TresorerieComponent implements OnInit {
-  title = 'Trésorerie';
-  subtitle = 'Gestion de la trésorerie';
+export class TresorerieComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  private readonly CAISSE_KEY = 'dindor_caisse';
 
-  // Récap
-  dateDebutRecap = this.toDateInput(new Date());
-  dateFinRecap = this.toDateInput(new Date());
-  filterFournisseurRecap = '';
-  recapLignes: RecapLigne[] = [];
-  totalQteVendue = 0;
-  ventesArticles: VenteArticle[] = [];
-  chiffreAffaires = 0;
+  // ── Période ───────────────────────────────────────────────────────────
+  dateDebut = this.today();
+  dateFin   = this.today();
+  isLoading = false;
 
-  // Dépenses
+  // ── Onglet actif ──────────────────────────────────────────────────────
+  activeTab: 'resume' | 'clients' | 'jours' | 'depenses' = 'resume';
+
+  // ── KPIs ventes (source : FactureClientService) ───────────────────────
+  stats: FactureClientStats | null = null;
+  factures: FactureClient[] = [];
+
+  // ── Bilan financier ───────────────────────────────────────────────────
+  valeurStock        = 0;
+  creditClients      = 0;
+  creditFournisseurs = 0;
+  totalDepensesPeriode = 0;
+  totalAchatsPeriode   = 0;
+
+  // ── Caisse manuelle ───────────────────────────────────────────────────
+  caisseInitiale = 0;
+  editingCaisse  = false;
+  caisseInput    = 0;
+
+  // ── Breakdowns ────────────────────────────────────────────────────────
+  clientsRentabilite: ClientRentabilite[] = [];
+  joursBilan: JourBilan[] = [];
+  showAllClients = false;
+  searchClient   = '';
+
+  // ── Dépenses ──────────────────────────────────────────────────────────
   depenses: Depense[] = [];
   filteredDepenses: Depense[] = [];
-  dateDebutDep = '';
-  dateFinDep = '';
-  filterCategorieDep = '';
-  isModalDepenseOpen = false;
-  isEditingDepense = false;
-  depenseForm!: FormGroup;
+  dateDebutDep = this.today();
+  dateFinDep   = this.today();
+  filterCategorie = '';
+  isModalDepOpen  = false;
+  isEditingDep    = false;
+  depForm!: FormGroup;
   fournisseurs: Fournisseur[] = [];
-  categories = [...CATEGORIES_DEPENSE];
+  categories    = [...CATEGORIES_DEPENSE];
   modesPaiement: ModePaiementDepense[] = ['Espèce', 'Chèque', 'Virement'];
 
   constructor(
     private fb: FormBuilder,
-    private depenseService: DepenseService,
+    private factureClientService: FactureClientService,
+    private factureAchatService: FactureAchatService,
     private fournisseurService: FournisseurService,
-    private clientService: ClientService,
-    private articleService: ArticleService
+    private articleService: ArticleService,
+    private depenseService: DepenseService,
+    private clientService: ClientService
   ) {
-    this.initDepenseForm();
-    const d = new Date();
-    this.dateDebutDep = this.toDateInput(d);
-    this.dateFinDep = this.toDateInput(d);
-  }
-
-  private toDateInput(d: Date): string {
-    return d.toISOString().slice(0, 10);
-  }
-
-  private initDepenseForm(): void {
-    const today = this.toDateInput(new Date());
-    this.depenseForm = this.fb.group({
-      id: [0],
-      date: [today, Validators.required],
-      libelle: ['', Validators.required],
-      categorie: ['', Validators.required],
-      montant: [0, [Validators.required, Validators.min(0)]],
-      modePaiement: ['Espèce', Validators.required],
-      remarque: ['']
-    });
+    this.initDepForm();
   }
 
   ngOnInit(): void {
-    this.loadFournisseurs();
-    this.loadDepenses();
+    this.loadCaisse();
+    this.fournisseurService.getAll().pipe(catchError(() => of([])), takeUntil(this.destroy$))
+      .subscribe(l => this.fournisseurs = l ?? []);
+    this.chargerTout();
   }
 
-  private loadFournisseurs(): void {
-    this.fournisseurService.getAll()
-      .pipe(catchError(() => of([])))
-      .subscribe(list => (this.fournisseurs = list ?? []));
+  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+  // ── Caisse ────────────────────────────────────────────────────────────
+
+  private loadCaisse(): void {
+    const saved = localStorage.getItem(this.CAISSE_KEY);
+    this.caisseInitiale = saved ? parseFloat(saved) : 0;
   }
 
-  private loadDepenses(): void {
-    this.depenseService.getAll().subscribe(list => {
-      this.depenses = list;
-      this.applyFiltersDepenses();
-      this.majRecap();
+  startEditCaisse(): void {
+    this.caisseInput = this.caisseInitiale;
+    this.editingCaisse = true;
+  }
+
+  saveCaisse(): void {
+    this.caisseInitiale = Math.max(0, +this.caisseInput || 0);
+    localStorage.setItem(this.CAISSE_KEY, this.caisseInitiale.toString());
+    this.editingCaisse = false;
+  }
+
+  cancelEditCaisse(): void { this.editingCaisse = false; }
+
+  // ── Chargement principal ──────────────────────────────────────────────
+
+  chargerTout(): void {
+    this.isLoading = true;
+    forkJoin({
+      stats:         this.factureClientService.getStats(this.dateDebut, this.dateFin).pipe(catchError(() => of(null))),
+      factures:      this.factureClientService.getFactures(this.dateDebut, this.dateFin).pipe(catchError(() => of([]))),
+      clients:       this.clientService.getAll().pipe(catchError(() => of([]))),
+      facturesAchat: this.factureAchatService.getAll().pipe(catchError(() => of([]))),
+      etatFourn:     this.fournisseurService.getEtatFournisseurs().pipe(catchError(() => of([]))),
+      articles:      this.articleService.getAll().pipe(catchError(() => of([]))),
+      depenses:      this.depenseService.getAll().pipe(catchError(() => of([])))
+    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, factures, clients, facturesAchat, etatFourn, articles, depenses }) => {
+
+      this.stats    = stats;
+      this.factures = (factures as FactureClient[])
+        .filter(f => f.typeDocument === 'BON_LIVRAISON' || !f.typeDocument);
+
+      // Valeur du stock (PUMP × qté)
+      this.valeurStock = (articles as Article[]).reduce((s, a) => {
+        const p = (a.pump ?? 0) > 0 ? a.pump : (a.prixAchatHT ?? 0);
+        return s + (a.stock1 ?? 0) * p;
+      }, 0);
+
+      // Crédit clients
+      this.creditClients = (clients as Client[])
+        .reduce((s, c) => s + Math.max(0, c.soldeTotalDu ?? 0), 0);
+
+      // Crédit fournisseurs
+      this.creditFournisseurs = (etatFourn as FournisseurEtat[])
+        .reduce((s, f) => s + Math.max(0, f.solde ?? 0), 0);
+
+      // Achats sur la période
+      this.totalAchatsPeriode = (facturesAchat as FactureAchat[])
+        .filter(f => f.dateFacture >= this.dateDebut && f.dateFacture <= this.dateFin)
+        .reduce((s, f) => s + (f.netAPayer ?? 0), 0);
+
+      // Dépenses
+      this.depenses = depenses as Depense[];
+      this.applyFiltreDep();
+      this.totalDepensesPeriode = this.depenses
+        .filter(d => d.date >= this.dateDebut && d.date <= this.dateFin)
+        .reduce((s, d) => s + d.montant, 0);
+
+      // Calculs analytiques
+      this.buildClientsRentabilite();
+      this.buildJoursBilan();
+
+      this.isLoading = false;
     });
+  }
+
+  // ── Construction : rentabilité par client ────────────────────────────
+
+  private buildClientsRentabilite(): void {
+    const map = new Map<string, ClientRentabilite>();
+    for (const f of this.factures) {
+      const key = f.clientNom?.trim() || 'Client divers';
+      const prev = map.get(key);
+      if (prev) {
+        prev.ca           += f.netAPayer ?? 0;
+        prev.benefice     += f.benefice  ?? 0;
+        prev.nbBons       += 1;
+        prev.montantPaye  += f.montantPaye  ?? 0;
+        prev.montantReste += f.montantReste ?? 0;
+      } else {
+        map.set(key, {
+          nom: key, clientId: f.clientId,
+          ca: f.netAPayer ?? 0, benefice: f.benefice ?? 0, marge: 0,
+          nbBons: 1, montantPaye: f.montantPaye ?? 0, montantReste: f.montantReste ?? 0
+        });
+      }
+    }
+    this.clientsRentabilite = Array.from(map.values())
+      .map(c => ({ ...c, marge: c.ca > 0 ? (c.benefice / c.ca) * 100 : 0 }))
+      .sort((a, b) => b.ca - a.ca);
+  }
+
+  // ── Construction : bilan journalier ──────────────────────────────────
+
+  private buildJoursBilan(): void {
+    const map = new Map<string, JourBilan>();
+
+    for (const f of this.factures) {
+      const d = f.dateFacture;
+      const prev = map.get(d);
+      if (prev) {
+        prev.ca       += f.netAPayer ?? 0;
+        prev.benefice += f.benefice  ?? 0;
+        prev.nbBons   += 1;
+      } else {
+        map.set(d, { date: d, ca: f.netAPayer ?? 0, benefice: f.benefice ?? 0, depenses: 0, beneficeNet: 0, nbBons: 1 });
+      }
+    }
+
+    for (const dep of this.depenses.filter(d => d.date >= this.dateDebut && d.date <= this.dateFin)) {
+      const prev = map.get(dep.date);
+      if (prev) {
+        prev.depenses += dep.montant;
+      } else {
+        map.set(dep.date, { date: dep.date, ca: 0, benefice: 0, depenses: dep.montant, beneficeNet: 0, nbBons: 0 });
+      }
+    }
+
+    this.joursBilan = Array.from(map.values())
+      .map(j => ({ ...j, beneficeNet: j.benefice - j.depenses }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // ── Getters calculés ──────────────────────────────────────────────────
+
+  get ca(): number          { return this.stats?.chiffreAffaire ?? 0; }
+  get especes(): number     { return this.stats?.montantEspeces ?? 0; }
+  get credit(): number      { return this.stats?.montantCredit ?? 0; }
+  get nbrBons(): number     { return this.stats?.nombreBons ?? 0; }
+
+  /** Marge brute = bénéfice calculé par le backend (prix vente − coût de revient) */
+  get margeBrute(): number  { return this.stats?.benefice ?? 0; }
+
+  /** Bénéfice net = marge brute − dépenses de la période */
+  get beneficeNet(): number { return this.margeBrute - this.totalDepensesPeriode; }
+
+  /** Taux de marge en % */
+  get tauxMarge(): number   { return this.ca > 0 ? (this.margeBrute / this.ca) * 100 : 0; }
+
+  /** Caisse estimée en fin de période = caisse initiale + espèces encaissées − dépenses en espèces */
+  get caisseEstimee(): number {
+    const depEspeces = this.depenses
+      .filter(d => d.date >= this.dateDebut && d.date <= this.dateFin && d.modePaiement === 'Espèce')
+      .reduce((s, d) => s + d.montant, 0);
+    return this.caisseInitiale + this.especes - depEspeces;
+  }
+
+  /** Solde net global */
+  get soldeNet(): number {
+    return this.especes + this.valeurStock + this.creditClients
+         - this.creditFournisseurs - this.totalDepensesPeriode;
+  }
+
+  get clientsFiltres(): ClientRentabilite[] {
+    let list = this.clientsRentabilite;
+    if (this.searchClient.trim()) {
+      const q = this.searchClient.toLowerCase();
+      list = list.filter(c => c.nom.toLowerCase().includes(q));
+    }
+    return this.showAllClients ? list : list.slice(0, 10);
+  }
+
+  get totalClientsBenefice(): number {
+    return this.clientsRentabilite.reduce((s, c) => s + c.benefice, 0);
   }
 
   get totalDepenses(): number {
     return this.filteredDepenses.reduce((s, d) => s + d.montant, 0);
   }
 
-  majRecap(): void {
-    forkJoin({
-      etatFournisseurs: this.fournisseurService.getEtatFournisseurs().pipe(catchError(() => of([]))),
-      etatClients: this.clientService.getEtatClients().pipe(catchError(() => of([]))),
-      articles: this.articleService.getAll().pipe(catchError(() => of([])))
-    }).subscribe(({ etatFournisseurs, etatClients, articles }) => {
-      const etatF = (etatFournisseurs ?? []) as FournisseurEtat[];
-      const etatC = (etatClients ?? []) as ClientEtat[];
-      const arts = (articles ?? []) as Article[];
+  // ── Dépenses CRUD ─────────────────────────────────────────────────────
 
-      let totalEspece = 0;
-      let totalStock = 0;
-      let creditClients = 0;
-      let creditFournisseurs = 0;
-
-      etatC.forEach(c => {
-        const s = (c as ClientEtat).solde ?? 0;
-        if (s > 0) creditClients += s;
-      });
-      etatF.forEach(f => {
-        const s = (f as FournisseurEtat).solde ?? 0;
-        if (s > 0) creditFournisseurs += s;
-      });
-
-      arts.forEach(a => {
-        const q = a.stock1 ?? 0;
-        const p = (a.pump && a.pump > 0) ? a.pump : (a.prixAchatHT ?? 0);
-        totalStock += q * p;
-      });
-
-      totalEspece = 15000;
-      const primeAchat = 1200;
-      const totalDep = this.depenses.reduce((s, d) => s + d.montant, 0);
-      const solde = totalEspece + totalStock + creditClients - creditFournisseurs - totalDep;
-
-      this.recapLignes = [
-        { libelle: 'Total Espèce', montant: totalEspece },
-        { libelle: 'Total Stock', montant: totalStock },
-        { libelle: 'Crédit Clients', montant: creditClients },
-        { libelle: 'Crédit Fournisseurs', montant: creditFournisseurs, isDebiteur: creditFournisseurs > 0 },
-        { libelle: 'Solde', montant: solde, isNegatif: solde < 0 },
-        { libelle: 'Prime d\'achat', montant: primeAchat }
-      ];
-
-      this.chiffreAffaires = 9368.028;
-      const ventes = arts.slice(0, 20).map(a => ({
-        article: a.designation || a.codeArticle,
-        qte: Math.max(1, Math.floor((a.stock1 ?? 0) * 0.15))
-      })).filter(v => v.qte > 0);
-      this.totalQteVendue = ventes.reduce((s, v) => s + v.qte, 0);
-      this.ventesArticles = ventes.length ? ventes : [{ article: '— Aucun article —', qte: 0 }];
+  private initDepForm(): void {
+    this.depForm = this.fb.group({
+      id:           [0],
+      date:         [this.today(), Validators.required],
+      libelle:      ['', Validators.required],
+      categorie:    ['', Validators.required],
+      montant:      [0, [Validators.required, Validators.min(0.001)]],
+      modePaiement: ['Espèce', Validators.required],
+      remarque:     ['']
     });
   }
 
-  applyFiltersDepenses(): void {
+  applyFiltreDep(): void {
     let list = [...this.depenses];
-    if (this.dateDebutDep) {
-      list = list.filter(d => d.date >= this.dateDebutDep);
-    }
-    if (this.dateFinDep) {
-      list = list.filter(d => d.date <= this.dateFinDep);
-    }
-    if (this.filterCategorieDep) {
-      list = list.filter(d => d.categorie === this.filterCategorieDep);
-    }
+    if (this.dateDebutDep) list = list.filter(d => d.date >= this.dateDebutDep);
+    if (this.dateFinDep)   list = list.filter(d => d.date <= this.dateFinDep);
+    if (this.filterCategorie) list = list.filter(d => d.categorie === this.filterCategorie);
     this.filteredDepenses = list;
   }
 
-  onFilterDepensesChange(): void {
-    this.applyFiltersDepenses();
+  openAddDep(): void {
+    this.isEditingDep = false;
+    this.depForm.reset({ id: 0, date: this.today(), libelle: '', categorie: '', montant: 0, modePaiement: 'Espèce', remarque: '' });
+    this.isModalDepOpen = true;
   }
 
-  openAddDepenseModal(): void {
-    this.isEditingDepense = false;
-    this.depenseForm.reset({
-      id: 0,
-      date: this.toDateInput(new Date()),
-      libelle: '',
-      categorie: '',
-      montant: 0,
-      modePaiement: 'Espèce',
-      remarque: ''
-    });
-    this.isModalDepenseOpen = true;
+  openEditDep(d: Depense): void {
+    this.isEditingDep = true;
+    this.depForm.patchValue(d);
+    this.isModalDepOpen = true;
   }
 
-  closeDepenseModal(): void {
-    this.isModalDepenseOpen = false;
+  closeDep(): void { this.isModalDepOpen = false; }
+  closeDepOnOverlay(e: MouseEvent): void { if (e.target === e.currentTarget) this.closeDep(); }
+
+  submitDep(): void {
+    if (this.depForm.invalid) { this.depForm.markAllAsTouched(); return; }
+    const v = this.depForm.value;
+    const obs = this.isEditingDep
+      ? this.depenseService.update(v.id, { date: v.date, libelle: v.libelle, categorie: v.categorie, montant: +v.montant, modePaiement: v.modePaiement, remarque: v.remarque })
+      : this.depenseService.create({ date: v.date, libelle: v.libelle, categorie: v.categorie, montant: +v.montant, modePaiement: v.modePaiement, remarque: v.remarque });
+    obs.pipe(takeUntil(this.destroy$)).subscribe(() => { this.closeDep(); this.chargerTout(); });
   }
 
-  onSubmitDepense(): void {
-    if (this.depenseForm.invalid) return;
-    const v = this.depenseForm.value;
-    if (this.isEditingDepense && v.id) {
-      this.depenseService.update(v.id, {
-        date: v.date,
-        libelle: v.libelle,
-        categorie: v.categorie,
-        montant: Number(v.montant),
-        modePaiement: v.modePaiement,
-        remarque: v.remarque
-      }).subscribe(() => {
-        this.loadDepenses();
-        this.majRecap();
-        this.closeDepenseModal();
-      });
-    } else {
-      this.depenseService.create({
-        date: v.date,
-        libelle: v.libelle,
-        categorie: v.categorie,
-        montant: Number(v.montant),
-        modePaiement: v.modePaiement,
-        remarque: v.remarque
-      }).subscribe(() => {
-        this.loadDepenses();
-        this.majRecap();
-        this.closeDepenseModal();
-      });
-    }
+  deleteDep(d: Depense): void {
+    if (!confirm(`Supprimer "${d.libelle}" ?`)) return;
+    this.depenseService.delete(d.id).pipe(takeUntil(this.destroy$)).subscribe(() => this.chargerTout());
   }
 
-  editDepense(d: Depense): void {
-    this.isEditingDepense = true;
-    this.depenseForm.patchValue({
-      id: d.id,
-      date: d.date,
-      libelle: d.libelle,
-      categorie: d.categorie,
-      montant: d.montant,
-      modePaiement: d.modePaiement,
-      remarque: d.remarque
-    });
-    this.isModalDepenseOpen = true;
+  exportDepenses(): void {
+    const headers = ['Date', 'Libellé', 'Catégorie', 'Montant', 'Mode', 'Remarque'];
+    const rows = this.filteredDepenses.map(d => [this.fmt(d.date), d.libelle, d.categorie, d.montant.toFixed(3), d.modePaiement, d.remarque ?? '']);
+    const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `depenses_${this.today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
   }
 
-  deleteDepense(d: Depense): void {
-    if (!confirm(`Supprimer la dépense "${d.libelle}" ?`)) return;
-    this.depenseService.delete(d.id).subscribe(() => {
-      this.loadDepenses();
-      this.majRecap();
-    });
-  }
+  // ── Helpers ───────────────────────────────────────────────────────────
 
-  formatDate(d: string): string {
+  private today(): string { return new Date().toISOString().slice(0, 10); }
+
+  fmt(d: string | null | undefined): string {
     if (!d) return '—';
-    const x = new Date(d);
-    if (isNaN(x.getTime())) return d;
-    return x.getDate().toString().padStart(2, '0') + '/' +
-      (x.getMonth() + 1).toString().padStart(2, '0') + '/' + x.getFullYear();
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
   }
 
-  exportDepensesExcel(): void {
-    const headers = ['Date', 'Libellé', 'Catégorie', 'Montant', 'Mode Paiement', 'Remarque'];
-    const rows = this.filteredDepenses.map(d => [
-      this.formatDate(d.date),
-      d.libelle,
-      d.categorie,
-      d.montant.toFixed(2),
-      d.modePaiement,
-      d.remarque
-    ]);
-    const csv = headers.join(';') + '\n' + rows.map(r => r.join(';')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `depenses_${this.toDateInput(new Date())}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  fmtNum(v: number | null | undefined, dec = 3): string {
+    if (v == null) return '—';
+    return (+v).toLocaleString('fr-TN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  isToday(): boolean { return this.dateDebut === this.today() && this.dateFin === this.today(); }
+
+  setPeriode(type: 'today' | 'week' | 'month'): void {
+    const now = new Date();
+    if (type === 'today') {
+      this.dateDebut = this.dateFin = this.today();
+    } else if (type === 'week') {
+      const d = new Date(now); d.setDate(now.getDate() - 6);
+      this.dateDebut = d.toISOString().slice(0, 10);
+      this.dateFin   = this.today();
+    } else {
+      this.dateDebut = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      this.dateFin   = this.today();
+    }
+    this.chargerTout();
+  }
+
+  margeColor(marge: number): string {
+    if (marge >= 20) return 'txt-green';
+    if (marge >= 10) return 'txt-gold';
+    if (marge >= 0)  return 'txt-orange';
+    return 'txt-red';
   }
 }

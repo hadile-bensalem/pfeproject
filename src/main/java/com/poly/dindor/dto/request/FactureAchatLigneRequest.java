@@ -27,5 +27,9 @@ public class FactureAchatLigneRequest {
 
     private BigDecimal tva = BigDecimal.ZERO;
 
+    /** Taux de transformation pour ce lot, en décimal (ex: 0.74 = 74 %).
+     *  Obligatoire uniquement si l'article est un produit spécial (cuisse, etc.). */
+    private BigDecimal tauxTransformation;
+
     private Integer ordre;
 }

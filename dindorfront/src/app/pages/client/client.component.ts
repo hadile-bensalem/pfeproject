@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { Client, ClientEtat } from '../../models/client.model';
-import { AncienFactureClientForm } from '../../models/ancien-facture-client.model';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ClientService } from '../../services/client.service';
+import { Client, PaiementClient } from '../../models/client.model';
+import { BonLivraison } from '../../models/vente.model';
 
 @Component({
   selector: 'app-client',
@@ -13,350 +14,223 @@ import { ClientService } from '../../services/client.service';
   templateUrl: './client.component.html',
   styleUrl: './client.component.css'
 })
-export class ClientComponent implements OnInit {
-  clients: Client[] = [];
-  etatClients: ClientEtat[] = [];
-  filteredEtat: ClientEtat[] = [];
-  isLoading = false;
-  errorMessage = '';
-  searchTerm = '';
+export class ClientComponent implements OnInit, OnDestroy {
 
-  isModalClientOpen = false;
-  isEditingClient = false;
+  private destroy$ = new Subject<void>();
+
+  clients: Client[]  = [];
+  filtered: Client[] = [];
+  searchTerm         = '';
+  isLoading          = false;
+  errorMessage       = '';
+
+  showModal  = false;
+  isEditing  = false;
+  editingId  = 0;
+  isSaving   = false;
+  formError  = '';
   clientForm!: FormGroup;
 
-  showClientPanel = false;
-  clientPanelError = '';
-  clientPanelSuccess = '';
-  clientIsSaving = false;
+  // ── Relevé modal ─────────────────────────────────────────
+  showReleve       = false;
+  releveClient: Client | null = null;
+  releveBons:   BonLivraison[] = [];
+  relevePaiements: PaiementClient[] = [];
+  isLoadingReleve  = false;
+  showPaiementForm = false;
+  paiementForm!: FormGroup;
+  isSavingPaiement = false;
+  paiementError    = '';
+  private releveLoaded = 0;
 
-  isAncienFactureModalOpen = false;
-  ancienFactureMessage = '';
-  ancienFactureForm!: FormGroup;
+  readonly CLIENT_TYPES = [
+    { value: 'ETATIQUE',      label: 'ETATIQUE',      hint: 'Abs. Timbre + PVP' },
+    { value: 'CLIENT_DIVERS', label: 'CLIENT DIVERS',  hint: 'Abs. PVP' },
+    { value: 'AUTRE',         label: 'AUTRE',           hint: '' },
+    { value: 'AMBULANT',      label: 'AMBULANT',        hint: '' },
+  ];
 
-  isBonLivraisonModalOpen = false;
-  bonLivraisonForm!: FormGroup;
+  get activeClientsCount(): number { return this.clients.filter(c => c.actif).length; }
 
-  isClientCrediteurModalOpen = false;
-  clientsCrediteurs: ClientEtat[] = [];
+  constructor(private clientService: ClientService, private fb: FormBuilder) {}
 
-  constructor(
-    private fb: FormBuilder,
-    private router: Router,
-    private clientService: ClientService
-  ) {
-    this.buildClientForm();
-    this.buildAncienFactureForm();
-    this.buildBonLivraisonForm();
-  }
+  ngOnInit(): void { this.load(); }
 
-  private buildClientForm(): void {
-    this.clientForm = this.fb.group({
-      id: [0],
-      codeClient: ['', [Validators.required, Validators.maxLength(50)]],
-      nom: ['', [Validators.required, Validators.maxLength(255)]],
-      adresse: ['', [Validators.maxLength(500)]],
-      telephone: ['', [Validators.maxLength(30)]],
-      email: ['', [Validators.email, Validators.maxLength(150)]],
-      observations: ['', [Validators.maxLength(1000)]]
-    });
-  }
-
-  private buildAncienFactureForm(): void {
-    const today = new Date().toISOString().slice(0, 10);
-    this.ancienFactureForm = this.fb.group({
-      numeroFacture: ['', [Validators.required]],
-      date: [today, [Validators.required]],
-      clientId: [null as number | null, [Validators.required]],
-      montantHT: [0, [Validators.required, Validators.min(0)]],
-      tauxTva: [0, [Validators.min(0), Validators.max(100)]],
-      montantTva: [0, [Validators.min(0)]],
-      timbre1: [0, [Validators.min(0)]],
-      timbre2: [0, [Validators.min(0)]],
-      timbre3: [0, [Validators.min(0)]]
-    });
-    this.ancienFactureForm.get('montantHT')?.valueChanges.subscribe(() => this.recalcTva());
-    this.ancienFactureForm.get('tauxTva')?.valueChanges.subscribe(() => this.recalcTva());
-  }
-
-  private buildBonLivraisonForm(): void {
-    const today = new Date().toISOString().slice(0, 10);
-    this.bonLivraisonForm = this.fb.group({
-      numeroBL: ['', [Validators.required]],
-      date: [today, [Validators.required]],
-      clientId: [null as number | null, [Validators.required]],
-      remarques: ['']
-    });
-  }
-
-  private recalcTva(): void {
-    const ht = Number(this.ancienFactureForm.get('montantHT')?.value) || 0;
-    const taux = Number(this.ancienFactureForm.get('tauxTva')?.value) || 0;
-    this.ancienFactureForm.patchValue({ montantTva: Math.round(ht * taux / 100 * 100) / 100 }, { emitEvent: false });
-  }
-
-  get montantFactureTotal(): number {
-    const c = this.ancienFactureForm?.value;
-    if (!c) return 0;
-    return (Number(c.montantHT) || 0) + (Number(c.montantTva) || 0) +
-      (Number(c.timbre1) || 0) + (Number(c.timbre2) || 0) + (Number(c.timbre3) || 0);
-  }
-
-  ngOnInit(): void {
-    this.loadEtatClients();
-  }
-
-  private loadEtatClients(): void {
+  load(): void {
     this.isLoading = true;
-    this.errorMessage = '';
-    this.clientService.getEtatClients().subscribe({
-      next: (data) => {
-        this.etatClients = data ?? [];
-        this.applyFilter();
-        this.isLoading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Erreur lors du chargement des clients.';
-        this.isLoading = false;
-      }
+    this.clientService.getAll().pipe(takeUntil(this.destroy$)).subscribe({
+      next: list => { this.clients = list ?? []; this.applySearch(); this.isLoading = false; },
+      error: () => { this.isLoading = false; this.errorMessage = 'Erreur de chargement.'; }
     });
   }
 
-  private applyFilter(): void {
-    const term = this.searchTerm.trim().toLowerCase();
-    if (!term) {
-      this.filteredEtat = [...this.etatClients];
-      return;
-    }
-    this.filteredEtat = this.etatClients.filter(e =>
-      e.codeClient.toLowerCase().includes(term) || e.nomClient.toLowerCase().includes(term)
-    );
+  applySearch(): void {
+    const q = this.searchTerm.toLowerCase().trim();
+    this.filtered = q
+      ? this.clients.filter(c =>
+          c.nom.toLowerCase().includes(q) ||
+          c.codeClient.toLowerCase().includes(q) ||
+          (c.telephone ?? '').includes(q) ||
+          (c.matriculeFiscal ?? '').toLowerCase().includes(q))
+      : [...this.clients];
   }
 
-  onSearchChange(): void {
-    this.applyFilter();
-  }
-
-  // --- Bouton Ajouter un Client ---
-  openAddClientPanel(): void {
-    this.isEditingClient = false;
-    this.clientPanelError = '';
-    this.clientPanelSuccess = '';
-    this.clientForm.reset({
-      id: 0,
-      codeClient: this.generateCodeClient(),
-      nom: '',
-      adresse: '',
-      telephone: '',
-      email: '',
-      observations: ''
+  private buildForm(c?: Client): FormGroup {
+    return this.fb.group({
+      typeClient:      [c?.typeClient      ?? 'AUTRE',  Validators.required],
+      nom:             [c?.nom             ?? '',       Validators.required],
+      responsable:     [c?.responsable     ?? ''],
+      telephone:       [c?.telephone       ?? ''],
+      telephone2:      [c?.telephone2      ?? ''],
+      fax:             [c?.fax             ?? ''],
+      email:           [c?.email           ?? ''],
+      adresse:         [c?.adresse         ?? ''],
+      ville:           [c?.ville           ?? ''],
+      zone:            [c?.zone            ?? ''],
+      matriculeFiscal: [c?.matriculeFiscal ?? ''],
+      codeTVA:         [c?.codeTVA         ?? ''],
+      tva:             [c?.tva             ?? null],
+      prixVente:       [c?.prixVente       ?? 1],
+      plafond:         [c?.plafond         ?? null],
+      devise:          [c?.devise          ?? 'DT'],
+      notes:           [c?.notes           ?? ''],
+      actif:           [c?.actif           ?? true],
     });
-    this.showClientPanel = true;
-    setTimeout(() => document.getElementById('client-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  openAddClientModal(): void { this.openAddClientPanel(); }
-
-  loadEtatClientsPublic(): void { this.loadEtatClients(); }
-
-  private generateCodeClient(): string {
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const code = now.getFullYear().toString() + pad(now.getMonth() + 1) + pad(now.getDate()) +
-      pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
-    return `C${code}`;
+  openCreate(): void {
+    this.isEditing  = false;
+    this.editingId  = 0;
+    this.formError  = '';
+    this.clientForm = this.buildForm();
+    this.showModal  = true;
   }
 
-  closeClientPanel(): void {
-    this.showClientPanel = false;
-    this.clientPanelError = '';
-    this.clientPanelSuccess = '';
+  openEdit(c: Client): void {
+    this.isEditing  = true;
+    this.editingId  = c.id;
+    this.formError  = '';
+    this.clientForm = this.buildForm(c);
+    this.showModal  = true;
   }
 
-  closeClientModal(): void { this.closeClientPanel(); }
+  closeModal(): void { this.showModal = false; this.formError = ''; }
 
-  onSubmitClient(): void {
+  submit(): void {
     if (this.clientForm.invalid) { this.clientForm.markAllAsTouched(); return; }
-    this.clientIsSaving = true;
-    this.clientPanelError = '';
-    this.clientPanelSuccess = '';
-    const v = this.clientForm.value;
-    const payload = {
-      codeClient: v.codeClient,
-      nom: v.nom,
-      adresse: v.adresse || '',
-      telephone: v.telephone || '',
-      email: v.email || '',
-      observations: v.observations || ''
-    };
-    if (this.isEditingClient && v.id) {
-      this.clientService.update(v.id, payload).subscribe({
-        next: (updated) => {
-          const idx = this.etatClients.findIndex(e => e.clientId === updated.id);
-          if (idx !== -1) {
-            this.etatClients[idx] = { ...this.etatClients[idx], codeClient: updated.codeClient, nomClient: updated.nom };
-          }
-          this.applyFilter();
-          this.clientIsSaving = false;
-          this.clientPanelSuccess = 'Client mis à jour avec succès.';
-          setTimeout(() => this.closeClientPanel(), 1200);
-        },
-        error: (err) => {
-          this.clientIsSaving = false;
-          this.clientPanelError = err?.error?.message || 'Erreur lors de la mise à jour.';
-        }
-      });
-    } else {
-      this.clientService.create(payload).subscribe({
-        next: (created) => {
-          this.etatClients = [{ clientId: created.id, codeClient: created.codeClient, nomClient: created.nom, solde: 0, traitementEnCours: 0 }, ...this.etatClients];
-          this.applyFilter();
-          this.clientIsSaving = false;
-          this.clientPanelSuccess = 'Client créé avec succès.';
-          setTimeout(() => this.closeClientPanel(), 1200);
-        },
-        error: (err) => {
-          this.clientIsSaving = false;
-          this.clientPanelError = err?.error?.message || 'Erreur lors de la création.';
-        }
-      });
-    }
-  }
+    this.isSaving  = true;
+    this.formError = '';
 
-  editClient(e: ClientEtat): void {
-    this.clientPanelError = '';
-    this.clientPanelSuccess = '';
-    this.clientService.getById(e.clientId).subscribe({
-      next: (c) => {
-        if (c) {
-          this.clientForm.patchValue({
-            id: c.id,
-            codeClient: c.codeClient,
-            nom: c.nom,
-            adresse: c.adresse,
-            telephone: c.telephone,
-            email: c.email,
-            observations: c.observations
-          });
-          this.isEditingClient = true;
-          this.showClientPanel = true;
-          setTimeout(() => document.getElementById('client-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-        }
-      }
-    });
-  }
+    const obs = this.isEditing
+      ? this.clientService.update(this.editingId, this.clientForm.value)
+      : this.clientService.create(this.clientForm.value);
 
-  deleteClient(e: ClientEtat): void {
-    if (!confirm(`Supprimer le client ${e.nomClient} ?`)) return;
-    this.clientService.delete(e.clientId).subscribe({
+    obs.pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
-        this.etatClients = this.etatClients.filter(x => x.clientId !== e.clientId);
-        this.applyFilter();
+        this.isSaving = false;
+        if (!this.isEditing) { this.clientForm?.reset(); }
+        this.closeModal();
+        this.load();
       },
-      error: (err) => this.errorMessage = err?.error?.message || 'Erreur lors de la suppression.'
+      error: err => { this.isSaving = false; this.formError = err?.error?.message || 'Erreur lors de la sauvegarde.'; }
     });
   }
 
-  // --- Ancien Facture Client ---
-  openAncienFactureModal(): void {
-    this.clientService.getAll().subscribe({
-      next: (list) => { this.clients = list; }
+  delete(c: Client): void {
+    if (!confirm(`Supprimer le client ${c.codeClient} — ${c.nom} ?`)) return;
+    this.clientService.delete(c.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => this.load(),
+      error: err => alert(err?.error?.message || 'Impossible de supprimer ce client.')
     });
-    this.ancienFactureForm.reset({
-      numeroFacture: '',
-      date: new Date().toISOString().slice(0, 10),
-      clientId: null,
-      montantHT: 0,
-      tauxTva: 0,
-      montantTva: 0,
-      timbre1: 0,
-      timbre2: 0,
-      timbre3: 0
-    });
-    this.ancienFactureMessage = '';
-    this.isAncienFactureModalOpen = true;
   }
 
-  closeAncienFactureModal(): void {
-    this.isAncienFactureModalOpen = false;
+  openReleve(c: Client): void {
+    this.releveClient = c;
+    this.showReleve = true;
+    this.showPaiementForm = false;
+    this.paiementError = '';
+    this.isLoadingReleve = true;
+    this.releveBons = [];
+    this.relevePaiements = [];
+
+    this.clientService.getBonsByClient(c.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: bons => { this.releveBons = bons ?? []; this.checkReleveLoaded(); },
+      error: () => this.checkReleveLoaded()
+    });
+    this.clientService.getPaiementsByClient(c.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: p => { this.relevePaiements = p ?? []; this.checkReleveLoaded(); },
+      error: () => this.checkReleveLoaded()
+    });
   }
 
-  onAncienFactureAjouter(): void {
-    if (this.ancienFactureForm.invalid) {
-      this.ancienFactureMessage = 'Veuillez renseigner le N° facture et le client.';
-      return;
+  private checkReleveLoaded(): void {
+    this.releveLoaded++;
+    if (this.releveLoaded >= 2) {
+      this.isLoadingReleve = false;
+      this.releveLoaded = 0;
     }
-    this.ancienFactureMessage = '';
-    const v = this.ancienFactureForm.value as AncienFactureClientForm;
-    this.clientService.saveAncienFactureClient(v).subscribe({
-      next: () => {
-        this.ancienFactureForm.reset({ ...this.ancienFactureForm.value, numeroFacture: '', montantHT: 0, montantTva: 0, timbre1: 0, timbre2: 0, timbre3: 0 });
-        this.ancienFactureMessage = 'Facture enregistrée.';
-      }
+  }
+
+  closeReleve(): void { this.showReleve = false; this.releveClient = null; }
+
+  openPaiementForm(): void {
+    this.showPaiementForm = true;
+    this.paiementError = '';
+    this.paiementForm = this.fb.group({
+      montant:      [null, [Validators.required, Validators.min(0.001)]],
+      datePaiement: [new Date().toISOString().slice(0, 10), Validators.required],
+      notes:        [''],
+      blNumeros:    ['']
     });
   }
 
-  onAncienFactureValider(): void {
-    if (this.ancienFactureForm.invalid) {
-      this.ancienFactureMessage = 'Veuillez renseigner le N° facture et le client.';
-      return;
-    }
-    const v = this.ancienFactureForm.value as AncienFactureClientForm;
-    this.clientService.saveAncienFactureClient(v).subscribe({
-      next: () => this.closeAncienFactureModal()
-    });
+  submitPaiement(): void {
+    if (this.paiementForm.invalid) { this.paiementForm.markAllAsTouched(); return; }
+    if (!this.releveClient) return;
+    this.isSavingPaiement = true;
+    this.paiementError = '';
+    this.clientService.addPaiement(this.releveClient.id, this.paiementForm.value)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: p => {
+          this.isSavingPaiement = false;
+          this.relevePaiements = [p, ...this.relevePaiements];
+          this.showPaiementForm = false;
+          // update local solde
+          if (this.releveClient) {
+            this.releveClient = { ...this.releveClient, soldeTotalDu: this.releveClient.soldeTotalDu - +p.montant };
+          }
+          this.load(); // refresh full list
+        },
+        error: err => {
+          this.isSavingPaiement = false;
+          this.paiementError = err?.error?.message || 'Erreur lors de l\'enregistrement.';
+        }
+      });
   }
 
-  onAncienFactureSupprimer(): void {
-    this.ancienFactureForm.patchValue({
-      numeroFacture: '',
-      montantHT: 0,
-      tauxTva: 0,
-      montantTva: 0,
-      timbre1: 0,
-      timbre2: 0,
-      timbre3: 0
-    });
-    this.ancienFactureMessage = 'Saisie réinitialisée.';
+  etatLabel(etat: string): string {
+    const m: Record<string, string> = { EN_ATTENTE: 'En attente', PARTIEL: 'Partiel', PAYE: 'Payé' };
+    return m[etat] ?? etat;
   }
 
-  // --- Bon de Livraison ---
-  openBonLivraisonModal(): void {
-    this.clientService.getAll().subscribe({ next: (list) => { this.clients = list; } });
-    this.bonLivraisonForm.reset({
-      numeroBL: '',
-      date: new Date().toISOString().slice(0, 10),
-      clientId: null,
-      remarques: ''
-    });
-    this.isBonLivraisonModalOpen = true;
+  formatDate(iso: string | null | undefined): string {
+    if (!iso) return '—';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
   }
 
-  closeBonLivraisonModal(): void {
-    this.isBonLivraisonModalOpen = false;
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  onSubmitBonLivraison(): void {
-    if (this.bonLivraisonForm.invalid) return;
-    // TODO: appeler API bon de livraison
-    this.closeBonLivraisonModal();
+  typeLabel(type: string): string {
+    return this.CLIENT_TYPES.find(t => t.value === type)?.label ?? type;
   }
 
-  // --- Client Créditeur ---
-  openClientCrediteurModal(): void {
-    this.clientsCrediteurs = this.etatClients.filter(e => e.solde > 0);
-    this.isClientCrediteurModalOpen = true;
-  }
-
-  closeClientCrediteurModal(): void {
-    this.isClientCrediteurModalOpen = false;
-  }
-
-  formatMontant(value: number): string {
-    return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-  }
-
-  goToDetail(e: ClientEtat): void {
-    this.router.navigate(['/client/detail', e.clientId]);
+  formatNum(v: number | null | undefined): string {
+    if (v == null) return '0.000';
+    return (+v).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 }

@@ -21,6 +21,15 @@ export class CertificatRetenueService {
       (x.getMonth() + 1).toString().padStart(2, '0') + '/' + x.getFullYear();
   }
 
+  private formatDateLong(d: string): string {
+    if (!d) return '';
+    const x = new Date(d);
+    if (isNaN(x.getTime())) return d;
+    const mois = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                  'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    return `${x.getDate()} ${mois[x.getMonth()]} ${x.getFullYear()}`;
+  }
+
   private formatMontant(m: number): string {
     return m.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -34,102 +43,517 @@ export class CertificatRetenueService {
       .replace(/"/g, '&quot;');
   }
 
+  private matCase(val: string): string {
+    return (val || '').split('').map(c => `<div class="mat-box">${this.esc(c)}</div>`).join('');
+  }
+
   generateHtml(retenue: RetenueSource, payeur = PAYEUR_DEFAULT): string {
-    const annee = retenue.dateRetenue ? new Date(retenue.dateRetenue).getFullYear() : new Date().getFullYear();
+    const annee   = retenue.dateRetenue ? new Date(retenue.dateRetenue).getFullYear() : new Date().getFullYear();
+    const matFisc = (payeur.matriculeFiscal || '').replace(/\s/g, '');
+    const codeTVA = (payeur.codeTVA        || '').replace(/\s/g, '');
+    const codeCat = (payeur.codeCategorie  || '').replace(/\s/g, '');
+    const codeEts = (payeur.etabSecondaire || '000').replace(/\s/g, '');
+
+    const libelleNature = retenue.libelle || 'Honoraires, Commissions, Courtages';
+
     return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Certificat de Retenue d'Impôt</title>
+<title>Certificat de Retenue d'Impôt — ${this.esc(retenue.numeroRetenue)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Times New Roman', serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; padding: 20px; }
-  .certificat { max-width: 800px; margin: 0 auto; }
-  .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 16px; }
-  .header-left { text-align: left; }
-  .header-left .rep { font-weight: 700; font-size: 12px; }
-  .header-left .ministere { font-size: 11px; margin-top: 2px; }
-  .header-right { text-align: right; margin-top: -50px; }
-  .header-right .titre { font-weight: 700; font-size: 10px; text-transform: uppercase; }
-  .retenue-date { margin: 12px 0; font-weight: 600; }
-  .section { margin: 14px 0; }
-  .section-title { font-weight: 700; font-size: 11px; margin-bottom: 8px; }
-  table.id-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-  table.id-table td { border: 1px solid #333; padding: 4px 8px; }
-  table.id-table .label { font-weight: 600; width: 140px; background: #f5f5f5; }
-  .denomination { font-weight: 700; margin: 4px 0; }
-  table.ret-table { width: 100%; border-collapse: collapse; }
-  table.ret-table th, table.ret-table td { border: 1px solid #333; padding: 5px 8px; text-align: left; }
-  table.ret-table th { background: #f0f0f0; font-weight: 600; }
-  table.ret-table .num { text-align: right; }
-  .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #333; font-size: 10px; }
-  .print-btn { position: fixed; top: 10px; right: 10px; background: #8B1A1A; color: #fff; border: none; padding: 8px 16px; cursor: pointer; z-index: 100; }
-  @media print { .print-btn { display: none; } body { padding: 0; } }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 11px;
+    color: #2d3435;
+    background: #f9f9f9;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Control bar ── */
+  .no-print {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: #f2f4f4;
+    border-bottom: 1px solid #acb3b4;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    gap: 12px;
+  }
+  .no-print span {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5e5e5e;
+  }
+  .no-print-actions { display: flex; gap: 8px; }
+  .btn-print {
+    display: flex; align-items: center; gap: 6px;
+    background: #fff;
+    color: #2d3435;
+    border: 1px solid #acb3b4;
+    padding: 7px 18px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-print:hover { background: #e4e9ea; }
+  .btn-dl {
+    background: #2d3435;
+    color: #fff;
+    border: 1px solid #2d3435;
+    padding: 7px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-dl:hover { background: #525252; }
+
+  /* ── Document wrapper ── */
+  main {
+    max-width: 780px;
+    margin: 32px auto;
+    padding: 40px 48px 56px;
+    background: #fff;
+  }
+
+  /* ── Official header ── */
+  .doc-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .doc-header .republic {
+    font-family: 'Public Sans', serif;
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #2d3435;
+  }
+  .doc-header .ministry {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #2d3435;
+    margin-top: 3px;
+  }
+  .doc-header .dgi {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #5e5e5e;
+    margin-top: 2px;
+  }
+  .emblem {
+    width: 52px;
+    height: 52px;
+    margin: 14px auto 16px;
+    display: block;
+    filter: grayscale(1) contrast(1.2);
+  }
+  .doc-title-box {
+    display: inline-block;
+    border: 2px solid #2d3435;
+    padding: 10px 28px;
+    margin-top: 6px;
+  }
+  .doc-title {
+    font-family: 'Public Sans', serif;
+    font-weight: 900;
+    font-size: 17px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2d3435;
+    line-height: 1.25;
+  }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 16px; }
+  .section-head {
+    background: #f2f4f4;
+    border: 1px solid #2d3435;
+    border-bottom: none;
+    padding: 5px 10px;
+  }
+  .section-head span {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #2d3435;
+  }
+  .section-body {
+    border: 1px solid #2d3435;
+    padding: 14px 16px;
+  }
+
+  /* ── Labels ── */
+  .field-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5e5e5e;
+    margin-bottom: 4px;
+    display: block;
+  }
+  .field-value {
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: #2d3435;
+    border-bottom: 1px dotted #acb3b4;
+    min-height: 22px;
+    padding-bottom: 2px;
+    margin-bottom: 10px;
+  }
+  .field-value-sm {
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12px;
+    color: #2d3435;
+    border-bottom: 1px dotted #acb3b4;
+    min-height: 20px;
+    padding-bottom: 2px;
+    margin-bottom: 10px;
+  }
+
+  /* ── Two-column layout ── */
+  .cols { display: flex; gap: 24px; }
+  .col-2 { flex: 2; }
+  .col-1 { flex: 1; }
+
+  /* ── Matricule fiscal boxes ── */
+  .mat-row { display: flex; gap: 2px; flex-wrap: wrap; }
+  .mat-box {
+    width: 22px;
+    height: 26px;
+    border: 1px solid #2d3435;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: #2d3435;
+  }
+
+  /* ── TVA / Catégorie / Ets row ── */
+  .code-row { display: flex; gap: 16px; margin-top: 8px; }
+  .code-cell { display: flex; flex-direction: column; gap: 4px; }
+  .code-box {
+    border: 1px solid #2d3435;
+    padding: 4px 8px;
+    min-width: 44px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: #2d3435;
+  }
+
+  /* ── Retenues table ── */
+  .ret-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ret-table th {
+    background: #f2f4f4;
+    border: 1px solid #2d3435;
+    padding: 6px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5e5e5e;
+    text-align: left;
+  }
+  .ret-table td {
+    border: 1px solid #2d3435;
+    padding: 7px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: #2d3435;
+  }
+  .ret-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ret-table tbody tr.zero-row td { color: #acb3b4; }
+  .ret-table tfoot tr td {
+    font-weight: 700;
+    font-size: 11.5px;
+    background: #f2f4f4;
+  }
+
+  /* ── Footer ── */
+  .doc-footer { margin-top: 28px; }
+  .footer-cert {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-style: italic;
+    line-height: 1.7;
+    color: #2d3435;
+    text-align: justify;
+  }
+  .footer-lieu {
+    margin-top: 20px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #2d3435;
+  }
+  .footer-date {
+    margin-top: 8px;
+    font-family: 'Public Sans', serif;
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    color: #2d3435;
+  }
+  .signature-box {
+    border: 1px dashed #acb3b4;
+    background: #fafafa;
+    padding: 16px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .signature-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5e5e5e;
+  }
+  .sig-stamp {
+    opacity: 0.08;
+    font-size: 56px;
+    color: #2d3435;
+    margin-top: 8px;
+  }
+  .footer-grid { display: flex; gap: 48px; margin-top: 28px; }
+  .footer-left { flex: 1; }
+  .footer-right { flex: 1; }
+
+  .doc-bottom {
+    margin-top: 36px;
+    padding-top: 8px;
+    border-top: 1px solid #acb3b4;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 7.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #acb3b4;
+  }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    main { margin: 0; padding: 24px 32px 40px; max-width: 100%; box-shadow: none; }
+  }
 </style>
 </head>
 <body>
-<button class="print-btn" onclick="window.print()">Imprimer</button>
-<div class="certificat">
-  <div class="header">
-    <div class="header-left">
-      <div class="rep">REPUBLIQUE TUNISIENNE</div>
-      <div class="ministere">MINISTERE DU PLAN ET DES FINANCES</div>
-      <div class="ministere">DIRECTION GENERALE DU CONTROLE FISCAL</div>
-    </div>
-    <div class="header-right">
-      <div class="titre">Certificat de Retenue d'Impôt sur le Revenu ou d'Impôt sur les Sociétés</div>
-    </div>
-  </div>
 
-  <div class="retenue-date">Retenue effectuée le : ${this.formatDate(retenue.dateRetenue)} (Année ${annee})</div>
-
-  <div class="section">
-    <div class="section-title">Section A — Personne ou Organisme Payeur</div>
-    <table class="id-table">
-      <tr><td class="label">Matricule Fiscal</td><td>${this.esc(payeur.matriculeFiscal)}</td><td class="label">Code TVA</td><td>${this.esc(payeur.codeTVA)}</td></tr>
-      <tr><td class="label">Code Catégorie</td><td>${this.esc(payeur.codeCategorie)}</td><td class="label">N° Étab. Secondaire</td><td>${this.esc(payeur.etabSecondaire)}</td></tr>
-    </table>
-    <div class="denomination">Dénomination : ${this.esc(payeur.denomination)}</div>
-    <div>Adresse : ${this.esc(payeur.adresse)} — Lieu : ${this.esc(payeur.lieu)}</div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Section B — Retenues Effectuées Sur</div>
-    <table class="ret-table">
-      <thead><tr><th>Libellé</th><th>Facture</th><th class="num">Montant Brut</th><th class="num">Retenue</th><th class="num">Montant Net</th></tr></thead>
-      <tbody>
-        <tr>
-          <td>${this.esc(retenue.libelle || 'Retenue à la source marché')}</td>
-          <td>${this.esc(retenue.numeroFacture)}</td>
-          <td class="num">${this.formatMontant(retenue.montantBrut)}</td>
-          <td class="num">${this.formatMontant(retenue.retenue)}</td>
-          <td class="num">${this.formatMontant(retenue.montantNet)}</td>
-        </tr>
-        <tr style="font-weight:700; background:#f8f8f8;">
-          <td colspan="2">Total Général</td>
-          <td class="num">${this.formatMontant(retenue.montantBrut)}</td>
-          <td class="num">${this.formatMontant(retenue.retenue)}</td>
-          <td class="num">${this.formatMontant(retenue.montantNet)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Section C — Bénéficiaire</div>
-    <table class="id-table">
-      <tr><td class="label">Matricule Fiscal</td><td>${this.esc(retenue.fournisseurMatricule)}</td><td class="label">Code TVA</td><td>${this.esc(retenue.fournisseurCodeTVA)}</td></tr>
-    </table>
-    <div class="denomination">Raison sociale : ${this.esc(retenue.fournisseurNom)}</div>
-    <div>Adresse professionnelle : ${this.esc(retenue.fournisseurAdresse)}</div>
-  </div>
-
-  <div class="footer">
-    <p>Je soussigné, certifie exactes les renseignements figurant sur le présent certificat et m'expose aux sanctions prévues par la loi pour toute inexactitude.</p>
-    <p style="margin-top: 24px; text-align: right;">A _________________________ LE ${this.formatDate(retenue.dateRetenue)}</p>
-    <p style="margin-top: 8px; text-align: right; font-size: 9px;">Cachet et signature du payeur</p>
+<!-- ── Barre de contrôle (masquée à l'impression) ── -->
+<div class="no-print">
+  <span>Aperçu du Formulaire Officiel</span>
+  <div class="no-print-actions">
+    <button class="btn-print" onclick="window.print()">&#128438; Imprimer</button>
+    <button class="btn-dl" onclick="window.print()">Télécharger PDF</button>
   </div>
 </div>
+
+<main>
+
+  <!-- ════════ EN-TÊTE OFFICIEL ════════ -->
+  <div class="doc-header">
+    <div class="republic">REPUBLIQUE TUNISIENNE</div>
+    <div class="ministry">MINISTERE DES FINANCES</div>
+    <div class="dgi">Direction Générale des Impôts</div>
+    <img class="emblem"
+      src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Coat_of_arms_of_Tunisia.svg/200px-Coat_of_arms_of_Tunisia.svg.png"
+      alt="Armoiries de la Tunisie">
+    <div class="doc-title-box">
+      <div class="doc-title">Certificat de<br>Retenue d'Impôt</div>
+    </div>
+  </div>
+
+  <!-- ════════ SECTION A — PAYEUR ════════ -->
+  <div class="section">
+    <div class="section-head">
+      <span>A - Personne ou Organisme Payeur</span>
+    </div>
+    <div class="section-body">
+      <div class="cols">
+        <div class="col-2">
+          <span class="field-label">Dénomination ou Raison Sociale :</span>
+          <div class="field-value">${this.esc(payeur.denomination)}</div>
+          <span class="field-label">Adresse de l'établissement :</span>
+          <div class="field-value-sm">${this.esc(payeur.adresse)}${payeur.lieu ? ', ' + this.esc(payeur.lieu) : ''}</div>
+        </div>
+        <div class="col-1">
+          <span class="field-label">Matricule Fiscal :</span>
+          <div class="mat-row">${this.matCase(matFisc)}</div>
+          <div class="code-row">
+            <div class="code-cell">
+              <span class="field-label">Code TVA</span>
+              <div class="code-box">${this.esc(codeTVA) || '&nbsp;'}</div>
+            </div>
+            <div class="code-cell">
+              <span class="field-label">Catégorie</span>
+              <div class="code-box">${this.esc(codeCat) || '&nbsp;'}</div>
+            </div>
+            <div class="code-cell">
+              <span class="field-label">Code Ets</span>
+              <div class="code-box">${this.esc(codeEts) || '000'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SECTION B — BÉNÉFICIAIRE ════════ -->
+  <div class="section">
+    <div class="section-head">
+      <span>B - Le Bénéficiaire</span>
+    </div>
+    <div class="section-body">
+      <div class="cols">
+        <div class="col-1">
+          <span class="field-label">Nom &amp; Prénom ou Raison Sociale :</span>
+          <div class="field-value">${this.esc(retenue.fournisseurNom)}</div>
+          <span class="field-label">Matricule Fiscal / CIN :</span>
+          <div class="field-value">${this.esc(retenue.fournisseurMatricule)}</div>
+        </div>
+        <div class="col-1">
+          <span class="field-label">Adresse Personnelle / Professionnelle :</span>
+          <div class="field-value-sm">${this.esc(retenue.fournisseurAdresse)}</div>
+          <div style="display:flex; gap:16px;">
+            <div style="flex:1;">
+              <span class="field-label">Qualité :</span>
+              <div class="field-value-sm">${this.esc(libelleNature)}</div>
+            </div>
+            <div style="flex:1;">
+              <span class="field-label">Période :</span>
+              <div class="field-value-sm">Année ${annee}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SECTION C — DÉTAILS DES RETENUES ════════ -->
+  <div class="section">
+    <div class="section-head">
+      <span>C - Détails des Retenues Effectuées</span>
+    </div>
+    <div class="section-body" style="padding: 0;">
+      <table class="ret-table">
+        <thead>
+          <tr>
+            <th style="width:32%;">Nature des Montants Servis</th>
+            <th class="num">Montant Brut (TND)</th>
+            <th class="num">Taux (%)</th>
+            <th class="num">Retenue (TND)</th>
+            <th class="num">Montant Net (TND)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${this.esc(libelleNature)}</td>
+            <td class="num">${this.formatMontant(retenue.montantBrut)}</td>
+            <td class="num">${retenue.taux > 0 ? retenue.taux + '%' : '—'}</td>
+            <td class="num">${this.formatMontant(retenue.retenue)}</td>
+            <td class="num">${this.formatMontant(retenue.montantNet)}</td>
+          </tr>
+          <tr class="zero-row">
+            <td>Redevances (Royalty)</td>
+            <td class="num">0,000</td><td class="num">—</td>
+            <td class="num">0,000</td><td class="num">0,000</td>
+          </tr>
+          <tr class="zero-row">
+            <td>Loyer et Primes de location</td>
+            <td class="num">0,000</td><td class="num">—</td>
+            <td class="num">0,000</td><td class="num">0,000</td>
+          </tr>
+          <tr class="zero-row">
+            <td>Autres sommes soumises à retenue</td>
+            <td class="num">0,000</td><td class="num">—</td>
+            <td class="num">0,000</td><td class="num">0,000</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>TOTAUX GÉNÉRAUX</strong></td>
+            <td class="num">${this.formatMontant(retenue.montantBrut)}</td>
+            <td class="num">—</td>
+            <td class="num">${this.formatMontant(retenue.retenue)}</td>
+            <td class="num">${this.formatMontant(retenue.montantNet)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════ PIED DE PAGE OFFICIEL ════════ -->
+  <div class="doc-footer">
+    <div class="footer-grid">
+      <div class="footer-left">
+        <p class="footer-cert">
+          Je soussigné, certifie exacts les renseignements contenus dans le présent certificat
+          et je m'expose aux sanctions prévues par la loi en cas d'inexactitude de ces renseignements.
+        </p>
+        <p class="footer-lieu" style="margin-top:20px;">
+          Fait à ................................, le ......................
+        </p>
+        <p class="footer-date">${this.formatDateLong(retenue.dateRetenue)}</p>
+      </div>
+      <div class="footer-right">
+        <div class="signature-box">
+          <span class="signature-label">Cachet et Signature du Payeur</span>
+          <div class="sig-stamp">✦</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-bottom">
+    Document généré par le système d'administration fiscale — Tunisie
+  </div>
+
+</main>
 </body>
 </html>`;
   }

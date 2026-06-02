@@ -1,0 +1,234 @@
+<div class="traite-page">
+
+  <!-- ══ HERO ══ -->
+  <section class="page-hero">
+    <div class="hero-left">
+      <nav class="hero-breadcrumb">
+        <span>Dind'Or</span>
+        <span class="material-symbols-outlined">chevron_right</span>
+        <span class="bc-active">Traites</span>
+      </nav>
+      <h1 class="hero-title">Traites (Lettres de Change)</h1>
+    </div>
+    <div class="hero-right">
+      <button class="btn-secondary-hm" (click)="load()">
+        <span class="material-symbols-outlined">refresh</span> Actualiser
+      </button>
+      <button class="btn-primary-hm" (click)="openNew()">
+        <span class="material-symbols-outlined">add_circle</span> Nouvelle Traite
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ SAISIE PANEL ══ -->
+  <div class="saisie-panel" *ngIf="showSaisie">
+    <div class="saisie-panel-hdr">
+      <div class="saisie-panel-title">
+        <div class="saisie-title-icon">
+          <span class="material-symbols-outlined">receipt_long</span>
+        </div>
+        <div>
+          <h3>{{ editId ? 'Modifier la Traite' : 'Nouvelle Traite' }}</h3>
+          <span class="saisie-sub">Lettre de Change · Dind'Or</span>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeSaisie()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="saisie-body">
+
+      <!-- Ligne 1 : Fournisseur -->
+      <div class="saisie-row-grid">
+        <div class="sf">
+          <label>Fournisseur</label>
+          <select id="t-fournisseur" class="sf-inp" [(ngModel)]="form.fournisseurId" (change)="onFournisseurChange()">
+            <option [ngValue]="undefined">— Choisir un fournisseur —</option>
+            <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.raisonSociale }}</option>
+          </select>
+        </div>
+        <div class="sf">
+          <label>Nom & Adresse Tiré <span class="req">*</span></label>
+          <textarea class="sf-ta" [(ngModel)]="form.nomAdresseTire" rows="2" placeholder="STE DIND'OR K.M.&#10;KSIBET EL MEDIOUNI"></textarea>
+        </div>
+        <div class="sf">
+          <label>Tireur (Ṣāḥib)</label>
+          <input class="sf-inp" [(ngModel)]="form.tireur" placeholder="STE DIND'OR K.M.">
+        </div>
+      </div>
+
+      <!-- Ligne 2 : Montant / Dates -->
+      <div class="saisie-row-grid">
+        <div class="sf">
+          <label>Montant <span class="req">*</span></label>
+          <input class="sf-inp sf-num" type="number" step="0.001" [(ngModel)]="form.montant" (input)="onMontantChange()" placeholder="0.000">
+        </div>
+        <div class="sf">
+          <label>Date de création <span class="req">*</span></label>
+          <input class="sf-inp" type="date" [(ngModel)]="form.dateCreation">
+        </div>
+        <div class="sf">
+          <label>Échéance <span class="req">*</span></label>
+          <input class="sf-inp" type="date" [(ngModel)]="form.dateEcheance">
+        </div>
+      </div>
+
+      <!-- Ligne 3 : Montant en lettres -->
+      <div class="saisie-row-grid saisie-row-full">
+        <div class="sf sf-full">
+          <label>Montant en Lettres</label>
+          <input class="sf-inp" [(ngModel)]="form.montantLettres" placeholder="(calculé automatiquement)">
+        </div>
+      </div>
+
+      <!-- Ligne 4 : RIB -->
+      <div class="saisie-rib-section">
+        <div class="rib-label">
+          <span class="material-symbols-outlined">account_balance</span>
+          N° Compte (RIB)
+        </div>
+        <div class="rib-fields">
+          <div class="sf sf-rib">
+            <label>Code Étab.</label>
+            <input class="sf-inp sf-rib-inp" [(ngModel)]="form.ribCodeEtab" maxlength="2" placeholder="08">
+          </div>
+          <div class="rib-sep">|</div>
+          <div class="sf sf-rib">
+            <label>Code Agence</label>
+            <input class="sf-inp sf-rib-inp" [(ngModel)]="form.ribCodeAgence" maxlength="3" placeholder="505">
+          </div>
+          <div class="rib-sep">|</div>
+          <div class="sf sf-rib sf-rib-lg">
+            <label>N° Compte</label>
+            <input class="sf-inp sf-rib-inp" [(ngModel)]="form.ribNumeroCompte" maxlength="20" placeholder="00027100209688">
+          </div>
+          <div class="rib-sep">|</div>
+          <div class="sf sf-rib">
+            <label>Clé</label>
+            <input class="sf-inp sf-rib-inp" [(ngModel)]="form.ribCle" maxlength="2" placeholder="7">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ligne 5 : Lieu / Domiciliation / Valeur -->
+      <div class="saisie-row-grid">
+        <div class="sf">
+          <label>Fait à</label>
+          <input class="sf-inp" [(ngModel)]="form.faitA" placeholder="KSIBET">
+        </div>
+        <div class="sf">
+          <label>Lieu de création</label>
+          <input class="sf-inp" [(ngModel)]="form.lieuCreation" placeholder="KSIBET">
+        </div>
+        <div class="sf">
+          <label>Domiciliation (Banque)</label>
+          <input class="sf-inp" [(ngModel)]="form.domiciliation" placeholder="BIAT KSIBET EL M.">
+        </div>
+        <div class="sf">
+          <label>Valeur en</label>
+          <input class="sf-inp" [(ngModel)]="form.valeurEn" value="DT" placeholder="DT">
+        </div>
+      </div>
+
+    </div><!-- /saisie-body -->
+
+    <div class="saisie-footer">
+      <button class="btn-ghost" (click)="closeSaisie()">Annuler</button>
+      <button class="btn-success-hm" (click)="save()"
+              [disabled]="!form.montant || !form.dateEcheance">
+        <span class="material-symbols-outlined">check</span>
+        {{ editId ? 'Enregistrer les modifications' : 'Créer la Traite' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ BARRE FILTRES ══ -->
+  <div class="filter-bar">
+    <div class="fb-left">
+      <div class="fb-search">
+        <span class="material-symbols-outlined">search</span>
+        <input type="text" placeholder="N° ordre, fournisseur…" [(ngModel)]="searchTerm">
+      </div>
+      <div class="fb-radios">
+        <label [class.active]="filterStatut === ''">
+          <input type="radio" [(ngModel)]="filterStatut" value=""> Toutes
+        </label>
+        <label [class.active]="filterStatut === 'non_imprimee'">
+          <input type="radio" [(ngModel)]="filterStatut" value="non_imprimee"> Non imp.
+        </label>
+        <label [class.active]="filterStatut === 'imprimee'">
+          <input type="radio" [(ngModel)]="filterStatut" value="imprimee"> Imprimées
+        </label>
+        <label [class.active]="filterStatut === 'echue'">
+          <input type="radio" [(ngModel)]="filterStatut" value="echue"> Échues
+        </label>
+      </div>
+    </div>
+    <div class="fb-right" *ngIf="filtered.length > 0">
+      <span>{{ filtered.length }} traite(s)</span>
+      <span class="fb-total">Total : <strong>{{ formatNum(totalTraites) }} DT</strong></span>
+    </div>
+  </div>
+
+  <!-- ══ TABLE ══ -->
+  <div class="table-wrap">
+    <table class="hm-table" *ngIf="filtered.length > 0; else emptyTpl">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>N° Ordre</th>
+          <th>Fournisseur / Tiré</th>
+          <th class="col-right">Montant</th>
+          <th>Date création</th>
+          <th>Échéance</th>
+          <th>Statut</th>
+          <th class="col-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of filtered; let i = index" class="hm-row">
+          <td class="col-idx">{{ i + 1 }}</td>
+          <td class="col-mono">{{ t.ordrePaiement }}</td>
+          <td>
+            <div class="supplier-cell">
+              <span class="supplier-cell-name">{{ t.fournisseurNom || (t.nomAdresseTire || '').split('\n')[0] }}</span>
+              <span class="supplier-cell-sub">{{ t.domiciliation }}</span>
+            </div>
+          </td>
+          <td class="col-right col-net">{{ formatNum(t.montant) }}</td>
+          <td>{{ formatDate(t.dateCreation) }}</td>
+          <td>{{ formatDate(t.dateEcheance) }}</td>
+          <td>
+            <span class="status-pill" [ngClass]="statutClass(t.statut)">
+              {{ statutLabel(t.statut) }}
+            </span>
+          </td>
+          <td class="col-right">
+            <div class="row-actions">
+              <button class="action-icon-btn" (click)="imprimer(t)" title="Imprimer la traite">
+                <span class="material-symbols-outlined">print</span>
+              </button>
+              <button class="action-icon-btn" (click)="openEdit(t)" title="Modifier">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button class="action-icon-btn action-danger" (click)="delete(t)" title="Supprimer">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #emptyTpl>
+      <div class="empty-state">
+        <span class="material-symbols-outlined">receipt_long</span>
+        <p>Aucune traite enregistrée.</p>
+        <span>Cliquez sur « Nouvelle Traite » pour créer.</span>
+      </div>
+    </ng-template>
+  </div>
+
+</div><!-- /traite-page -->
+
+

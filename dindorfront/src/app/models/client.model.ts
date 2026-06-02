@@ -1,30 +1,39 @@
 export interface Client {
   id: number;
   codeClient: string;
+  typeClient: string;         // ETATIQUE | CLIENT_DIVERS | AUTRE | AMBULANT
   nom: string;
-  adresse: string;
+  responsable: string;
   telephone: string;
+  telephone2: string;
+  fax: string;
   email: string;
-  observations: string;
-  dateCreation: string;
-  dateModification: string;
+  adresse: string;
+  ville: string;
+  zone: string;
+  matriculeFiscal: string;
+  codeTVA: string;
+  tva: number;
+  prixVente: number;
+  plafond: number;
+  devise: string;
+  dateInscription: string;
+  notes: string;
+  actif: boolean;
+  soldeTotalDu: number;
 }
 
-export interface ClientEtat {
-  clientId: number;
-  codeClient: string;
-  nomClient: string;
-  solde: number;
-  traitementEnCours: number;
-}
-
-export interface TransactionClient {
+export interface PaiementClient {
   id: number;
   clientId: number;
-  numeroFacture: string;
-  date: string;
-  debit: number;
-  credit: number;
-  espece: number;
-  modePaiement: string;
+  clientNom: string;
+  montant: number;
+  datePaiement: string;
+  notes: string;
+  blNumeros: string;
+  modePaiement: 'ESPECE' | 'CHEQUE' | 'TRAITE';
+  numeroPaiement: string;
+  echeance: string;
+  banque: string;
+  dateCreation: string;
 }

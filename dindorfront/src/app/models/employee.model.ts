@@ -1,15 +1,10 @@
-export type ContractType = 'CDI' | 'CDD' | 'JOURNALIER' | 'HORAIRE';
-
-export type EmployeeStatus = 'ACTIF' | 'SUSPENDU' | 'QUITTÉ';
-
-export type Department = 'VENTE' | 'STOCK' | 'LIVRAISON';
-
 export interface Employee {
   id: number;
   matricule: string;
+  cin: string;
   nom: string;
   prenom: string;
-  cin: string;
+  nomComplet: string;
   telephone: string;
   email: string;
   adresse: string;
@@ -17,26 +12,55 @@ export interface Employee {
   situationFamiliale: string;
   nombreEnfants: number;
   poste: string;
-  departement: Department;
-  typeContrat: ContractType;
+  departement: string;
+  typeContrat: string;
   dateRecrutement: string;
-  statut: EmployeeStatus;
-
-  // Rémunération mensuelle
-  salaireBase?: number;
-  primesFixes?: number;
-  primeRendement?: number;
-
-  // Rémunération journalière
-  tarifJournalier?: number;
-  joursTravail?: number;
-
-  // Rémunération horaire
-  tarifHoraire?: number;
-  heuresNormales?: number;
-  heuresSupplementaires?: number;
-
-  // Statut global
+  statut: string;
   actif: boolean;
+  salaireBase: number;
+  primesFixes: number;
+  primeRendement: number;
+  tarifHoraire: number;
+  heuresNormalesMois: number;
+  affilieCNSS: boolean;
+  numeroCNSS: string;
+  rib: string;
+  notes: string;
+  dateCreation: string;
 }
 
+export interface FichePaie {
+  id: number;
+  numeroBulletin: string;
+  employeId: number;
+  employeNom: string;
+  employePrenom: string;
+  employeMatricule: string;
+  employePoste: string;
+  employeDepartement: string;
+  employeCIN: string;
+  employeNumeroCNSS: string;
+  employeRib: string;
+  employeTypeContrat: string;
+  mois: number;
+  annee: number;
+  periodeLabel: string;
+  salaireBase: number;
+  primesFixes: number;
+  primeRendement: number;
+  indemnites: number;
+  heuresSupplementaires: number;
+  tauxHoraireHS: number;
+  montantHS: number;
+  salaireBrut: number;
+  cotisationCNSSEmploye: number;
+  cotisationCNSSEmployeur: number;
+  salaireImposable: number;
+  avanceSalaire: number;
+  autresRetenues: number;
+  salaireNet: number;
+  statut: 'BROUILLON' | 'VALIDE' | 'PAYE';
+  datePaiement: string | null;
+  notes: string;
+  dateCreation: string;
+}

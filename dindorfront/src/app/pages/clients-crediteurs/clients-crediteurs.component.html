@@ -1,0 +1,505 @@
+<div class="cc-page">
+
+  <!-- ══ HEADER ══ -->
+  <header class="cc-header">
+    <div class="cc-hdr-deco d1"></div>
+    <div class="cc-hdr-deco d2"></div>
+    <div class="cc-hdr-inner">
+      <div class="cc-hdr-left">
+        <div class="cc-hdr-icon">
+          <span class="material-symbols-outlined">account_balance</span>
+        </div>
+        <div>
+          <h1>Règlement Clients</h1>
+          <p class="cc-hdr-sub">Grand livre · Suivi des encaissements · Compte courant</p>
+        </div>
+      </div>
+      <div class="cc-hdr-kpis">
+        <div class="cc-kpi">
+          <span class="cc-kpi-val warn">{{ formatNum(totalDu) }}</span>
+          <span class="cc-kpi-lbl">Total dû (DT)</span>
+        </div>
+        <div class="cc-kpi-sep"></div>
+        <div class="cc-kpi">
+          <span class="cc-kpi-val warn">{{ clientsAvecSolde }}</span>
+          <span class="cc-kpi-lbl">Clients débiteurs</span>
+        </div>
+        <div class="cc-kpi-sep"></div>
+        <div class="cc-kpi">
+          <span class="cc-kpi-val">{{ clients.length }}</span>
+          <span class="cc-kpi-lbl">Total clients</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══ CORPS ══ -->
+  <div class="cc-body">
+
+    <!-- ── PANNEAU GAUCHE : liste clients ─────────────────────────────── -->
+    <aside class="cc-sidebar">
+      <div class="sidebar-toolbar">
+        <div class="sidebar-search">
+          <span class="material-symbols-outlined search-ico">search</span>
+          <input type="text" placeholder="Nom, code, tél…"
+                 [(ngModel)]="searchTerm" (input)="applyClientFilter()">
+        </div>
+        <div class="sidebar-row2">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="showOnlyDebit" (change)="applyClientFilter()">
+            <span>Avec solde</span>
+          </label>
+          <button class="icon-btn" (click)="loadClients()" title="Actualiser">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-loading" *ngIf="isLoading">
+        <div class="mini-spinner"></div>
+      </div>
+
+      <div class="clients-list" *ngIf="!isLoading">
+        <div class="client-item"
+             *ngFor="let c of filteredClients"
+             [class.client-active]="selectedClient?.id === c.id"
+             [class.client-debit]="c.soldeTotalDu > 0"
+             [class.client-credit]="c.soldeTotalDu < 0"
+             (click)="selectClient(c)">
+          <div class="client-avatar"
+               [class.avatar-debit]="c.soldeTotalDu > 0"
+               [class.avatar-credit]="c.soldeTotalDu < 0">
+            {{ initials(c.nom) }}
+          </div>
+          <div class="client-item-info">
+            <span class="client-item-nom">{{ c.nom }}</span>
+            <span class="client-item-code">{{ c.codeClient }}</span>
+          </div>
+          <div class="client-item-solde"
+               [class.val-debit]="c.soldeTotalDu > 0"
+               [class.val-credit]="c.soldeTotalDu < 0"
+               [class.val-zero]="c.soldeTotalDu === 0">
+            {{ formatNum(c.soldeTotalDu) }}
+          </div>
+        </div>
+        <div class="sidebar-empty" *ngIf="!filteredClients.length">Aucun client.</div>
+      </div>
+    </aside>
+
+    <!-- ── PANNEAU DROIT ───────────────────────────────────────────────── -->
+    <main class="cc-main">
+
+      <!-- État vide -->
+      <div class="cc-empty-state" *ngIf="!selectedClient">
+        <span class="material-symbols-outlined empty-ico">manage_accounts</span>
+        <h3>Sélectionnez un client</h3>
+        <p>Cliquez sur un nom dans la liste pour afficher son compte courant.</p>
+      </div>
+
+      <!-- Compte courant -->
+      <ng-container *ngIf="selectedClient">
+
+        <!-- En-tête client -->
+        <div class="account-header">
+          <div class="account-info">
+            <div class="account-avatar">{{ initials(selectedClient.nom) }}</div>
+            <div class="account-detail">
+              <h2 class="account-nom">{{ selectedClient.nom }}</h2>
+              <div class="account-meta">
+                <span class="meta-chip code">{{ selectedClient.codeClient }}</span>
+                <span class="meta-chip" *ngIf="selectedClient.telephone">
+                  {{ selectedClient.telephone }}
+                </span>
+                <span class="meta-chip" *ngIf="selectedClient.matriculeFiscal">
+                  MF: {{ selectedClient.matriculeFiscal }}
+                </span>
+                <span class="meta-chip" *ngIf="selectedClient.ville">
+                  {{ selectedClient.ville }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="account-buttons">
+            <button class="btn-acompte" (click)="openPaiementModal()">
+              <span class="material-symbols-outlined">payments</span>
+              À COMPTE
+            </button>
+            <button class="btn-print" (click)="imprimerReleve()" title="Imprimer le relevé">
+              <span class="material-symbols-outlined">print</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bandeau totaux (style ancien logiciel) -->
+        <div class="totaux-banner">
+          <div class="tot-item">
+            <span class="tot-label">TOTAL VENTE</span>
+            <span class="tot-val">{{ formatNum(totalVente) }}</span>
+          </div>
+          <div class="tot-sep"></div>
+          <div class="tot-item">
+            <span class="tot-label">TOTAL PAIEMENT</span>
+            <span class="tot-val credit-val">{{ formatNum(totalAcompte) }}</span>
+          </div>
+          <div class="tot-sep"></div>
+          <div class="tot-item">
+            <span class="tot-label">SOLDE</span>
+            <span class="tot-val" [class.val-debit]="soldeNet > 0" [class.val-credit]="soldeNet < 0">
+              {{ formatNum(soldeNet) }}
+            </span>
+          </div>
+          <div class="tot-sep-v"></div>
+          <div class="tot-filter">
+            <label>Du</label>
+            <input type="date" class="filter-date" [(ngModel)]="dateDebutFiltre" (change)="applyDateFilter()">
+            <label>Au</label>
+            <input type="date" class="filter-date" [(ngModel)]="dateFinFiltre" (change)="applyDateFilter()">
+            <button class="btn-reset" (click)="resetDateFilter()" title="Réinitialiser">
+              <span class="material-symbols-outlined">filter_alt_off</span>
+            </button>
+          </div>
+          <div class="tot-count">{{ filteredLignes.length }} op.</div>
+        </div>
+
+        <!-- Indication sélection BL -->
+        <div class="selection-banner" *ngIf="selectedBLNums.size > 0">
+          <span class="material-symbols-outlined">check_box</span>
+          <span>{{ selectedBLNums.size }} BL sélectionné(s) · Sous-total :
+            <strong>{{ formatNum(selectedTotal) }} DT</strong></span>
+          <button class="btn-pay-sel" (click)="openPaiementModal(selectedBLNumsStr)">
+            <span class="material-symbols-outlined">payments</span>
+            Payer la sélection
+          </button>
+          <button class="btn-clear-sel" (click)="selectedBLNums.clear()">✕ Effacer</button>
+        </div>
+
+        <!-- Grand livre -->
+        <div class="ledger-wrap">
+
+          <div class="ledger-loading" *ngIf="isLoadingDetail">
+            <div class="mini-spinner"></div>
+            <span>Chargement du compte courant…</span>
+          </div>
+
+          <table class="ledger-table" *ngIf="!isLoadingDetail">
+            <thead>
+              <tr>
+                <th class="th-check"></th>
+                <th class="th-num-bl">N° BL</th>
+                <th class="th-date">DATE</th>
+                <th class="th-amt">MONTANT</th>
+                <th class="th-amt">ACOMPTE</th>
+                <th class="th-solde">SOLDE</th>
+                <th class="th-type">TYPE PAIE</th>
+                <th class="th-ref">N° PAIEM.</th>
+                <th class="th-ech">ÉCHÉANCE</th>
+                <th class="th-act"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let l of filteredLignes">
+
+                <!-- ── Ligne BL ── -->
+                <tr class="row-bl" *ngIf="l.type === 'BL'"
+                    [class.row-selected]="l.numeroBL && selectedBLNums.has(l.numeroBL)">
+                  <td class="td-check">
+                    <input type="checkbox"
+                           [checked]="selectedBLNums.has(l.numeroBL)"
+                           (change)="toggleBLNum(l.numeroBL)"
+                           title="Sélectionner">
+                  </td>
+                  <td class="td-num-bl bl-link" (click)="onBLRowClick(l)">
+                    <span class="material-symbols-outlined link-ico">receipt_long</span>
+                    {{ l.numeroBL }}
+                  </td>
+                  <td class="td-date">{{ formatDate(l.date) }}</td>
+                  <td class="td-amt debit-val">{{ formatNum(l.montant) }}</td>
+                  <td class="td-amt muted-val">0.000</td>
+                  <td class="td-solde" [class.val-debit]="l.solde > 0" [class.val-credit]="l.solde < 0">
+                    {{ formatNum(l.solde) }}
+                  </td>
+                  <td class="td-type">
+                    <span class="type-chip vente">Vente</span>
+                  </td>
+                  <td class="td-ref muted-val">—</td>
+                  <td class="td-ech muted-val">—</td>
+                  <td class="td-act">
+                    <button class="btn-payer" (click)="openPaiementModal(l.numeroBL)"
+                            title="Enregistrer un paiement pour ce BL">
+                      <span class="material-symbols-outlined">add_card</span>
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- ── Ligne Paiement ── -->
+                <tr class="row-paiement" *ngIf="l.type === 'PAIEMENT'">
+                  <td class="td-check"></td>
+                  <td class="td-num-bl paiement-ref">
+                    <span class="material-symbols-outlined link-ico green-ico">payments</span>
+                    {{ l.numeroBL }}
+                  </td>
+                  <td class="td-date">{{ formatDate(l.date) }}</td>
+                  <td class="td-amt muted-val">0.000</td>
+                  <td class="td-amt credit-val">{{ formatNum(l.acompte) }}</td>
+                  <td class="td-solde" [class.val-debit]="l.solde > 0" [class.val-credit]="l.solde < 0">
+                    {{ formatNum(l.solde) }}
+                  </td>
+                  <td class="td-type">
+                    <span class="type-chip"
+                          [class.espece]="l.typePaie==='ESPECE' || l.typePaie==='ESPECES'"
+                          [class.cheque]="l.typePaie==='CHEQUE'"
+                          [class.traite]="l.typePaie==='TRAITE'">
+                      {{ modeLabel(l.typePaie) }}
+                    </span>
+                  </td>
+                  <td class="td-ref">{{ l.numeroPaiement || '—' }}</td>
+                  <td class="td-ech">{{ formatDate(l.echeance) }}</td>
+                  <td class="td-act">
+                    <button class="btn-del" *ngIf="l.paiementId"
+                            (click)="onDeletePaiement(l)" title="Supprimer ce règlement">
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  </td>
+                </tr>
+
+              </ng-container>
+
+              <!-- Ligne totaux -->
+              <tr class="row-totaux" *ngIf="filteredLignes.length">
+                <td colspan="3" class="tot-label-cell">TOTAUX PÉRIODE</td>
+                <td class="td-amt totaux-debit">{{ formatNum(totalVente) }}</td>
+                <td class="td-amt totaux-credit">{{ formatNum(totalAcompte) }}</td>
+                <td class="td-solde totaux-solde"
+                    [class.val-debit]="soldeNet > 0" [class.val-credit]="soldeNet < 0">
+                  {{ formatNum(soldeNet) }}
+                </td>
+                <td colspan="4"></td>
+              </tr>
+
+              <tr *ngIf="!filteredLignes.length && !isLoadingDetail">
+                <td colspan="10" class="empty-row">
+                  <span class="material-symbols-outlined">inbox</span>
+                  Aucune opération pour cette période.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+
+      </ng-container>
+
+    </main>
+
+  </div>
+
+</div>
+
+<!-- ══ MODAL PAIEMENT ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showPaiementModal" (click)="closePaiementModal()">
+  <div class="modal-paiement" (click)="$event.stopPropagation()" [formGroup]="paiementForm">
+
+    <!-- En-tête -->
+    <div class="mp-header">
+      <div class="mp-header-left">
+        <span class="material-symbols-outlined mp-ico">payments</span>
+        <div>
+          <h3>Saisie Règlement</h3>
+          <p *ngIf="selectedClient" class="mp-sub">{{ selectedClient.codeClient }} — {{ selectedClient.nom }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closePaiementModal()">×</button>
+    </div>
+
+    <!-- Solde actuel -->
+    <div class="mp-solde-recap" *ngIf="selectedClient">
+      <div class="mp-recap-item">
+        <span>Solde actuel</span>
+        <strong [class.val-debit]="selectedClient.soldeTotalDu > 0"
+                [class.val-credit]="selectedClient.soldeTotalDu < 0">
+          {{ formatNum(selectedClient.soldeTotalDu) }} DT
+        </strong>
+      </div>
+      <div class="mp-recap-item" *ngIf="paiementForm.get('blNumeros')?.value">
+        <span>BL ciblé(s)</span>
+        <strong class="mono-text">{{ paiementForm.get('blNumeros')?.value }}</strong>
+      </div>
+    </div>
+
+    <!-- Mode de paiement (radio style ancien logiciel) -->
+    <div class="mp-mode-section">
+      <label class="mp-mode-label">Mode de règlement</label>
+      <div class="mp-mode-radios">
+        <label class="mp-radio" [class.mp-radio-active]="paiementForm.get('modePaiement')?.value === 'ESPECE'">
+          <input type="radio" formControlName="modePaiement" value="ESPECE">
+          <span class="material-symbols-outlined">payments</span>
+          ESPÈCES
+        </label>
+        <label class="mp-radio" [class.mp-radio-active]="paiementForm.get('modePaiement')?.value === 'CHEQUE'">
+          <input type="radio" formControlName="modePaiement" value="CHEQUE">
+          <span class="material-symbols-outlined">receipt</span>
+          CHÈQUE
+        </label>
+        <label class="mp-radio" [class.mp-radio-active]="paiementForm.get('modePaiement')?.value === 'TRAITE'">
+          <input type="radio" formControlName="modePaiement" value="TRAITE">
+          <span class="material-symbols-outlined">account_balance</span>
+          TRAITE
+        </label>
+      </div>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="mp-form-grid">
+
+      <div class="mp-field">
+        <label>Montant (DT) <span class="req">*</span></label>
+        <input type="number" step="0.001" class="mp-inp big-input" formControlName="montant"
+               placeholder="0.000" autofocus>
+        <span class="field-err" *ngIf="paiementForm.get('montant')?.invalid && paiementForm.get('montant')?.touched">
+          Montant requis
+        </span>
+      </div>
+
+      <div class="mp-field">
+        <label>Date <span class="req">*</span></label>
+        <input type="date" class="mp-inp" formControlName="datePaiement">
+      </div>
+
+      <div class="mp-field" *ngIf="paiementForm.get('modePaiement')?.value !== 'ESPECE'">
+        <label>N° Paiement</label>
+        <input type="text" class="mp-inp" formControlName="numeroPaiement"
+               placeholder="N° chèque / traite">
+      </div>
+
+      <div class="mp-field" *ngIf="paiementForm.get('modePaiement')?.value !== 'ESPECE'">
+        <label>Échéance</label>
+        <input type="date" class="mp-inp" formControlName="echeance">
+      </div>
+
+      <div class="mp-field" *ngIf="paiementForm.get('modePaiement')?.value !== 'ESPECE'">
+        <label>Banque</label>
+        <input type="text" class="mp-inp" formControlName="banque" placeholder="Nom de la banque">
+      </div>
+
+      <div class="mp-field">
+        <label>BL N°</label>
+        <input type="text" class="mp-inp" formControlName="blNumeros"
+               placeholder="Ex: BL26/01314, BL26/01328">
+      </div>
+
+      <div class="mp-field mp-full">
+        <label>Notes / Origine du règlement</label>
+        <input type="text" class="mp-inp" formControlName="notes"
+               placeholder="Ex: règlement partiel, à compte…">
+      </div>
+
+    </div>
+
+    <!-- Montant restant après saisie -->
+    <div class="mp-preview" *ngIf="selectedClient && paiementForm.get('montant')?.value > 0">
+      <span>Solde après règlement :</span>
+      <strong [class.val-credit]="(selectedClient.soldeTotalDu - +paiementForm.get('montant')!.value) < 0"
+              [class.val-debit]="(selectedClient.soldeTotalDu - +paiementForm.get('montant')!.value) > 0">
+        {{ formatNum(selectedClient.soldeTotalDu - +paiementForm.get('montant')!.value) }} DT
+      </strong>
+    </div>
+
+    <div class="msg-error" *ngIf="formError">{{ formError }}</div>
+
+    <div class="mp-actions">
+      <button class="btn-enregistrer" [disabled]="isSaving" (click)="submitPaiement()">
+        <span class="material-symbols-outlined">save</span>
+        {{ isSaving ? 'Enregistrement…' : 'ENREGISTRER' }}
+      </button>
+      <button class="btn-fermer" (click)="closePaiementModal()">FERMER</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL BL DÉTAIL ════════════════════════════════════════════════ -->
+<div class="modal-overlay" *ngIf="showBLModal" (click)="closeBLModal()">
+  <div class="modal-bl" (click)="$event.stopPropagation()">
+
+    <div class="mbl-header">
+      <div class="mbl-header-left">
+        <span class="material-symbols-outlined mbl-ico">receipt_long</span>
+        <div>
+          <h3>{{ blDetail?.numeroBL || 'Bon de Livraison' }}</h3>
+          <p class="mbl-sub">{{ blDetail ? formatDate(blDetail.dateBL) : '' }}</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="closeBLModal()">×</button>
+    </div>
+
+    <div class="mbl-loading" *ngIf="isLoadingBL">
+      <div class="mini-spinner"></div><span>Chargement…</span>
+    </div>
+
+    <div class="mbl-body" *ngIf="blDetail && !isLoadingBL">
+
+      <div class="mbl-recap">
+        <div class="mbl-info">
+          <label>Client</label>
+          <strong>{{ blDetail.clientNom }}</strong>
+          <small *ngIf="blDetail.clientMF">MF : {{ blDetail.clientMF }}</small>
+          <small *ngIf="blDetail.clientAdresse">{{ blDetail.clientAdresse }}</small>
+        </div>
+        <div class="mbl-info">
+          <label>Statut</label>
+          <span class="etat-chip etat-{{ (blDetail.etatPaiement || '').toLowerCase().replace('_','-') }}">
+            {{ etatLabel(blDetail.etatPaiement) }}
+          </span>
+          <small>Mode : {{ blDetail.modePaiement === 'ESPECES' ? 'Espèces' : 'Crédit' }}</small>
+        </div>
+        <div class="mbl-info">
+          <label>Net à payer</label>
+          <strong class="big-amount">{{ formatNum(blDetail.netAPayer) }} DT</strong>
+          <small *ngIf="+blDetail.montantReste > 0" class="val-debit">
+            Reste : {{ formatNum(blDetail.montantReste) }} DT
+          </small>
+        </div>
+      </div>
+
+      <div class="mbl-lines-wrap">
+        <table class="mbl-lines-table">
+          <thead>
+            <tr>
+              <th>CODE</th>
+              <th>DÉSIGNATION</th>
+              <th>U.</th>
+              <th class="r">QTÉ</th>
+              <th class="r">P.U.HT</th>
+              <th class="r">REM%</th>
+              <th class="r">TVA%</th>
+              <th class="r">TOTAL HT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let l of blDetail.lignes">
+              <td class="mono">{{ l.codeArticle }}</td>
+              <td class="des">{{ l.designation }}</td>
+              <td>{{ l.unite }}</td>
+              <td class="r">{{ formatNum(l.quantite) }}</td>
+              <td class="r">{{ formatNum(l.prixUnitaireHT) }}</td>
+              <td class="r">{{ l.remise > 0 ? formatNum(l.remise, 2)+'%' : '—' }}</td>
+              <td class="r">{{ l.tva > 0 ? l.tva+'%' : '—' }}</td>
+              <td class="r bold">{{ formatNum(l.totalHT) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mbl-totaux">
+        <div class="mbl-tot-row"><span>Total HT</span><span>{{ formatNum(blDetail.totalHT) }} DT</span></div>
+        <div class="mbl-tot-row" *ngIf="+blDetail.totalTVA > 0"><span>TVA</span><span>{{ formatNum(blDetail.totalTVA) }} DT</span></div>
+        <div class="mbl-tot-row" *ngIf="+blDetail.timbreFiscal > 0"><span>Timbre</span><span>{{ formatNum(blDetail.timbreFiscal) }} DT</span></div>
+        <div class="mbl-tot-row net-row"><span>NET À PAYER</span><span>{{ formatNum(blDetail.netAPayer) }} DT</span></div>
+        <div class="mbl-tot-row credit-row" *ngIf="+blDetail.montantPaye > 0"><span>Montant payé</span><span>{{ formatNum(blDetail.montantPaye) }} DT</span></div>
+        <div class="mbl-tot-row reste-row" *ngIf="+blDetail.montantReste > 0"><span>Reste dû</span><span>{{ formatNum(blDetail.montantReste) }} DT</span></div>
+      </div>
+
+    </div>
+
+  </div>
+</div>

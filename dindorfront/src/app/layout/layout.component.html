@@ -30,6 +30,107 @@
           </div>
         </div>
         <div class="header-divider"></div>
+
+        <!-- Cloche notifications -->
+        <div class="notif-wrap" (click)="$event.stopPropagation()">
+          <button class="btn-notif" [class.bell-shake]="bellShake" (click)="toggleNotif($event)" type="button" title="Notifications">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" fill="currentColor"/>
+            </svg>
+            <span class="notif-badge" *ngIf="totalNotifCount > 0">{{ totalNotifCount > 9 ? '9+' : totalNotifCount }}</span>
+          </button>
+
+          <!-- Dropdown notifications -->
+          <div class="notif-dropdown" *ngIf="showNotifDropdown" (click)="$event.stopPropagation()">
+
+            <!-- En-tête avec onglets -->
+            <div class="notif-panel-header">
+              <span class="notif-panel-title">Notifications</span>
+              <span class="notif-panel-total" *ngIf="totalNotifCount > 0">{{ totalNotifCount }}</span>
+            </div>
+            <div class="notif-tabs">
+              <button class="notif-tab" [class.active]="activeNotifTab==='messages'" (click)="activeNotifTab='messages'">
+                Messages
+                <span class="tab-pill" *ngIf="notifCount > 0">{{ notifCount }}</span>
+              </button>
+              <button class="notif-tab" [class.active]="activeNotifTab==='traites'" (click)="activeNotifTab='traites'"
+                      [class.tab-alert]="traiteAlerts.length > 0">
+                Traites
+                <span class="tab-pill tab-pill-alert" *ngIf="traiteAlerts.length > 0">{{ traiteAlerts.length }}</span>
+              </button>
+            </div>
+
+            <!-- Onglet Messages -->
+            <ng-container *ngIf="activeNotifTab === 'messages'">
+              <div class="notif-empty" *ngIf="notifMessages.length === 0">
+                <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" fill="#ccc"/>
+                </svg>
+                <p>Aucun message non lu</p>
+              </div>
+              <div class="notif-list" *ngIf="notifMessages.length > 0">
+                <div class="notif-item" *ngFor="let msg of notifMessages" (click)="openMessage(msg)">
+                  <div class="notif-item-avatar">{{ msg.nom.charAt(0).toUpperCase() }}</div>
+                  <div class="notif-item-content">
+                    <div class="notif-item-name">{{ msg.nom }}</div>
+                    <div class="notif-item-preview">{{ msg.message | slice:0:60 }}{{ msg.message.length > 60 ? '…' : '' }}</div>
+                    <div class="notif-item-date">{{ formatNotifDate(msg.dateEnvoi) }}</div>
+                  </div>
+                  <div class="notif-item-dot"></div>
+                </div>
+              </div>
+              <div class="notif-dropdown-footer" *ngIf="notifCount > 0">
+                <a routerLink="/contact-messages" (click)="showNotifDropdown = false" class="notif-see-all">
+                  Voir tous les messages →
+                </a>
+              </div>
+            </ng-container>
+
+            <!-- Onglet Alertes Traites -->
+            <ng-container *ngIf="activeNotifTab === 'traites'">
+              <div class="notif-empty" *ngIf="traiteAlerts.length === 0">
+                <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
+                  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" fill="#ccc"/>
+                </svg>
+                <p>Aucune traite à échéance</p>
+              </div>
+              <div class="alert-list" *ngIf="traiteAlerts.length > 0">
+                <div class="alert-card" *ngFor="let a of traiteAlerts"
+                     [class.alert-critical]="urgencyOf(a.joursRestants) === 'critical'"
+                     [class.alert-warning]="urgencyOf(a.joursRestants) === 'warning'"
+                     [class.alert-soon]="urgencyOf(a.joursRestants) === 'soon'"
+                     (click)="goToTraites()">
+                  <div class="alert-card-left">
+                    <div class="alert-urgency-dot" [class]="'dot-'+urgencyOf(a.joursRestants)"></div>
+                  </div>
+                  <div class="alert-card-body">
+                    <div class="alert-card-top">
+                      <span class="alert-supplier">{{ a.fournisseur }}</span>
+                      <span class="alert-badge" [class]="'badge-'+urgencyOf(a.joursRestants)">
+                        {{ urgencyLabel(a.joursRestants) }}
+                      </span>
+                    </div>
+                    <div class="alert-card-mid">
+                      <span class="alert-ref">N° {{ a.numeroTraite || a.numeroFacture }}</span>
+                    </div>
+                    <div class="alert-card-bot">
+                      <span class="alert-amount">{{ a.montant | number:'1.3-3' }} DT</span>
+                      <span class="alert-date">Échéance : {{ a.dateEcheance }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="notif-dropdown-footer" *ngIf="traiteAlerts.length > 0">
+                <a (click)="goToTraites()" class="notif-see-all" style="cursor:pointer;">
+                  Gérer les traites →
+                </a>
+              </div>
+            </ng-container>
+
+          </div>
+        </div>
+
+        <div class="header-divider"></div>
         <button class="btn-logout" (click)="logout()" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM4 5H12V3H4C2.9 3 2 3.9 2 5V19C2 20.1 2.9 21 4 21H12V19H4V5Z" fill="currentColor"/>
@@ -39,6 +140,44 @@
       </div>
     </div>
   </header>
+
+  <!-- ══ TOASTS TRAITES ══ -->
+  <div class="toast-container" *ngIf="toastItems.length > 0">
+    <div *ngFor="let t of toastItems"
+         class="toast-card"
+         [class.toast-critical]="t.urgency === 'critical'"
+         [class.toast-warning]="t.urgency === 'warning'"
+         [class.toast-soon]="t.urgency === 'soon'"
+         [class.toast-exiting]="t.exiting">
+      <div class="toast-stripe"></div>
+      <div class="toast-inner">
+        <div class="toast-icon-wrap" [class]="'ti-'+t.urgency">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <div class="toast-top">
+            <span class="toast-label">Traite à échéance</span>
+            <span class="toast-urgency-badge" [class]="'tub-'+t.urgency">
+              {{ urgencyLabel(t.alert.joursRestants) }}
+            </span>
+          </div>
+          <div class="toast-supplier">{{ t.alert.fournisseur }}</div>
+          <div class="toast-meta">
+            <span class="toast-ref">N° {{ t.alert.numeroTraite || t.alert.numeroFacture }}</span>
+            <span class="toast-amount">{{ t.alert.montant | number:'1.3-3' }} DT</span>
+          </div>
+        </div>
+        <button class="toast-close-btn" (click)="dismissToast(t.id)" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+      <div class="toast-progress-bar"></div>
+    </div>
+  </div>
 
   <!-- ══ BODY ══ -->
   <div class="main-layout" *ngIf="!isLoading">

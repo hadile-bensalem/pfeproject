@@ -1,118 +1,120 @@
 package com.poly.dindor.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "employees")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Table(name = "employes")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Employee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(name = "matricule", unique = true, length = 20)
     private String matricule;
 
-    @Column(nullable = false, length = 50)
-    private String nom;
-
-    @Column(nullable = false, length = 50)
-    private String prenom;
-
-    @Column(nullable = false, unique = true, length = 12)
+    @Column(name = "cin", length = 20)
     private String cin;
 
-    @Column(length = 15)
+    @Column(name = "nom", nullable = false, length = 100)
+    private String nom;
+
+    @Column(name = "prenom", nullable = false, length = 100)
+    private String prenom;
+
+    @Column(name = "telephone", length = 20)
     private String telephone;
 
-    @Column(length = 150)
+    @Column(name = "email", unique = true, length = 100)
     private String email;
 
-    @Column(length = 255)
+    @Column(name = "mot_de_passe", length = 255)
+    private String motDePasse;
+
+    @Column(name = "adresse", columnDefinition = "TEXT")
     private String adresse;
 
+    @Column(name = "date_naissance")
     private LocalDate dateNaissance;
 
-    @Column(length = 50)
-    private String situationFamiliale;
+    @Column(name = "situation_familiale", length = 20)
+    @Builder.Default
+    private String situationFamiliale = "CELIBATAIRE";
 
-    @Column(nullable = false)
+    @Column(name = "nombre_enfants")
     @Builder.Default
     private Integer nombreEnfants = 0;
 
-    @Column(length = 100)
+    @Column(name = "poste", length = 100)
     private String poste;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Department departement;
+    @Column(name = "departement", length = 50)
+    private String departement;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ContractType typeContrat;
+    @Column(name = "type_contrat", length = 20)
+    @Builder.Default
+    private String typeContrat = "CDI";
 
-    @Column(nullable = false)
+    @Column(name = "date_recrutement")
     private LocalDate dateRecrutement;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private EmployeeStatus statut;
-
-    // Rémunération mensuelle
-    private Double salaireBase;
-    private Double primesFixes;
-    private Double primeRendement;
-
-    // Rémunération journalière
-    private Double tarifJournalier;
-    private Integer joursTravail;
-
-    // Rémunération horaire
-    private Double tarifHoraire;
-    private Integer heuresNormales;
-    private Integer heuresSupplementaires;
-
-    @Column(nullable = false)
+    @Column(name = "statut", length = 20)
     @Builder.Default
-    private Boolean actif = Boolean.TRUE;
+    private String statut = "ACTIF";
+
+    @Column(name = "actif")
+    @Builder.Default
+    private Boolean actif = true;
+
+    @Column(name = "salaire_base", precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal salaireBase = BigDecimal.ZERO;
+
+    @Column(name = "primes_fixes", precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal primesFixes = BigDecimal.ZERO;
+
+    @Column(name = "prime_rendement", precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal primeRendement = BigDecimal.ZERO;
+
+    @Column(name = "tarif_horaire", precision = 10, scale = 3)
+    @Builder.Default
+    private BigDecimal tarifHoraire = BigDecimal.ZERO;
+
+    @Column(name = "heures_normales_mois")
+    @Builder.Default
+    private Integer heuresNormalesMois = 208;
+
+    @Column(name = "affilie_cnss")
+    @Builder.Default
+    private Boolean affilieCnss = true;
+
+    @Column(name = "numero_cnss", length = 20)
+    private String numeroCNSS;
+
+    @Column(name = "rib", length = 30)
+    private String rib;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(name = "date_creation", updatable = false)
     private LocalDateTime dateCreation;
 
     @UpdateTimestamp
-    @Column(nullable = false)
+    @Column(name = "date_modification")
     private LocalDateTime dateModification;
 
-    public enum Department {
-        VENTE,
-        STOCK,
-        LIVRAISON
-    }
-
-    public enum ContractType {
-        CDI,
-        CDD,
-        JOURNALIER,
-        HORAIRE
-    }
-
-    public enum EmployeeStatus {
-        ACTIF,
-        SUSPENDU,
-        QUITTÉ
-    }
+    public Boolean getAffileCnss() { return affilieCnss; }
+    public void setAffileCnss(Boolean v) { this.affilieCnss = v; }
 }

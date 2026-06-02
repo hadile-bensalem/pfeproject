@@ -1,0 +1,937 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         DIND'OR — SYSTÈME D'INTELLIGENCE ARTIFICIELLE POUR LA PRÉDICTION    ║
+║                    DES PRIX D'ACHAT DE VOLAILLE                             ║
+║                                                                              ║
+║  Auteur   : Hadil Ben Saâlem                                                ║
+║  Projet   : PFE — Gestion Intelligente des Achats en Gros                   ║
+║  Date     : Avril 2026                                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  TABLE DES MATIÈRES
+═══════════════════════════════════════════════════════════════════════════════
+
+  1.  Objectif stratégique
+  2.  Architecture globale du système
+  3.  Composant 1 — Spring Boot (backend Java)
+  4.  Composant 2 — Python FastAPI (microservice IA)
+  5.  Composant 3 — Angular (interface utilisateur)
+  6.  Flux de données de bout en bout
+  7.  Comment alimenter le système en données Excel
+  8.  Format des fichiers Excel attendus
+  9.  Le modèle d'IA — Prophet
+  10. Le calendrier tunisien — variables saisonnières
+  11. Interprétation des résultats et recommandations
+  12. Comment démarrer le système complet
+  13. Endpoints API — référence complète
+  14. Résolution des problèmes courants
+  15. Perspectives d'évolution
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  1. OBJECTIF STRATÉGIQUE
+═══════════════════════════════════════════════════════════════════════════════
+
+Dind'Or achète la volaille en gros auprès de fournisseurs. Le prix de gros
+fluctue selon :
+  - La saison (chaleur estivale → coûts d'élevage plus élevés)
+  - Le calendrier religieux (Ramadan, Aïd → forte demande → hausse des prix)
+  - Les vacances scolaires (forte consommation familiale)
+  - Les tendances de marché historiques
+
+L'objectif est de MAXIMISER LA MARGE BÉNÉFICIAIRE en achetant au bon moment :
+  ► Acheter AVANT une hausse prévue = économiser sur le coût d'achat
+  ► Attendre une baisse prévue = acheter moins cher
+
+Le système IA analyse l'historique des achats et prédit les prix futurs
+à 7, 15 et 30 jours, puis recommande : Acheter / Attendre / Surveiller.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  2. ARCHITECTURE GLOBALE DU SYSTÈME
+═══════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────┐       ┌──────────────────────┐       ┌─────────────────┐
+  │   NAVIGATEUR    │       │   SPRING BOOT (Java)  │       │  PYTHON FastAPI │
+  │   Angular 19    │◄─────►│   Port 8099           │◄─────►│  Port 8001      │
+  │   Port 4200     │       │   /api/prediction/**  │       │  /predict       │
+  └─────────────────┘       └──────────┬────────────┘       └────────┬────────┘
+                                        │                             │
+                                        ▼                             ▼
+                               ┌─────────────────┐       ┌───────────────────┐
+                               │   MySQL DB      │       │  Fichiers Excel   │
+                               │  dindorpfe      │       │  dindor-ai/data/  │
+                               │  (historique    │       │  Achats_2025.xlsx │
+                               │   des achats)   │       │  Ventes_2025.xlsx │
+                               └─────────────────┘       └───────────────────┘
+
+  Détail du flux :
+  ─────────────────
+  1. L'utilisateur ouvre la page "Prédiction IA" dans Angular.
+  2. Angular appelle  GET /api/prediction/articles  (Spring Boot).
+  3. Spring Boot interroge MySQL pour lister les articles avec historique.
+  4. L'utilisateur sélectionne un article (ex: "Poulet entier") et clique
+     "Lancer la prédiction".
+  5. Angular appelle  GET /api/prediction/predict?designation=Poulet entier
+  6. Spring Boot :
+     a. Récupère l'historique de prix depuis MySQL (facture_achat_ligne).
+     b. Envoie cet historique au service Python via POST /predict.
+  7. Python FastAPI :
+     a. Reçoit l'historique MySQL.
+     b. Charge AUSSI les fichiers Excel depuis data/.
+     c. FUSIONNE les deux sources (sans doublons).
+     d. Entraîne le modèle Prophet sur les données fusionnées.
+     e. Prédit les prix à 7, 15 et 30 jours.
+     f. Calcule la recommandation Buy/Hold.
+     g. Retourne le résultat complet en JSON.
+  8. Spring Boot retourne le résultat à Angular.
+  9. Angular affiche : graphique, tableau, recommandation, confiance.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  3. COMPOSANT 1 — SPRING BOOT (backend Java)
+═══════════════════════════════════════════════════════════════════════════════
+
+  PORT  : 8099
+  BASE  : /api
+  TECH  : Spring Boot 3, JPA/Hibernate, MySQL, JWT
+
+  Fichiers ajoutés pour le module IA :
+  ────────────────────────────────────
+
+  a) PredictionController.java
+     ─────────────────────────
+     Chemin : src/main/java/com/poly/dindor/controller/PredictionController.java
+     Rôle   : Expose les endpoints REST consommés par Angular.
+
+     Endpoints :
+       GET /api/prediction/articles
+         → Liste les articles ayant un historique d'achats en DB
+         → Retourne : [{designation, nbAchats, prixMoyenRecent}]
+
+       GET /api/prediction/predict?designation=Poulet
+         → Lance la prédiction complète pour un article
+         → Interroge MySQL, appelle Python, retourne le résultat IA
+
+  b) PredictionService.java
+     ──────────────────────
+     Chemin : src/main/java/com/poly/dindor/service/PredictionService.java
+     Rôle   : Logique métier du module prédiction.
+
+     Méthodes :
+       getArticlesWithHistory()
+         → Query JPQL sur facture_achat_ligne (GROUP BY designation)
+         → Retourne les articles triés par fréquence d'achat
+
+       predict(String designation)
+         → Appelle findPriceHistoryByDesignation() en DB
+         → Construit le payload JSON (historique)
+         → Appelle http://localhost:8001/predict (Python)
+         → Retourne PredictionResponse
+
+  c) FactureAchatRepository.java (modifié)
+     ──────────────────────────────────────
+     Requêtes ajoutées :
+       findPriceHistoryByDesignation(String keyword)
+         → SELECT dateFacture, designation, prixUnitaireHT, quantite
+           FROM facture_achat JOIN facture_achat_ligne
+           WHERE designation LIKE %keyword%
+           ORDER BY dateFacture ASC
+
+       findDistinctDesignationsWithStats()
+         → SELECT designation, COUNT(*), AVG(prixUnitaireHT)
+           FROM facture_achat_ligne GROUP BY designation
+
+  d) DTOs ajoutés :
+     PredictionResponse.java    → Réponse complète (prédictions, graphique...)
+     PredictionPointResponse.java → Un point de prédiction (horizon, date, prix)
+     ArticlePredictionSummary.java → Résumé article pour la liste déroulante
+
+  e) application.properties (ligne ajoutée) :
+     ai.prediction.url=${AI_PREDICTION_URL:http://localhost:8001}
+     → URL du service Python. Modifiable via variable d'environnement.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  4. COMPOSANT 2 — PYTHON FASTAPI (microservice IA)
+═══════════════════════════════════════════════════════════════════════════════
+
+  PORT     : 8001
+  DOSSIER  : dindor-ai/
+  LANGAGE  : Python 3.10+
+  FRAMEWORK: FastAPI + Uvicorn (serveur ASGI haute performance)
+
+  Structure des fichiers :
+  ────────────────────────
+
+  dindor-ai/
+  ├── main.py              ← Point d'entrée FastAPI, tous les endpoints
+  ├── predictor.py         ← Moteur de prédiction (Prophet + fallback)
+  ├── tunisian_calendar.py ← Calendrier tunisien (Ramadan, Aïd, vacances...)
+  ├── data_loader.py       ← Lecture et normalisation des fichiers Excel
+  ├── requirements.txt     ← Dépendances Python
+  ├── start.bat            ← Script Windows de démarrage automatique
+  └── data/                ← ★ DÉPOSEZ VOS FICHIERS EXCEL ICI ★
+      ├── LISEZ_MOI.txt
+      ├── Achats_2025.xlsx  (à créer par l'utilisateur)
+      └── Ventes_2025.xlsx  (optionnel)
+
+  Description de chaque fichier Python :
+  ───────────────────────────────────────
+
+  ► main.py
+    Contient l'application FastAPI avec 5 endpoints :
+      POST /predict          → Prédiction principale (appelée par Spring Boot)
+      GET  /health           → Santé du service + fichiers Excel détectés
+      GET  /data/status      → État des données Excel chargées
+      GET  /data/articles    → Liste articles Excel disponibles
+      GET  /calendrier/periode → Période tunisienne pour une date donnée
+
+  ► predictor.py
+    Contient deux fonctions de prédiction :
+
+    predict_with_prophet(article, history, horizons)
+      - Utilisée quand il y a ≥ 3 points historiques
+      - Agrège les données par semaine (prix moyen pondéré par quantité)
+      - Ajoute les features du calendrier tunisien comme régresseurs
+      - Entraîne un modèle Prophet (saisonnalité multiplicative, annuelle)
+      - Génère les prédictions aux horizons demandés (7, 15, 30 jours)
+      - Calcule les intervalles de confiance (yhat_lower, yhat_upper)
+
+    predict_linear_fallback(article, history, horizons)
+      - Utilisée quand les données sont insuffisantes (< 3 points)
+      - Régression linéaire pondérée sur les prix historiques
+      - Ajustement par facteur saisonnier mensuel codé en dur
+      - Intervalle de confiance approximatif ±5%
+
+    _build_recommendation(prix_actuel, predictions, var_pct_7j, today)
+      - Analyse la variation prévue à 7 jours
+      - > +2%  → ACHETER_MAINTENANT
+      - < -1%  → ATTENDRE
+      - stable mais hausse à 30j → ACHETER_PROGRESSIVEMENT
+      - sinon → SURVEILLER
+
+  ► tunisian_calendar.py
+    Encode les événements culturels tunisiens qui influencent les prix.
+    (Voir section 10 pour le détail complet)
+
+  ► data_loader.py
+    Lit les fichiers .xlsx et .xls du dossier data/.
+    - Détecte automatiquement les colonnes (noms flexibles)
+    - Accepte plusieurs formats de dates
+    - Fichiers avec "vent" dans le nom → source="vente"
+    - Tous les autres → source="achat"
+    - Fusionne avec l'historique MySQL sans doublons (DB prioritaire)
+
+  Dépendances Python (requirements.txt) :
+  ────────────────────────────────────────
+    fastapi==0.115.5       → Framework API REST
+    uvicorn==0.32.1        → Serveur ASGI haute performance
+    prophet==1.1.6         → Modèle de prédiction (Facebook/Meta)
+    pandas==2.2.3          → Manipulation de données
+    numpy==1.26.4          → Calcul numérique
+    scikit-learn==1.5.2    → Régression linéaire (fallback)
+    pydantic==2.10.3       → Validation des données API
+    openpyxl==3.1.5        → Lecture des fichiers .xlsx
+    xlrd==2.0.1            → Lecture des fichiers .xls (ancien format)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  5. COMPOSANT 3 — ANGULAR (interface utilisateur)
+═══════════════════════════════════════════════════════════════════════════════
+
+  PORT    : 4200
+  VERSION : Angular 19 (standalone components)
+  CHART   : Chart.js 4.4.6 (via CDN dans index.html)
+
+  Fichiers ajoutés :
+  ──────────────────
+
+  ► dindorfront/src/app/services/prediction.service.ts
+    Service Angular injectable.
+    Méthodes :
+      getArticles()  → GET /api/prediction/articles
+      predict(designation) → GET /api/prediction/predict?designation=...
+    Interfaces TypeScript :
+      ArticleSummary, PredictionPoint, ChartPoint,
+      PredictionResult, ApiResponse
+
+  ► dindorfront/src/app/pages/prediction/
+    ├── prediction.component.ts    → Logique du composant
+    ├── prediction.component.html  → Template (liste, graphique, tableau)
+    └── prediction.component.css   → Styles (cards, badges, graphique)
+
+    Fonctionnalités de la page :
+
+    [1] Sélecteur d'article
+        - Liste déroulante des articles avec historique en base
+        - Affiche : nom, nombre d'achats, prix moyen
+
+    [2] Bannière de recommandation (couleur selon recommandation)
+        - Verte  : ACHETER MAINTENANT
+        - Bleue  : ACHETER PROGRESSIVEMENT
+        - Jaune  : ATTENDRE
+        - Grise  : SURVEILLER
+
+    [3] Barre de confiance
+        - Pourcentage de certitude du modèle (55% à 92%)
+        - Plus l'écart de prix prévu est grand, plus la confiance est élevée
+
+    [4] Message explicatif
+        - Phrase en français expliquant la recommandation
+        - Indique la période culturelle courante (ex: "Ramadan")
+
+    [5] Cartes KPI
+        - Prix actuel
+        - Prix prédit dans 7 jours
+        - Prix prédit dans 15 jours
+        - Prix prédit dans 30 jours
+        - Chaque carte montre la fourchette [min, max]
+
+    [6] Graphique Chart.js (ligne)
+        - Courbe bleue : prix historiques réels (depuis MySQL + Excel)
+        - Courbe orange pointillée : prédiction Prophet
+        - Zone semi-transparente : intervalle de confiance
+
+    [7] Tableau de prédiction
+        - Horizon (J+7, J+15, J+30)
+        - Date exacte prévue
+        - Prix prédit
+        - Fourchette min-max
+        - Variation en % vs prix actuel (rouge si hausse, vert si baisse)
+
+  Fichiers modifiés :
+  ───────────────────
+    app.routes.ts        → Route '/prediction' ajoutée (avec authGuard)
+    layout.component.ts  → Item "Prédiction IA" ajouté dans la sidebar
+                           (section INVENTAIRE)
+    index.html           → Script Chart.js CDN ajouté dans <head>
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  6. FLUX DE DONNÉES DE BOUT EN BOUT
+═══════════════════════════════════════════════════════════════════════════════
+
+  Exemple concret — "Poulet entier", prédiction à 7 jours :
+
+  ÉTAPE 1 — Angular ouvre la page /prediction
+  ────────────────────────────────────────────
+    GET http://localhost:4200/prediction
+      Angular charge PredictionComponent
+      → appelle GET http://localhost:8099/api/prediction/articles
+
+  ÉTAPE 2 — Spring Boot liste les articles
+  ─────────────────────────────────────────
+    Spring Boot exécute en MySQL :
+      SELECT l.designation, COUNT(l), AVG(l.prixUnitaireHT)
+      FROM facture_achat_ligne l GROUP BY l.designation
+    → Retourne : [{"designation":"Poulet entier","nbAchats":24,"prixMoyenRecent":5.437}]
+
+  ÉTAPE 3 — L'utilisateur lance la prédiction
+  ─────────────────────────────────────────────
+    GET http://localhost:8099/api/prediction/predict?designation=Poulet+entier
+
+  ÉTAPE 4 — Spring Boot récupère l'historique MySQL
+  ───────────────────────────────────────────────────
+    SELECT f.dateFacture, l.designation, l.prixUnitaireHT, l.quantite
+    FROM facture_achat f JOIN facture_achat_ligne l
+    WHERE LOWER(l.designation) LIKE '%poulet%'
+    ORDER BY f.dateFacture ASC
+    → 24 lignes (une par facture d'achat contenant du poulet)
+    Exemple de ligne : {date:"2025-01-15", prix:5.200, quantite:500.0}
+
+  ÉTAPE 5 — Spring Boot appelle Python
+  ─────────────────────────────────────
+    POST http://localhost:8001/predict
+    Body JSON :
+    {
+      "article": "Poulet entier",
+      "history": [
+        {"date":"2025-01-05","prix":5.200,"quantite":500},
+        {"date":"2025-01-19","prix":5.350,"quantite":300},
+        ... (24 points)
+      ],
+      "horizons": [7, 15, 30]
+    }
+
+  ÉTAPE 6 — Python charge les Excel et fusionne
+  ───────────────────────────────────────────────
+    Python lit data/Achats_2025.xlsx → 52 lignes pour "Poulet entier"
+    Fusion avec les 24 points DB → 68 points uniques (doublons supprimés)
+    → Beaucoup plus de données = meilleure prédiction !
+
+  ÉTAPE 7 — Prophet entraîne et prédit
+  ──────────────────────────────────────
+    Agrégation hebdomadaire : 68 points → ~30 semaines
+    Features ajoutées : ramadan, aid_fitr, aid_adha, vacances_ete, chaleur_ete...
+    Entraînement Prophet (quelques secondes)
+    Prédiction :
+      J+7  : 5.890 DT [5.710 - 6.070]   → +8.1% hausse (Ramadan prévu)
+      J+15 : 6.100 DT [5.850 - 6.350]   → +12.2%
+      J+30 : 5.700 DT [5.400 - 6.000]   → +4.8% (après Aïd)
+    → Recommandation : ACHETER_MAINTENANT (hausse > 2% à 7j, confiance 78%)
+
+  ÉTAPE 8 — Réponse JSON complète retournée à Angular
+  ─────────────────────────────────────────────────────
+    Angular affiche la bannière verte "Acheter Maintenant",
+    le graphique avec la courbe historique + prévision,
+    et le tableau des 3 horizons.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  7. COMMENT ALIMENTER LE SYSTÈME EN DONNÉES EXCEL
+═══════════════════════════════════════════════════════════════════════════════
+
+  ★ EMPLACEMENT : dindor-ai/data/
+  ★ NOMMAGE :
+      - Achats_2025.xlsx  (tout fichier SANS "vent" dans le nom = achat)
+      - Ventes_2025.xlsx  (tout fichier AVEC "vent" dans le nom = vente)
+      - Vous pouvez avoir plusieurs fichiers : Achats_Jan.xlsx, Achats_Fev.xlsx...
+
+  ★ RECHARGEMENT :
+    Les fichiers Excel sont relus à CHAQUE requête de prédiction.
+    → Pas besoin de redémarrer le service Python.
+    → Modifiez votre Excel, sauvegardez, relancez la prédiction dans l'interface.
+
+  ★ VÉRIFICATION :
+    Ouvrez dans votre navigateur :
+      http://localhost:8001/data/status
+    → Vous verrez les fichiers détectés et les articles disponibles.
+
+    Ou la documentation interactive :
+      http://localhost:8001/docs   ← Interface Swagger complète
+
+  ★ DIAGNOSTIC EN CAS DE PROBLÈME :
+    Si votre article n'apparaît pas après ajout Excel :
+      1. Vérifiez que la colonne "Date" est bien formatée (YYYY-MM-DD recommandé)
+      2. Vérifiez que la colonne "Prix" est numérique (pas de texte, pas de symbole DT)
+      3. Ouvrez http://localhost:8001/data/status pour voir ce qui est chargé
+      4. Regardez le terminal du service Python pour les messages d'erreur
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  8. FORMAT DES FICHIERS EXCEL ATTENDUS
+═══════════════════════════════════════════════════════════════════════════════
+
+  Le système est FLEXIBLE : les noms de colonnes exacts n'ont pas d'importance,
+  seul le sens compte.
+
+  COLONNE DATE
+  ────────────
+  Noms acceptés : Date, date, Date_Facture, date_facture, DateFacture,
+                  Date_Achat, Jour, jour
+  Formats de date acceptés :
+    2025-01-15        ← ISO (recommandé)
+    15/01/2025        ← Français
+    01/15/2025        ← Américain
+    15-01-2025        ← Tirets
+    15 Jan 2025       ← Littéral français
+
+  COLONNE ARTICLE
+  ───────────────
+  Noms acceptés : Article, Designation, Produit, Description,
+                  Libelle, Nom, nom
+  Valeur : chaîne de texte
+  Exemples : "Poulet entier", "Cuisse de poulet", "Escalope", "Foie"
+
+  COLONNE QUANTITÉ
+  ────────────────
+  Noms acceptés : Quantite, quantité, Qte, qty, Volume, Nb, Nombre
+  Valeur : nombre décimal (kg ou unités)
+  Si absente, la quantité est supposée = 1
+
+  COLONNE PRIX
+  ────────────
+  Noms acceptés : Prix, prix, Prix_Unitaire, prix_unitaire, PrixUnitaire,
+                  Prix_Achat, prix_achat, PU, pu, Prix_HT, prix_ht,
+                  Prix_Unitaire_HT
+  Valeur : nombre décimal en DT (Dinars Tunisiens), HT
+  Exemples : 5.200, 5,350 (la virgule est aussi acceptée)
+
+  EXEMPLE COMPLET — Achats_2025.xlsx
+  ────────────────────────────────────
+  ┌────────────┬──────────────────┬──────────┬───────────────┐
+  │ Date       │ Article          │ Quantite │ Prix_Unitaire │
+  ├────────────┼──────────────────┼──────────┼───────────────┤
+  │ 2025-01-05 │ Poulet entier    │ 500      │ 5.200         │
+  │ 2025-01-12 │ Poulet entier    │ 300      │ 5.350         │
+  │ 2025-01-19 │ Poulet entier    │ 450      │ 5.400         │
+  │ 2025-01-26 │ Cuisse de poulet │ 200      │ 4.600         │
+  │ 2025-02-02 │ Poulet entier    │ 600      │ 5.500         │
+  │ 2025-02-09 │ Poulet entier    │ 400      │ 5.600         │
+  │ 2025-02-16 │ Cuisse de poulet │ 180      │ 4.700         │
+  │ 2025-02-23 │ Poulet entier    │ 350      │ 5.550         │
+  │ 2025-03-01 │ Poulet entier    │ 800      │ 6.200         │  ← Ramadan ↑
+  │ 2025-03-09 │ Poulet entier    │ 900      │ 6.450         │
+  │ 2025-03-16 │ Poulet entier    │ 850      │ 6.500         │
+  │ 2025-03-23 │ Poulet entier    │ 700      │ 6.350         │
+  │ 2025-03-31 │ Poulet entier    │ 950      │ 6.800         │  ← Aïd el-Fitr ↑
+  │ 2025-04-07 │ Poulet entier    │ 400      │ 5.900         │  ← Après Aïd ↓
+  │ 2025-04-14 │ Poulet entier    │ 350      │ 5.700         │
+  │ ...        │ ...              │ ...      │ ...           │
+  └────────────┴──────────────────┴──────────┴───────────────┘
+
+  RÈGLES :
+  - Une ligne = un achat (une facture ou une ligne de facture)
+  - Prix = prix unitaire HT, en Dinars Tunisiens (DT)
+  - Quantité = volume acheté (kg recommandé pour la cohérence)
+  - Vous pouvez avoir plusieurs articles dans le même fichier
+  - Vous pouvez avoir plusieurs feuilles dans un classeur (tout sera lu)
+  - Les lignes avec prix = 0 ou manquant sont ignorées automatiquement
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  9. LE MODÈLE D'IA — PROPHET
+═══════════════════════════════════════════════════════════════════════════════
+
+  Prophet est un modèle de prédiction de séries temporelles développé par
+  Facebook (Meta) en 2017, open-source. Il est particulièrement adapté à :
+    ✓ Données avec forte saisonnalité (hebdo, mensuelle, annuelle)
+    ✓ Effets de jours fériés et événements spéciaux
+    ✓ Données manquantes ou irrégulières
+    ✓ Tendances non-linéaires
+    ✓ Petits et moyens volumes de données (10 à 1000 points)
+
+  Formule mathématique de Prophet :
+  ──────────────────────────────────
+    y(t) = tendance(t) × saisonnalité(t) × effets_événements(t) × erreur(t)
+
+    où :
+      tendance(t)      = fonction logistique ou linéaire par morceaux
+      saisonnalité(t)  = série de Fourier (saisonnalité annuelle)
+      effets_événements = régresseurs externes (Ramadan, Aïd, été...)
+      erreur(t)        = bruit résiduel
+
+  Paramètres configurés dans notre système :
+  ────────────────────────────────────────────
+    yearly_seasonality    = True   → Capture les cycles annuels (Ramadan, etc.)
+    weekly_seasonality    = False  → Pas pertinent (achats hebdomadaires)
+    daily_seasonality     = False  → Pas pertinent (pas de données quotidiennes)
+    seasonality_mode      = "multiplicative"  → Les effets sont en % du prix
+    changepoint_prior_scale = 0.05  → Flexibilité modérée des tendances
+    uncertainty_samples   = 200    → Calcul de l'intervalle de confiance
+
+  Agrégation hebdomadaire :
+  ─────────────────────────
+  Avant d'entraîner Prophet, les données sont agrégées par semaine
+  (prix moyen pondéré par la quantité achetée).
+  Exemple :
+    Semaine du 1er mars : 3 achats (500kg@6.20, 300kg@6.25, 200kg@6.30)
+    → Prix agrégé : (500×6.20 + 300×6.25 + 200×6.30) / 1000 = 6.235 DT/kg
+
+  Régresseurs externes (variables du calendrier tunisien) :
+  ─────────────────────────────────────────────────────────
+    ramadan        → 1 si on est en période de Ramadan, 0 sinon
+    aid_fitr       → 1 si on est dans les 4 jours autour de l'Aïd el-Fitr
+    aid_adha       → 1 si on est dans les 5 jours autour de l'Aïd el-Adha
+    vacances_ete   → 1 en juillet-août
+    vacances_scol  → 1 pendant les vacances scolaires
+    ferie_national → 1 les jours fériés tunisiens (20 mars, 1er mai, 25 juil...)
+    chaleur_ete    → 1 en juin-juillet-août-septembre
+
+  Chaque régresseur a un coefficient appris sur les données historiques.
+  Si l'historique montre que pendant Ramadan les prix montent de 15%,
+  Prophet apprendra ce coefficient et l'appliquera aux futures périodes Ramadan.
+
+  Fallback régression linéaire :
+  ───────────────────────────────
+  Si les données sont insuffisantes (< 3 points) ou si Prophet échoue,
+  le système utilise une régression linéaire pondérée avec des facteurs
+  saisonniers mensuels codés en dur (basés sur la connaissance métier) :
+    Mois    : Jan  Fév  Mar  Avr  Mai  Jun  Jul  Aoû  Sep  Oct  Nov  Déc
+    Facteur : 1.02 1.03 1.10 1.12 1.05 1.08 1.15 1.13 1.04 1.02 1.01 1.04
+
+  Ces facteurs reflètent la saisonnalité typique du marché tunisien de la
+  volaille (juillet = +15% vs novembre).
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  10. LE CALENDRIER TUNISIEN — VARIABLES SAISONNIÈRES
+═══════════════════════════════════════════════════════════════════════════════
+
+  Le fichier tunisian_calendar.py encode tous les événements culturels et
+  saisonniers qui influencent le prix de la volaille en Tunisie.
+
+  RAMADAN (impact +10% à +25%)
+  ──────────────────────────────
+  La consommation de volaille augmente fortement pendant le mois de Ramadan.
+  Les familles préparent des repas plus élaborés pour l'Iftar (rupture du
+  jeûne). La demande accrue pousse les prix à la hausse.
+  Dates encodées : 2022-2027
+
+  AÏD EL-FITR (impact +15% à +30%)
+  ───────────────────────────────────
+  Fête marquant la fin du Ramadan. La consommation atteint son pic.
+  Fenêtre d'impact : 4 jours avant et après la date officielle.
+
+  AÏD EL-ADHA (impact +10% à +20%)
+  ───────────────────────────────────
+  Fête du sacrifice. Bien que l'agneau soit privilégié, la consommation de
+  volaille augmente aussi. Fenêtre d'impact : 5 jours.
+
+  ÉTÉ (juillet-août) (impact +10% à +15%)
+  ─────────────────────────────────────────
+  La chaleur estivale augmente les coûts d'élevage (climatisation, eau,
+  mortalité des poulets). Les éleveurs répercutent ces coûts sur les prix.
+  De plus, la forte présence de la diaspora tunisienne (vacanciers) augmente
+  la demande.
+
+  VACANCES SCOLAIRES (impact +3% à +8%)
+  ───────────────────────────────────────
+  Périodes : été (juillet-août), hiver (20 déc - 5 jan), printemps (mars)
+  Les familles cuisinent plus à la maison pendant les vacances scolaires.
+
+  FÊTES NATIONALES
+  ─────────────────
+  20 mars : Fête de l'indépendance
+  1er mai : Fête du travail
+  25 juillet : Fête de la République
+  15 octobre : Fête de l'évacuation
+  17 décembre : Jour de la Révolution
+
+  SAISON CHAUDE (juin-septembre) (impact +5% à +10%)
+  ────────────────────────────────────────────────────
+  Période plus large que l'été strict. Les coûts d'élevage restent élevés
+  de juin à septembre en raison des températures.
+
+  Mise à jour des dates :
+  ────────────────────────
+  Pour mettre à jour les dates du Ramadan ou de l'Aïd pour les années
+  futures, éditez les constantes dans dindor-ai/tunisian_calendar.py :
+    RAMADAN_PERIODS → liste de (date_début, date_fin)
+    AID_FITR_DATES  → liste de dates
+    AID_ADHA_DATES  → liste de dates
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  11. INTERPRÉTATION DES RÉSULTATS ET RECOMMANDATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+  RECOMMANDATION : ACHETER MAINTENANT (bannière verte)
+  ──────────────────────────────────────────────────────
+  Condition : Hausse prévue > +2% dans les 7 prochains jours
+  Signification : Le prix va probablement augmenter d'ici une semaine.
+  Action conseillée : Passer votre commande maintenant pour bénéficier
+  du prix actuel et éviter la hausse prévue.
+
+  Exemple de message :
+  "Les prix devraient augmenter de 8.1% dans 7 jours (période : Ramadan).
+  Il est recommandé d'acheter maintenant pour maximiser votre marge."
+
+  RECOMMANDATION : ACHETER PROGRESSIVEMENT (bannière bleue)
+  ──────────────────────────────────────────────────────────
+  Condition : Prix stable à court terme mais hausse prévue à 30 jours
+  Signification : Pas d'urgence immédiate, mais une tendance haussière
+  se profile à moyen terme.
+  Action conseillée : Répartir vos achats sur 2-3 semaines.
+
+  RECOMMANDATION : ATTENDRE (bannière jaune)
+  ───────────────────────────────────────────
+  Condition : Baisse prévue > -1% dans les 7 prochains jours
+  Signification : Le prix va probablement baisser d'ici une semaine.
+  Action conseillée : Reporter vos achats de quelques jours pour
+  profiter d'un meilleur prix.
+
+  Exemple de message :
+  "Une baisse de 3.2% est attendue dans 7 jours. Il est conseillé d'attendre
+  avant d'acheter pour obtenir un meilleur prix."
+
+  RECOMMANDATION : SURVEILLER (bannière grise)
+  ──────────────────────────────────────────────
+  Condition : Variation prévue entre -1% et +2%
+  Signification : Le marché est stable, aucune tendance nette.
+  Action conseillée : Achetez normalement selon vos besoins de stock.
+
+  CONFIANCE DU MODÈLE
+  ────────────────────
+  La confiance va de 55% à 92%.
+  Elle est calculée en fonction de l'ampleur de la variation prévue :
+  - Plus la variation attendue est grande, plus la confiance est élevée
+    (une hausse de 15% est plus "certaine" qu'une hausse de 0.1%)
+  - Elle ne représente pas la précision mathématique du modèle, mais
+    la force du signal détecté
+
+  FOURCHETTE MIN-MAX
+  ───────────────────
+  Chaque prédiction inclut un intervalle de confiance à 80% :
+    Prix prédit : 6.200 DT  → Valeur centrale prédite
+    Fourchette : [5.950 - 6.450] DT
+  Interprétation : "Le prix réel se situera dans cet intervalle
+  avec 80% de probabilité."
+
+  PÉRIODE CULTURELLE COURANTE
+  ────────────────────────────
+  Affichée dans la bannière de recommandation.
+  Exemples : "Ramadan", "Aïd el-Fitr", "Été (Juillet-Août)",
+             "Vacances scolaires", "Période normale"
+  Cette information contextualise la recommandation.
+
+  SOURCES DE DONNÉES (nouveaux champs)
+  ──────────────────────────────────────
+  nb_points_db     : Nombre de points provenant de MySQL
+  nb_points_excel  : Nombre de points provenant des fichiers Excel
+  nb_points_total  : Total après fusion (sans doublons)
+  → Plus nb_points_total est élevé, plus la prédiction est fiable.
+  → Recommandé : au moins 10-15 points pour Prophet,
+    idéalement 30+ points pour capturer la saisonnalité annuelle.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  12. COMMENT DÉMARRER LE SYSTÈME COMPLET
+═══════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  ORDRE DE DÉMARRAGE : Python → Spring Boot → Angular   │
+  └─────────────────────────────────────────────────────────┘
+
+  ÉTAPE 1 — Démarrer le service IA Python
+  ─────────────────────────────────────────
+    Option A (recommandée — automatique) :
+      Double-cliquer sur : dindor-ai/start.bat
+      → Crée automatiquement un venv Python
+      → Installe toutes les dépendances
+      → Lance le serveur sur http://localhost:8001
+      → Laissez cette fenêtre ouverte
+
+    Option B (terminal manuel) :
+      cd dindor-ai
+      python -m venv .venv
+      .venv\Scripts\activate
+      pip install -r requirements.txt
+      uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+    Vérification :
+      Ouvrir http://localhost:8001/health dans le navigateur
+      → Doit retourner {"status":"ok","service":"Dindor AI",...}
+
+  ÉTAPE 2 — Déposer les fichiers Excel
+  ─────────────────────────────────────
+    Copier vos fichiers dans : dindor-ai/data/
+      ✓ Achats_2025.xlsx
+      ✓ Ventes_2025.xlsx (optionnel)
+
+    Vérifier : http://localhost:8001/data/status
+
+  ÉTAPE 3 — Démarrer Spring Boot
+  ─────────────────────────────────
+    Depuis IntelliJ : Run DindorApplication.java
+    Ou terminal : mvn spring-boot:run
+
+    Vérification :
+      http://localhost:8099/api/prediction/articles
+      → Doit retourner la liste des articles
+
+  ÉTAPE 4 — Démarrer Angular
+  ────────────────────────────
+    cd dindorfront
+    npm install    (première fois seulement)
+    ng serve
+
+    Ouvrir : http://localhost:4200
+    → Connectez-vous, puis cliquez "Prédiction IA" dans le menu
+
+  PORTS RÉCAPITULATIFS
+  ─────────────────────
+    Python FastAPI  : http://localhost:8001
+    Spring Boot     : http://localhost:8099
+    Angular         : http://localhost:4200
+    MySQL           : localhost:3306 (base: dindorpfe)
+
+  DOCUMENTATION API INTERACTIVE
+  ───────────────────────────────
+    http://localhost:8001/docs    ← Interface Swagger du service Python
+    http://localhost:8001/redoc   ← Documentation alternative (plus lisible)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  13. ENDPOINTS API — RÉFÉRENCE COMPLÈTE
+═══════════════════════════════════════════════════════════════════════════════
+
+  ── PYTHON FastAPI (port 8001) ──────────────────────────────────────────────
+
+  GET /health
+  ───────────
+  Santé du service + fichiers Excel détectés.
+  Réponse : {"status":"ok","excel_files_detected":["Achats_2025.xlsx"]}
+
+  POST /predict
+  ─────────────
+  Corps : {"article":"Poulet entier","history":[...],"horizons":[7,15,30]}
+  Réponse :
+  {
+    "article": "Poulet entier",
+    "prix_actuel": 5.450,
+    "predictions": [
+      {"horizon":7,"date":"2025-04-16","prix_predit":5.890,"prix_min":5.710,"prix_max":6.070},
+      {"horizon":15,"date":"2025-04-24","prix_predit":6.100,...},
+      {"horizon":30,"date":"2025-05-09","prix_predit":5.700,...}
+    ],
+    "tendance": "hausse",
+    "recommendation": "ACHETER_MAINTENANT",
+    "confiance": 0.78,
+    "message": "Les prix devraient augmenter de 8.1% dans 7 jours...",
+    "periode_courante": "Ramadan",
+    "historique": [{"date":"2025-01-05","prix":5.200},...],
+    "forecast_chart": [{"date":"2025-04-10","prix_predit":5.460,...},...],
+    "modele": "Prophet",
+    "nb_points_db": 24,
+    "nb_points_excel": 52,
+    "nb_points_total": 68
+  }
+
+  GET /data/status
+  ─────────────────
+  Liste les fichiers Excel chargés et les articles disponibles.
+  Réponse : {"fichiers_excel":["Achats_2025.xlsx"],"articles":[...]}
+
+  GET /data/articles
+  ──────────────────
+  Liste complète des articles dans les fichiers Excel avec stats.
+
+  GET /calendrier/periode?target_date=2025-03-15
+  ───────────────────────────────────────────────
+  Réponse : {"date":"2025-03-15","periode":"Ramadan"}
+
+  ── SPRING BOOT (port 8099, base /api) ─────────────────────────────────────
+
+  GET /api/prediction/articles
+  ─────────────────────────────
+  Liste les articles avec historique en base MySQL.
+  Auth requise : JWT token (ROLE_ADMIN)
+  Réponse :
+  {
+    "success": true,
+    "data": [
+      {"designation":"Poulet entier","nbAchats":24,"prixMoyenRecent":5.437},
+      {"designation":"Cuisse de poulet","nbAchats":12,"prixMoyenRecent":4.650}
+    ]
+  }
+
+  GET /api/prediction/predict?designation=Poulet entier
+  ───────────────────────────────────────────────────────
+  Auth requise : JWT token (ROLE_ADMIN)
+  → Récupère l'historique MySQL + appelle Python + retourne prédiction complète
+  Réponse : même structure que POST /predict Python (enveloppée dans ApiResponse)
+
+  Codes de retour :
+    200 OK          → Prédiction réussie
+    503 Service Unavailable → Service Python non démarré
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  14. RÉSOLUTION DES PROBLÈMES COURANTS
+═══════════════════════════════════════════════════════════════════════════════
+
+  ✗ PROBLÈME : "Le service d'intelligence artificielle est indisponible"
+  ─────────────────────────────────────────────────────────────────────
+  Cause : Le service Python n'est pas démarré.
+  Solution :
+    1. Ouvrir dindor-ai/start.bat
+    2. Attendre que "Application startup complete" apparaisse
+    3. Réessayer la prédiction dans Angular
+
+  ✗ PROBLÈME : Aucun article dans la liste déroulante
+  ─────────────────────────────────────────────────────
+  Cause : Aucune facture d'achat en base de données.
+  Solution :
+    1. Créer au moins une facture d'achat dans l'application (module Achat)
+    2. OU déposer un fichier Excel dans dindor-ai/data/ avec vos données
+    Note : Les articles Excel n'apparaissent pas dans la liste déroulante
+    (qui vient uniquement de MySQL). Mais leurs données sont utilisées
+    automatiquement si le nom correspond.
+
+  ✗ PROBLÈME : Mes données Excel ne sont pas utilisées
+  ──────────────────────────────────────────────────────
+  Causes possibles :
+    1. Le fichier n'est pas dans dindor-ai/data/
+    2. Le nom de l'article dans Excel ne matche pas celui en DB
+       → Ex: "Poulet" en Excel ne matche pas "Poulet entier" si
+         le keyword est "Poulet entier" (la recherche est LIKE %keyword%)
+    3. Les colonnes ne sont pas reconnues
+    Solution : Vérifier http://localhost:8001/data/status
+
+  ✗ PROBLÈME : Prophet échoue ou prend trop longtemps
+  ─────────────────────────────────────────────────────
+  Cause : Données insuffisantes ou format incorrect.
+  Solution :
+    1. Le système bascule automatiquement sur la régression linéaire
+    2. Ajouter plus de données historiques (idéal : 6+ mois de données)
+    3. Le modèle indique "Régression linéaire + Saisonnalité" au lieu de "Prophet"
+
+  ✗ PROBLÈME : Erreur "Column not found" dans les logs Python
+  ─────────────────────────────────────────────────────────────
+  Cause : Le nom d'une colonne de votre Excel n'est pas reconnu.
+  Solution :
+    Renommer vos colonnes en utilisant les noms standards :
+      Date | Article | Quantite | Prix_Unitaire
+    Vérifier les logs dans la fenêtre du service Python.
+
+  ✗ PROBLÈME : Erreur CORS (Angular ne peut pas joindre Spring Boot)
+  ──────────────────────────────────────────────────────────────────
+  Cause : L'URL du backend dans Angular ne correspond pas.
+  Solution :
+    Vérifier dindorfront/src/environments/ ou le proxy Angular.
+    Spring Boot écoute sur http://localhost:8099/api
+
+  ✗ PROBLÈME : "prophet not installed" dans les logs
+  ─────────────────────────────────────────────────────
+  Cause : L'installation de Prophet a échoué (dépendance complexe).
+  Solution :
+    Dans le terminal du venv :
+      pip install pystan==3.4.0
+      pip install prophet
+    Si erreur avec pystan (compilateur C++) :
+      pip install prophet --no-build-isolation
+    Le système fonctionnera en mode fallback (régression linéaire)
+    même sans Prophet.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  15. PERSPECTIVES D'ÉVOLUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+  Court terme (1-2 mois) :
+  ─────────────────────────
+  ► Intégration de données météo (API OpenWeather) comme feature Prophet
+    → La température affecte le coût d'élevage et la demande
+  ► Alertes automatiques par email quand le modèle détecte une opportunité
+    d'achat (variation > 5% prévue)
+  ► Historique des prédictions passées vs prix réels pour mesurer la précision
+
+  Moyen terme (3-6 mois) :
+  ─────────────────────────
+  ► XGBoost en complément de Prophet pour les courtes séries temporelles
+  ► Intégration du prix du marché national (source externe scraping UTAP)
+  ► Module de recommandation de quantité optimale (stock safety)
+  ► Comparaison multi-fournisseurs (quel fournisseur acheter maintenant ?)
+
+  Long terme (> 6 mois) :
+  ────────────────────────
+  ► Modèle par article (chaque article a son propre modèle Prophet entraîné)
+  ► Deep Learning (LSTM) pour capturer des patterns complexes
+  ► Dashboard de ROI du module IA : marge économisée grâce aux recommandations
+  ► Application mobile pour les recommandations en temps réel
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  CONTACTS ET SUPPORT
+═══════════════════════════════════════════════════════════════════════════════
+
+  Développeuse : Hadil Ben Saâlem
+  Email        : hadil.bensalem@polytechnicien.tn
+  Entreprise   : Dind'Or — Monastir, Tunisie
+  Téléphone    : +216 29 281 061
+
+  Documentation API interactive :
+    http://localhost:8001/docs   (service Python démarré requis)
+
+  Code source :
+    Backend  (Java)   : dindor/src/main/java/com/poly/dindor/
+    IA       (Python) : dindor/dindor-ai/
+    Frontend (Angular): dindor/dindorfront/src/app/
+
+═══════════════════════════════════════════════════════════════════════════════
+  FIN DE LA DOCUMENTATION
+═══════════════════════════════════════════════════════════════════════════════

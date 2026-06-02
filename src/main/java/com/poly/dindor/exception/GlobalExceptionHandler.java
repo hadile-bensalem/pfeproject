@@ -1,11 +1,13 @@
 package com.poly.dindor.exception;
 
 import com.poly.dindor.dto.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.validation.FieldError;
@@ -92,6 +94,30 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(ApiResponse.error("Violation de contrainte base de données : " + msg));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleConstraintViolation(ConstraintViolationException ex) {
+        String msg = ex.getConstraintViolations().stream()
+            .map(v -> v.getMessage())
+            .findFirst()
+            .orElse("Paramètre invalide");
+        log.warn("Violation de contrainte : {}", msg);
+        return ResponseEntity.badRequest().body(ApiResponse.error(msg));
+    }
+
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMailException(MailException ex) {
+        log.error("Erreur service email : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(ApiResponse.error("Service email non disponible. Vérifiez la configuration SMTP."));
+    }
+
+    @ExceptionHandler(ArithmeticException.class)
+    public ResponseEntity<ApiResponse<Object>> handleArithmeticException(ArithmeticException ex) {
+        log.error("Erreur arithmétique : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ApiResponse.error("Erreur de calcul : " + ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,0 +1,276 @@
+<div class="portal-page" *ngIf="!isLoading; else loading">
+
+  <!-- ══ NAVBAR PORTAIL ══ -->
+  <nav class="portal-nav">
+    <div class="portal-brand">
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">corporate_fare</span>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">STE DINDOR</span>
+        <span class="brand-subtitle">Espace Employé</span>
+      </div>
+    </div>
+    <div class="portal-nav-right">
+      <div class="nav-user" *ngIf="profil">
+        <div class="nav-avatar">{{ initials(profil.nom, profil.prenom) }}</div>
+        <div class="nav-user-info">
+          <span class="nav-user-name">{{ profil.prenom }} {{ profil.nom }}</span>
+          <span class="nav-user-post">{{ profil.poste }}</span>
+        </div>
+      </div>
+      <button class="btn-logout" (click)="logout()">
+        <span class="material-symbols-outlined">logout</span>
+        Déconnexion
+      </button>
+    </div>
+  </nav>
+
+  <!-- ══ CONTENU ══ -->
+  <div class="portal-content">
+
+    <!-- Bienvenue -->
+    <div class="welcome-banner" *ngIf="profil">
+      <div class="welcome-left">
+        <div class="welcome-avatar">{{ initials(profil.nom, profil.prenom) }}</div>
+        <div>
+          <h1>Bonjour, {{ profil.prenom }} {{ profil.nom }}</h1>
+          <p>{{ profil.poste }} · {{ profil.departement }} · {{ profil.matricule }}</p>
+        </div>
+      </div>
+      <div class="welcome-kpis">
+        <div class="wkpi">
+          <span class="wkpi-val">{{ fiches.length }}</span>
+          <span class="wkpi-lbl">Bulletins disponibles</span>
+        </div>
+        <div class="wkpi-sep"></div>
+        <div class="wkpi" *ngIf="dernierBulletin">
+          <span class="wkpi-val gold">{{ formatNum(dernierBulletin.salaireNet) }} DT</span>
+          <span class="wkpi-lbl">Dernier salaire net</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grille infos + fiches -->
+    <div class="portal-grid">
+
+      <!-- Fiche personnelle -->
+      <div class="portal-card card-profil" *ngIf="profil">
+        <div class="card-header-title">
+          <span class="material-symbols-outlined">person</span>
+          Mes informations
+        </div>
+        <div class="profil-rows">
+          <div class="profil-row"><span>Matricule</span><strong>{{ profil.matricule }}</strong></div>
+          <div class="profil-row"><span>CIN</span><strong>{{ profil.cin || '—' }}</strong></div>
+          <div class="profil-row"><span>Type de contrat</span><strong>{{ profil.typeContrat }}</strong></div>
+          <div class="profil-row"><span>Date de recrutement</span><strong>{{ formatDate(profil.dateRecrutement) }}</strong></div>
+          <div class="profil-row"><span>Téléphone</span><strong>{{ profil.telephone || '—' }}</strong></div>
+          <div class="profil-row"><span>N° CNSS</span><strong>{{ profil.numeroCNSS || '—' }}</strong></div>
+          <div class="profil-row"><span>RIB</span><strong>{{ profil.rib || '—' }}</strong></div>
+        </div>
+
+        <div class="card-header-title mt-16">
+          <span class="material-symbols-outlined">account_balance_wallet</span>
+          Rémunération de référence
+        </div>
+        <div class="salary-display">
+          <div class="salary-item">
+            <span>Salaire de base</span>
+            <strong>{{ formatNum(profil.salaireBase) }} DT</strong>
+          </div>
+          <div class="salary-item" *ngIf="+profil.primesFixes > 0">
+            <span>Primes fixes</span>
+            <strong>{{ formatNum(profil.primesFixes) }} DT</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historique fiches -->
+      <div class="portal-card card-fiches">
+        <div class="card-header-title">
+          <span class="material-symbols-outlined">receipt_long</span>
+          Mes bulletins de paie
+        </div>
+
+        <div class="fiches-empty" *ngIf="!fiches.length">
+          <span class="material-symbols-outlined">inbox</span>
+          <p>Aucun bulletin disponible.</p>
+        </div>
+
+        <div class="fiches-list" *ngIf="fiches.length">
+          <div class="fiche-row" *ngFor="let f of fiches"
+               [class.fiche-paye]="f.statut==='PAYE'"
+               (click)="ouvrirBulletin(f)">
+            <div class="fiche-row-left">
+              <div class="fiche-mois-icon">
+                <span class="material-symbols-outlined">calendar_month</span>
+              </div>
+              <div>
+                <div class="fiche-mois-label">{{ moisLabel(f.mois) }} {{ f.annee }}</div>
+                <div class="fiche-ref">{{ f.numeroBulletin }}</div>
+              </div>
+            </div>
+            <div class="fiche-row-right">
+              <div class="fiche-amounts-row">
+                <div>
+                  <div class="fiche-lbl">Brut</div>
+                  <div class="fiche-val">{{ formatNum(f.salaireBrut) }}</div>
+                </div>
+                <div>
+                  <div class="fiche-lbl">CNSS (9,18%)</div>
+                  <div class="fiche-val red">- {{ formatNum(f.cotisationCNSSEmploye) }}</div>
+                </div>
+                <div>
+                  <div class="fiche-lbl">Net à payer</div>
+                  <div class="fiche-val net">{{ formatNum(f.salaireNet) }} DT</div>
+                </div>
+              </div>
+              <div class="fiche-badges">
+                <span class="fiche-statut" [class.s-brouillon]="f.statut==='BROUILLON'"
+                      [class.s-valide]="f.statut==='VALIDE'" [class.s-paye]="f.statut==='PAYE'">
+                  {{ statutLabel(f.statut) }}
+                </span>
+                <span class="btn-voir">
+                  <span class="material-symbols-outlined">visibility</span> Voir
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #loading>
+  <div class="portal-loading">
+    <ng-container *ngIf="!loadError">
+      <div class="big-spinner"></div>
+      <p>Chargement de votre espace personnel…</p>
+    </ng-container>
+    <ng-container *ngIf="loadError">
+      <span class="material-symbols-outlined error-ico">error_outline</span>
+      <p>Impossible de charger vos données.</p>
+      <button class="btn-retry" (click)="reload()">Réessayer</button>
+    </ng-container>
+  </div>
+</ng-template>
+
+<!-- ══ MODAL BULLETIN ══ -->
+<div class="modal-overlay bulletin-overlay" *ngIf="showBulletin && ficheSelectionnee" (click)="fermerBulletinOnOverlay($event)">
+  <div class="bulletin-container">
+    <div class="bulletin-actions no-print">
+      <button class="btn-print-bulletin" (click)="imprimerBulletin()">
+        <span class="material-symbols-outlined">print</span> Imprimer
+      </button>
+      <button class="close-btn" (click)="fermerBulletin()">×</button>
+    </div>
+
+    <div class="bulletin-paie">
+      <div class="bulletin-header">
+        <div class="bulletin-company">
+          <div class="bulletin-logo-text">STE DINDOR</div>
+          <div class="bulletin-company-info">MF : 1790869BM · Tél : — · CNSS Patronale : 16.57%</div>
+        </div>
+        <div class="bulletin-title-block">
+          <h2>BULLETIN DE PAIE</h2>
+          <div class="bulletin-ref">N° {{ ficheSelectionnee.numeroBulletin }}</div>
+          <div class="bulletin-periode">Période : {{ ficheSelectionnee.periodeLabel }}</div>
+        </div>
+      </div>
+
+      <div class="bulletin-emp-section">
+        <div class="bulletin-emp-row">
+          <div><label>Matricule</label><span>{{ ficheSelectionnee.employeMatricule }}</span></div>
+          <div><label>Nom & Prénom</label><span>{{ ficheSelectionnee.employePrenom }} {{ ficheSelectionnee.employeNom }}</span></div>
+          <div><label>CIN</label><span>{{ ficheSelectionnee.employeCIN || '—' }}</span></div>
+        </div>
+        <div class="bulletin-emp-row">
+          <div><label>Poste</label><span>{{ ficheSelectionnee.employePoste }}</span></div>
+          <div><label>Département</label><span>{{ ficheSelectionnee.employeDepartement || '—' }}</span></div>
+          <div><label>Type contrat</label><span>{{ ficheSelectionnee.employeTypeContrat }}</span></div>
+        </div>
+        <div class="bulletin-emp-row">
+          <div><label>N° CNSS</label><span>{{ ficheSelectionnee.employeNumeroCNSS || '—' }}</span></div>
+          <div><label>RIB</label><span>{{ ficheSelectionnee.employeRib || '—' }}</span></div>
+          <div><label>Date paiement</label><span>{{ formatDate(ficheSelectionnee.datePaiement) }}</span></div>
+        </div>
+      </div>
+
+      <table class="bulletin-table">
+        <thead>
+          <tr>
+            <th class="col-lib">ÉLÉMENTS DE RÉMUNÉRATION</th>
+            <th class="col-base">BASE</th>
+            <th class="col-taux">TAUX</th>
+            <th class="col-gain">GAINS</th>
+            <th class="col-ret">RETENUES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Salaire de base</td><td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.salaireBase) }}</td><td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.primesFixes > 0">
+            <td>Primes fixes</td><td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.primesFixes) }}</td><td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.primeRendement > 0">
+            <td>Prime de rendement</td><td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.primeRendement) }}</td><td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.indemnites > 0">
+            <td>Indemnités</td><td>—</td><td>—</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.indemnites) }}</td><td></td>
+          </tr>
+          <tr *ngIf="ficheSelectionnee.heuresSupplementaires! > 0">
+            <td>Heures supplémentaires (× {{ ficheSelectionnee.heuresSupplementaires }}h)</td>
+            <td>{{ formatNum(ficheSelectionnee.tauxHoraireHS) }}</td><td>1.25</td>
+            <td class="gain">{{ formatNum(ficheSelectionnee.montantHS) }}</td><td></td>
+          </tr>
+          <tr class="sep-row"><td colspan="5"></td></tr>
+          <tr class="brut-row">
+            <td colspan="3"><strong>SALAIRE BRUT</strong></td>
+            <td class="gain total"><strong>{{ formatNum(ficheSelectionnee.salaireBrut) }}</strong></td>
+            <td></td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.cotisationCNSSEmploye > 0">
+            <td>CNSS salarié (9,18%)</td>
+            <td>{{ formatNum(ficheSelectionnee.salaireBrut) }}</td><td>9.18%</td>
+            <td></td><td class="ret">{{ formatNum(ficheSelectionnee.cotisationCNSSEmploye) }}</td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.avanceSalaire > 0">
+            <td>Avance sur salaire</td><td>—</td><td>—</td>
+            <td></td><td class="ret">{{ formatNum(ficheSelectionnee.avanceSalaire) }}</td>
+          </tr>
+          <tr *ngIf="+ficheSelectionnee.autresRetenues > 0">
+            <td>Autres retenues</td><td>—</td><td>—</td>
+            <td></td><td class="ret">{{ formatNum(ficheSelectionnee.autresRetenues) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3"><strong>NET À PAYER</strong></td>
+            <td class="gain net-total"><strong>{{ formatNum(ficheSelectionnee.salaireNet) }} DT</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="bulletin-cnss-employeur" *ngIf="+ficheSelectionnee.cotisationCNSSEmployeur > 0">
+        <span>Charge patronale CNSS (16,57%) : <strong>{{ formatNum(ficheSelectionnee.cotisationCNSSEmployeur) }} DT</strong></span>
+        <span>Coût total employeur : <strong>{{ formatNum((+ficheSelectionnee.salaireBrut||0)+(+ficheSelectionnee.cotisationCNSSEmployeur||0)) }} DT</strong></span>
+      </div>
+
+      <div class="bulletin-signatures">
+        <div class="sig-block"><div class="sig-line"></div><p>Signature de l'employeur</p></div>
+        <div class="sig-block"><div class="sig-line"></div><p>Signature de l'employé</p><small>Lu et approuvé</small></div>
+      </div>
+      <div class="bulletin-footer">
+        Bulletin de salaire — {{ ficheSelectionnee.periodeLabel }} — STE DINDOR · MF 1790869BM
+      </div>
+    </div>
+  </div>
+</div>

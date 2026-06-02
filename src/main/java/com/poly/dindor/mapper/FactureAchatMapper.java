@@ -5,6 +5,7 @@ import com.poly.dindor.dto.request.FactureAchatRequest;
 import com.poly.dindor.dto.request.PaiementAchatRequest;
 import com.poly.dindor.dto.response.FactureAchatLigneResponse;
 import com.poly.dindor.dto.response.FactureAchatResponse;
+import com.poly.dindor.dto.response.PaiementAchatResponse;
 import com.poly.dindor.entity.FactureAchat;
 import com.poly.dindor.entity.FactureAchatLigne;
 import com.poly.dindor.entity.Fournisseur;
@@ -49,6 +50,7 @@ public final class FactureAchatMapper {
             .prixUnitaireHT(req.getPrixUnitaireHT())
             .remise(req.getRemise() != null ? req.getRemise() : BigDecimal.ZERO)
             .tva(req.getTva() != null ? req.getTva() : BigDecimal.ZERO)
+            .tauxTransformation(req.getTauxTransformation())
             .ordre(req.getOrdre() != null ? req.getOrdre() : ordre)
             .build();
         ligne.calculer();
@@ -90,6 +92,20 @@ public final class FactureAchatMapper {
             .netAPayer(f.getNetAPayer())
             .statut(f.getStatut().name())
             .dateCreation(f.getDateCreation())
+            .paiement(f.getPaiement() == null ? null : toPaiementResponse(f.getPaiement()))
+            .build();
+    }
+
+    private static PaiementAchatResponse toPaiementResponse(com.poly.dindor.entity.PaiementAchat p) {
+        return PaiementAchatResponse.builder()
+            .modePaiement(p.getModePaiement() != null ? p.getModePaiement().name() : null)
+            .sousMode(p.getSousMode() != null ? p.getSousMode().name() : null)
+            .montantPaye(p.getMontantPaye())
+            .montantReste(p.getMontantReste())
+            .dateEcheance(p.getDateEcheance() != null ? p.getDateEcheance().toString() : null)
+            .numeroTraite(p.getNumeroTraite())
+            .dateLimiteCredit(p.getDateLimiteCredit() != null ? p.getDateLimiteCredit().toString() : null)
+            .avecRetenue(p.getAvecRetenue())
             .build();
     }
 
@@ -107,6 +123,7 @@ public final class FactureAchatMapper {
             .montantTVA(l.getMontantTVA())
             .totalTTC(l.getTotalTTC())
             .montantRemise(l.getMontantRemise())
+            .tauxTransformation(l.getTauxTransformation())
             .ordre(l.getOrdre())
             .build();
     }
