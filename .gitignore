@@ -51,6 +51,8 @@ backup_dindor.sql
 backend-logs*
 dindor-ai-deploy.zip
 publish-profile.xml
+publish-profile-ai.xml
+azure-credentials.json
 
 ### Logs ###
 logs/
