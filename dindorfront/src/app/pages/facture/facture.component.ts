@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -80,7 +80,8 @@ export class FactureComponent implements OnInit, OnDestroy {
     private svc: FactureClientService,
     private clientService: ClientService,
     private articleService: ArticleService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -413,7 +414,7 @@ export class FactureComponent implements OnInit, OnDestroy {
 
   openPrint(bon: FactureClient): void {
     this.svc.getById(bon.id).subscribe({
-      next: full => { this.printBon = full; setTimeout(() => window.print(), 300); }
+      next: full => { this.printBon = full; this.cdr.detectChanges(); setTimeout(() => window.print(), 600); }
     });
   }
 
